@@ -1,7 +1,7 @@
 ---
 name: atlas-coordinator
 description: 任务协调器。分析复杂任务,生成可并行的执行计划。专注于任务分解和策略规划,不执行具体任务。适用于批量操作、项目级变更、多步骤任务等场景。
-version: 1.0.3
+version: 1.0.4
 model: sonnet
 color: pink
 ---
