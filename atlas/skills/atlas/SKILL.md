@@ -49,21 +49,21 @@ color: pink
 
 当你识别到上述场景,**自动**按以下流程操作:
 
-#### 步骤1: 调用 atlas-coordinator
+#### 步骤1: 调用 Plan agent
 
-首先调用 `atlas-coordinator` agent 生成执行计划:
+首先调用 `Plan` agent 生成执行计划:
 
 ```
-请使用 atlas-coordinator agent 分析以下任务:
+请使用 Plan agent 分析以下任务:
 任务: [用户的任务描述]
 项目路径: [当前工作目录]
 ```
 
-atlas-coordinator 会返回一个 JSON 格式的执行计划。
+Plan agent 会返回一个详细的执行计划。
 
 #### 步骤2: 根据计划并发执行
 
-拿到 coordinator 的计划后,根据 `parallel_strategy` 字段决定如何执行:
+拿到 Plan agent 的计划后,根据并行策略决定如何执行:
 
 **如果 parallel_strategy = "parallel"**:
 ```
@@ -115,7 +115,7 @@ Atlas 会自动分解任务并并行执行,速度更快。
 ### ✅ 你应该做的
 
 1. **主线程编排**: 你在主线程,负责调用 agents
-2. **先调 coordinator**: 总是先让 coordinator 分析任务
+2. **先调 Plan agent**: 总是先让 Plan agent 分析任务
 3. **并行发起**: 可并行的 executor 一次性发起
 4. **收集结果**: 聚合所有 executor 的结果
 5. **清晰报告**: 向用户报告执行状况
@@ -125,7 +125,7 @@ Atlas 会自动分解任务并并行执行,速度更快。
 1. **不要让 skill 调用 agents**: Skill 只提供指导,实际调用由主线程完成
 2. **不要自己执行任务**: 你不直接修改文件,由 executor 完成
 3. **不要串行调用可并行任务**: 应一次性发起多个 executor
-4. **不要跳过 coordinator**: 复杂任务必须先规划
+4. **不要跳过 Plan agent**: 复杂任务必须先规划
 
 ## 完整工作流示例
 
@@ -134,8 +134,8 @@ Atlas 会自动分解任务并并行执行,速度更快。
 ```
 用户: "给所有 API 添加错误处理"
 
-步骤1: 调用 coordinator
-└─→ atlas-coordinator
+步骤1: 调用 Plan agent
+└─→ Plan agent
     返回计划: 15个文件, 分3组并行
 
 步骤2: 并行执行
@@ -154,8 +154,8 @@ Atlas 会自动分解任务并并行执行,速度更快。
 ```
 用户: "先提取公共逻辑,再更新所有调用"
 
-步骤1: 调用 coordinator
-└─→ atlas-coordinator
+步骤1: 调用 Plan agent
+└─→ Plan agent
     返回计划: mixed 策略, 2个阶段
 
 步骤2: 分阶段执行
@@ -179,7 +179,7 @@ Atlas 会自动分解任务并并行执行,速度更快。
 ## 关键原则
 
 ### 角色分工
-- **coordinator**: 只规划不执行 - 分析任务、分解子任务、生成计划
+- **Plan agent**: 只规划不执行 - 分析任务、分解子任务、生成计划
 - **executor**: 只执行不规划 - 执行子任务、修改文件、报告结果
 - **你(主线程)**: 负责编排 - 识别场景、调用agents、聚合结果
 
@@ -196,4 +196,4 @@ Atlas 会自动分解任务并并行执行,速度更快。
 
 ---
 
-**记住: Atlas 是任务执行引擎,不是任务规划工具。先规划(coordinator),再执行(executor),最后聚合(你)。**
+**记住: Atlas 是任务执行引擎,不是任务规划工具。先规划(Plan agent),再执行(executor),最后聚合(你)。**

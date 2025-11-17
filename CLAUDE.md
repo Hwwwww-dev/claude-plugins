@@ -18,12 +18,7 @@ claude-code-marketplace/
 │   ├── .claude-plugin/
 │   │   └── plugin.json           # 插件元数据(名称、版本、描述等)
 │   ├── agents/                   # 专业化 agents
-│   │   ├── atlas-coordinator.md  # 任务协调器: 分析任务并生成执行计划
-│   │   ├── atlas-executor.md     # 任务执行器: 执行具体的子任务
-│   │   ├── code-analyzer.md      # 代码质量分析专家
-│   │   ├── architecture-analyzer.md  # 架构分析专家
-│   │   ├── security-scanner.md   # 安全扫描专家
-│   │   └── performance-analyzer.md   # 性能分析专家
+│   │   └── atlas-executor.md     # 任务执行器: 执行具体的子任务
 │   ├── commands/
 │   │   └── atlas.md              # /atlas 命令定义
 │   └── skills/
@@ -44,7 +39,7 @@ claude-code-marketplace/
 ### Atlas 工作流程
 
 1. 用户通过 `/atlas <任务>` 或触发词("批量"、"所有"、"项目级"等)触发
-2. atlas-coordinator agent 分析任务并生成 JSON 格式的执行计划
+2. Plan agent 分析任务并生成详细的执行计划
 3. 根据计划并发启动多个 atlas-executor agents
 4. 各执行器独立完成子任务
 5. 收集和汇总所有执行结果
@@ -86,7 +81,7 @@ claude-code-marketplace/
 
 4. **Agent frontmatter** (如果 agent 有重大变更)
    ```bash
-   # 示例: atlas/agents/atlas-coordinator.md
+   # 示例: atlas/agents/atlas-executor.md
    # 位置: 第 4 行
    version: 1.0.0  # 修改此处
    ```
@@ -122,7 +117,6 @@ git push origin vx.y.z
 # 使用 sed 批量修改 (macOS 用户注意 -i 后需要 '')
 sed -i '' 's/"version": "1.0.0"/"version": "1.1.0"/g' .claude-plugin/marketplace.json
 sed -i '' 's/"version": "1.0.0"/"version": "1.1.0"/g' atlas/.claude-plugin/plugin.json
-sed -i '' 's/version: 1.0.0/version: 1.1.0/g' atlas/agents/atlas-coordinator.md
 sed -i '' 's/version: 1.0.0/version: 1.1.0/g' atlas/skills/atlas/SKILL.md
 
 # 验证修改

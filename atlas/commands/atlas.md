@@ -49,22 +49,20 @@ description: 强大的任务协调与并发执行框架。处理复杂的多步�
 2. **解析选项**: 识别执行策略（--parallel, --sequential, --max-agents, --dry-run, --verbose）
 3. **验证输入**: 确保任务描述足够清晰
 
-### 第二步: 调用协调器规划任务
+### 第二步: 调用 Plan agent 制定详细计划
 
-使用 **atlas-coordinator** agent 来分析和规划任务:
+使用 **Plan** agent 来分析任务并制定详细执行计划:
 
 ```
-请调用 atlas-coordinator agent,传入以下信息:
-- 任务描述: [用户的任务描述]
-- 项目路径: [当前工作目录]
+请调用 Plan agent,传入任务描述和项目信息
 ```
 
-**coordinator 会返回**一个结构化的执行计划(JSON格式),包含:
-- 任务总结和复杂度评估
+**Plan agent 会返回**一个详细的执行计划,包含:
+- 任务分析和复杂度评估
 - 子任务分解
 - 推荐的并行策略
 - 执行顺序
-- 风险警告
+- 风险评估
 
 ### 第三步: 确定执行策略
 
@@ -75,10 +73,10 @@ description: 强大的任务协调与并发执行框架。处理复杂的多步�
    - `--sequential` → 强制全串行
    - `--max-agents N` → 限制并发数
 
-2. **coordinator 建议**:
-   - `parallel_strategy: "parallel"` → 全并行
-   - `parallel_strategy: "sequential"` → 全串行
-   - `parallel_strategy: "mixed"` → 分阶段(每阶段内并行,阶段间串行)
+2. **Plan agent 建议**:
+   - 建议 parallel → 全并行
+   - 建议 sequential → 全串行
+   - 建议 mixed → 分阶段(每阶段内并行,阶段间串行)
 
 3. **默认策略**: 如果没有明确指定,优先选择并行以提高效率
 
@@ -229,7 +227,7 @@ description: 强大的任务协调与并发执行框架。处理复杂的多步�
 
 当用户使用 `--dry-run` 选项时:
 
-1. **只调用 coordinator**: 生成执行计划
+1. **只调用 Plan agent**: 生成执行计划
 2. **不调用 executor**: 不实际执行任何修改
 3. **显示计划**: 向用户展示详细的执行计划
 
@@ -263,7 +261,7 @@ description: 强大的任务协调与并发执行框架。处理复杂的多步�
 
 ### 场景2: 任务描述不清晰
 
-如果 coordinator 返回 `requires_clarification: true`:
+如果 Plan agent 返回需要澄清:
 
 ```markdown
 ## 需要更多信息
@@ -278,7 +276,7 @@ description: 强大的任务协调与并发执行框架。处理复杂的多步�
 
 ### 场景3: 任务无法执行
 
-如果 coordinator 返回 `infeasible: true`:
+如果 Plan agent 返回任务不可行:
 
 ```markdown
 ## 任务无法执行
@@ -324,7 +322,7 @@ description: 强大的任务协调与并发执行框架。处理复杂的多步�
 /atlas 给所有 React 组件添加 PropTypes
 
 你的执行流程:
-1. 调用 atlas-coordinator
+1. 调用 Plan agent
    → 返回: 发现15个组件,分3组并行
 
 2. 并行执行3个 executors:
@@ -349,7 +347,7 @@ description: 强大的任务协调与并发执行框架。处理复杂的多步�
 /atlas 重构 auth 模块,先提取公共逻辑再更新调用
 
 你的执行流程:
-1. 调用 atlas-coordinator
+1. 调用 Plan agent
    → 返回: mixed 策略,2个阶段
 
 2. 阶段1(串行):
@@ -372,7 +370,7 @@ description: 强大的任务协调与并发执行框架。处理复杂的多步�
 /atlas 批量重构所有 API 调用 --dry-run
 
 你的执行流程:
-1. 调用 atlas-coordinator
+1. 调用 Plan agent
    → 返回执行计划
 
 2. 显示计划(不执行):
@@ -442,7 +440,7 @@ description: 强大的任务协调与并发执行框架。处理复杂的多步�
 
 ### ❌ 你不应该做的
 
-1. **不要让 agents 互相调用**: coordinator 和 executor 不能调用彼此
+1. **不要让 agents 互相调用**: Plan agent 和 executor 不能调用彼此
 2. **不要串行调用可并行任务**: 应一次性发起,而不是依次调用
 3. **不要忽略失败**: 即使部分失败,也要完成其他任务并报告
 4. **不要修改文件**: 你只负责编排,不直接修改代码(由 executor 完成)
@@ -472,4 +470,4 @@ description: 强大的任务协调与并发执行框架。处理复杂的多步�
 
 ---
 
-**记住: 你是任务编排的总指挥。coordinator 规划,executor 执行,你负责协调整个流程。**
+**记住: 你是任务编排的总指挥。Plan agent 规划,executor 执行,你负责协调整个流程。**
