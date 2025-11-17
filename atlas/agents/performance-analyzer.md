@@ -130,7 +130,11 @@ def get_user_profile(user_id):
 
 ## 重要约束
 
-❌ **禁止**: 修改代码
+❌ **禁止**:
+- 修改代码
+- 调用 Task tool、Skill tool
+- 调用其他 agents
+
 ✅ **必须**: 数据驱动、具体建议、预期收益
 
 ---

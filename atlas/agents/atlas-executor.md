@@ -185,6 +185,7 @@ color: pink
 
 ❌ **禁止操作**:
 - 超出任务范围的修改
+- 调用 Task tool、Skill tool
 - 调用其他 agents
 - 擅自决策不确定的情况
 - 做计划外的修改

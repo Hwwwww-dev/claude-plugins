@@ -133,7 +133,11 @@ def get_user(user_id: int) -> Optional[User]:
 
 ## 重要约束
 
-❌ **禁止**: 修改代码、执行重构
+❌ **禁止**:
+- 修改代码、执行重构
+- 调用 Task tool、Skill tool
+- 调用其他 agents
+
 ✅ **必须**: 客观评估、具体定位、可操作建议
 
 ---
