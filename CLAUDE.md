@@ -21,6 +21,8 @@ claude-code-marketplace/
 │   │   └── atlas-executor.md     # 任务执行器: 执行具体的子任务
 │   ├── commands/
 │   │   └── atlas.md              # /atlas 命令定义
+│   ├── hooks/                    # Hooks 配置
+│   │   └── hooks.json            # PreToolUse hooks: 防止嵌套调用
 │   └── skills/
 │       ├── atlas/SKILL.md        # Atlas 任务协调 skill
 │       └── implement/SKILL.md    # 功能实现工作流 skill
@@ -35,6 +37,7 @@ claude-code-marketplace/
 3. **Agents**: 专业化的子代理,用 markdown 文件定义,包含 frontmatter (name, description, model, color) 和提示词
 4. **Commands**: 斜杠命令,用 markdown 文件定义,通过 `/command-name` 调用
 5. **Skills**: 可复用的工作流,包含 SKILL.md 定义和必要的资源文件
+6. **Hooks**: 系统级约束机制,通过 `hooks/hooks.json` 定义,用于强制执行规则（如防止嵌套调用）
 
 ### Atlas 工作流程
 
@@ -208,6 +211,7 @@ git push origin main --tags
 4. **不要使用 tree 命令**: 项目规则禁止使用 tree 命令
 5. **遵循 Linus 精神**: 代码应该简洁、高效、直接
 6. **中文优先**: 所有交互和文档优先使用简体中文
+7. **Hooks 机制**: 嵌套调用约束通过 `atlas/hooks/hooks.json` 中的 PreToolUse hooks 强制执行,无需在文档中重复说明
 
 ## 参考文档
 
@@ -216,3 +220,5 @@ git push origin main --tags
 - `subagents.md`: Agents 系统详解
 - `skills.md`: Skills 系统详解
 - `plugin-marketplaces.md`: 市场管理指南
+- `hooks.md`: Hooks 系统使用指南
+- `hook-reference.md`: Hooks API 参考文档

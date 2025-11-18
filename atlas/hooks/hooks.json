@@ -1,0 +1,17 @@
+{
+  "description": "Prevent nested Agent/Skill calls to avoid infinite recursion and context pollution",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Task|Skill",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Always block this tool call. Return: {\"decision\": \"block\", \"reason\": \"Nested Agent/Skill calls are not allowed\"}",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
