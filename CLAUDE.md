@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-这是一个 Claude Code 插件市场仓库,包含 Atlas 任务协调框架插件。Atlas 是一个强大的任务分解和并发执行框架,通过智能协调器和执行器实现项目级批量操作。
+这是一个 Claude Code 插件市场仓库,包含 Atlas 任务协调框架插件。Atlas 是一个强大的任务分解和并发执行框架,通过智能协调器和执行器实现项目级批量操作。v1.3.0 新增智能信息收集系统,支持项目分析、依赖梳理、代码探索。
 
 ## 项目架构
 
@@ -18,14 +18,17 @@ claude-code-marketplace/
 │   ├── .claude-plugin/
 │   │   └── plugin.json           # 插件元数据(名称、版本、描述等)
 │   ├── agents/                   # 专业化 agents
-│   │   └── atlas-executor.md     # 任务执行器: 执行具体的子任务
+│   │   ├── atlas-executor.md     # 任务执行器: 执行具体的子任务
+│   │   └── information-gatherer.md  # 信息收集器: 收集和分析项目信息
 │   ├── commands/
-│   │   └── atlas.md              # /atlas 命令定义
+│   │   ├── orchestrate.md        # /orchestrate 命令定义
+│   │   └── gather.md             # /gather 命令定义
 │   ├── hooks/                    # Hooks 配置
 │   │   └── hooks.json            # PreToolUse hooks: 防止嵌套调用
 │   └── skills/
-│       ├── atlas/SKILL.md        # Atlas 任务协调 skill
-│       └── implement/SKILL.md    # 功能实现工作流 skill
+│       ├── task-orchestrator/SKILL.md  # 任务协调 skill
+│       ├── implement/SKILL.md          # 功能实现工作流 skill
+│       └── gather/SKILL.md             # 信息收集工作流 skill
 ├── docs/                         # Claude Code 插件系统参考文档
 └── README.md / README_zh.md      # 项目说明文档
 ```
@@ -41,11 +44,12 @@ claude-code-marketplace/
 
 ### Atlas 工作流程
 
-1. 用户通过 `/atlas <任务>` 或触发词("批量"、"所有"、"项目级"等)触发
-2. Plan agent 分析任务并生成详细的执行计划
-3. 根据计划并发启动多个 atlas-executor agents
-4. 各执行器独立完成子任务
-5. 收集和汇总所有执行结果
+1. 用户通过 `/orchestrate <任务>` 或触发词("批量"、"所有"、"项目级"等)触发
+2. (可选) Information Gatherer agent 收集项目信息并缓存到 Memory
+3. Plan agent 分析任务并生成详细的执行计划
+4. 根据计划并发启动多个 atlas-executor agents
+5. 各执行器独立完成子任务
+6. 收集和汇总所有执行结果
 
 ## 版本管理指南
 

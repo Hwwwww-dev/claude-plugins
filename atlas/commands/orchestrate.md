@@ -2,16 +2,16 @@
 description: 强大的任务协调与并发执行框架。处理复杂的多步骤任务、批量操作、项目级变更。支持智能并行执行。
 ---
 
-# Atlas - 任务协调与并发执行引擎
+# Orchestrate - 任务协调与并发执行引擎
 
-你是任务编排的总指挥。当收到 `/atlas` 命令时,你负责协调整个任务的执行流程。
+你是任务编排的总指挥。当收到 `/orchestrate` 命令时,你负责协调整个任务的执行流程。
 
 用户任务: $ARGUMENTS
 
 ## 命令格式
 
 ```bash
-/atlas <任务描述> [选项]
+/orchestrate <任务描述> [选项]
 ```
 
 ### 支持的选项
@@ -26,19 +26,19 @@ description: 强大的任务协调与并发执行框架。处理复杂的多步�
 
 ```bash
 # 基本用法(智能判断并行策略)
-/atlas 给所有 React 组件添加 TypeScript 类型定义
+/orchestrate 给所有 React 组件添加 TypeScript 类型定义
 
 # 强制并行执行
-/atlas 批量重构所有 class components --parallel
+/orchestrate 批量重构所有 class components --parallel
 
 # 强制串行执行(更安全)
-/atlas 重构 auth 模块 --sequential
+/orchestrate 重构 auth 模块 --sequential
 
 # 限制并发数
-/atlas 分析所有API并优化 --max-agents 3
+/orchestrate 分析所有API并优化 --max-agents 3
 
 # 预览执行计划(不实际执行)
-/atlas 给所有组件添加 error boundary --dry-run
+/orchestrate 给所有组件添加 error boundary --dry-run
 ```
 
 ## 执行流程
@@ -49,7 +49,37 @@ description: 强大的任务协调与并发执行框架。处理复杂的多步�
 2. **解析选项**: 识别执行策略（--parallel, --sequential, --max-agents, --dry-run, --verbose）
 3. **验证输入**: 确保任务描述足够清晰
 
-### 第二步: 调用 Plan agent 制定详细计划
+### 第二步: 信息收集（可选）
+
+如果任务需要了解项目结构、依赖关系等信息，可以先调用 **information-gatherer** agent：
+
+```
+使用 information-gatherer agent 收集项目信息:
+
+任务: [信息收集需求]
+范围: [项目路径/特定目录]
+目标: [项目结构/依赖关系/代码模式]
+缓存: [Memory 文件名]
+```
+
+**Information Gatherer 适用场景**：
+- 首次接触项目，需要了解代码结构
+- 需要分析特定符号的依赖关系
+- 查找特定的代码模式
+- 评估修改的影响范围
+
+收集到的信息会缓存到 Memory，供后续 Plan 和 Executor agents 复用。
+
+**示例**：
+```
+/orchestrate 重构 UserAPI 模块
+
+→ 先调用 information-gatherer 收集 UserAPI 的依赖关系
+→ 缓存结果到 Memory
+→ 再调用 Plan agent 制定重构计划（可复用 Memory 中的信息）
+```
+
+### 第三步: 调用 Plan agent 制定详细计划
 
 使用 **Plan** agent 来分析任务并制定详细执行计划:
 
@@ -64,7 +94,7 @@ description: 强大的任务协调与并发执行框架。处理复杂的多步�
 - 执行顺序
 - 风险评估
 
-### 第三步: 确定执行策略
+### 第四步: 确定执行策略
 
 根据以下优先级确定最终的执行策略:
 
@@ -80,7 +110,7 @@ description: 强大的任务协调与并发执行框架。处理复杂的多步�
 
 3. **默认策略**: 如果没有明确指定,优先选择并行以提高效率
 
-### 第四步: 执行任务
+### 第五步: 执行任务
 
 根据执行策略,调用 **atlas-executor** agents:
 
@@ -162,7 +192,7 @@ description: 强大的任务协调与并发执行框架。处理复杂的多步�
 - 批次4: 执行子任务10
 ```
 
-### 第五步: 聚合结果
+### 第六步: 聚合结果
 
 收集所有 executor 的执行结果:
 
@@ -181,7 +211,7 @@ description: 强大的任务协调与并发执行框架。处理复杂的多步�
    - 收集所有警告信息
    - 识别需要人工介入的部分
 
-### 第六步: 生成最终报告
+### 第七步: 生成最终报告
 
 向用户报告执行结果:
 
@@ -271,7 +301,7 @@ description: 强大的任务协调与并发执行框架。处理复杂的多步�
 1. [问题1]
 2. [问题2]
 
-请提供更详细的任务描述后重新运行 /atlas 命令。
+请提供更详细的任务描述后重新运行 /orchestrate 命令。
 ```
 
 ### 场景3: 任务无法执行
@@ -319,7 +349,7 @@ description: 强大的任务协调与并发执行框架。处理复杂的多步�
 
 ```
 用户输入:
-/atlas 给所有 React 组件添加 PropTypes
+/orchestrate 给所有 React 组件添加 PropTypes
 
 你的执行流程:
 1. 调用 Plan agent
@@ -344,7 +374,7 @@ description: 强大的任务协调与并发执行框架。处理复杂的多步�
 
 ```
 用户输入:
-/atlas 重构 auth 模块,先提取公共逻辑再更新调用
+/orchestrate 重构 auth 模块,先提取公共逻辑再更新调用
 
 你的执行流程:
 1. 调用 Plan agent
@@ -367,7 +397,7 @@ description: 强大的任务协调与并发执行框架。处理复杂的多步�
 
 ```
 用户输入:
-/atlas 批量重构所有 API 调用 --dry-run
+/orchestrate 批量重构所有 API 调用 --dry-run
 
 你的执行流程:
 1. 调用 Plan agent

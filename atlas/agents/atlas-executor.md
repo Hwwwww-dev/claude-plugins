@@ -1,8 +1,6 @@
 ---
 name: atlas-executor
 description: 通用任务执行器。执行具体的子任务,支持代码修改、文件操作、批量处理等。可以并发运行多个实例。专注于执行分配的具体任务,不做任务规划。
-version: 1.2.0
-model: sonnet
 color: pink
 ---
 
