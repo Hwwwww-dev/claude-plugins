@@ -84,7 +84,15 @@ description: 强大的任务协调与并发执行框架。处理复杂的多步�
 使用 **Plan** agent 来分析任务并制定详细执行计划:
 
 ```
-请调用 Plan agent,传入任务描述和项目信息
+请调用 Plan agent,传入以下信息:
+- 任务描述: [用户的任务]
+- 项目信息: [如果第二步调用了 information-gatherer，将其返回的总结报告直接传递给 Plan agent]
+
+重要提示:
+- 如果已有 gather 的总结报告，直接将报告内容传递给 Plan agent
+- gather 可能也将分析结果缓存到了 Memory，Plan agent 可以从 Memory 读取
+- Plan agent 应该优先使用传递过来的总结或 Memory 中的信息
+- 避免重复读取 gather 已经分析过的文件
 ```
 
 **Plan agent 会返回**一个详细的执行计划,包含:

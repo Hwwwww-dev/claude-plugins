@@ -72,13 +72,15 @@ Glob(筛选文件范围)
 
 ### 5️⃣ 生成结构化报告
 
-使用清晰的 Markdown 格式输出：
+使用清晰的 Markdown 格式输出**详细**的分析报告。
+
+**重要**：报告必须足够详细，让 Plan agent 能够直接基于报告制定执行计划，而无需重新读取文件。
 
 ```markdown
 # 信息收集报告
 
 ## 📊 分析概况
-- **分析范围**: [描述范围]
+- **分析范围**: [描述范围，具体路径]
 - **文件总数**: [数量]
 - **关键发现**: [数量]
 - **分析时间**: [时间戳]
@@ -89,49 +91,157 @@ Glob(筛选文件范围)
 **重要性**: 高/中/低
 **描述**: [具体发现的详细说明]
 **影响**: [对项目的影响分析]
+**相关文件**: [完整的文件路径列表，包含行号]
 
 ### 发现 2: [标题]
 ...
 
-## 📁 项目结构
+## 📁 项目结构（详细版）
 
 ### 目录组织
 ```
 project/
 ├── module-a/  (15 files)
+│   ├── ComponentA.tsx - [职责描述]
+│   ├── ComponentB.tsx - [职责描述]
+│   └── utils.ts - [职责描述]
 ├── module-b/  (8 files)
+│   └── ...
 └── shared/    (12 files)
+    └── ...
 ```
 
-### 关键文件
-- `path/to/file1.ts`: [文件职责]
-- `path/to/file2.tsx`: [文件职责]
+### 关键文件清单（含符号信息）
+#### 1. `path/to/file1.ts`
+- **职责**: [文件的核心职责]
+- **关键符号**:
+  - `class ClassName` - [说明]
+  - `function functionName()` - [说明]
+  - `export const CONSTANT` - [说明]
+- **依赖**: 引用了 [其他文件列表]
+- **被引用**: 被 [文件列表] 引用
 
-## 🔗 依赖关系
+#### 2. `path/to/file2.tsx`
+- **职责**: [文件的核心职责]
+- **关键符号**:
+  - `const ComponentName` - [React 组件说明]
+  - `useCustomHook()` - [Hook 说明]
+- **依赖**: 引用了 [其他文件列表]
+- **被引用**: 被 [文件列表] 引用
+
+## 🔗 依赖关系（详细图谱）
 
 ### 核心依赖图
 ```
-ComponentA ← ServiceB ← UtilC
-           ↑
-           ComponentD (3处引用)
+ComponentA (src/components/A.tsx)
+  ↓ 依赖
+ServiceB (src/services/B.ts)
+  ↓ 依赖
+UtilC (src/utils/C.ts)
+  ↑ 被引用
+ComponentD (src/components/D.tsx) - 3处引用
 ```
 
-### 关键调用链
-1. **UserAPI** → 被 5 个组件调用
-   - Dashboard.tsx:42
-   - Profile.tsx:18
-   - Settings.tsx:67
-   - ...
+### 关键符号的引用关系
+#### 1. **UserAPI** (src/services/UserAPI.ts)
+**被引用**: 5 处
+- `Dashboard.tsx:42` - 调用 `fetchUsers()`
+- `Profile.tsx:18` - 调用 `getCurrentUser()`
+- `Settings.tsx:67` - 调用 `updateUser()`
+- `AuthFlow.ts:23` - 调用 `login()`, `logout()`, `refreshToken()`
+- `AdminPanel.tsx:101` - 调用 `fetchAllUsers()`
+
+**依赖**:
+- `api-client.ts:10` - 基础 HTTP 客户端
+- `types/User.ts:5` - 用户类型定义
+
+#### 2. **ComponentBase** (src/components/Base.tsx)
+**被引用**: 12 处
+- [完整的引用列表，包含文件路径和行号]
+
+## 📋 符号清单（按类型分类）
+
+### Classes (5个)
+1. `UserAPI` (src/services/UserAPI.ts:10)
+   - 职责: 用户数据接口封装
+   - 关键方法: `fetchUsers()`, `updateUser()`, `deleteUser()`
+
+2. `AuthService` (src/services/AuthService.ts:15)
+   - 职责: 认证服务
+   - 关键方法: `login()`, `logout()`, `verify()`
+
+### Functions (15个)
+1. `validateEmail()` (src/utils/validation.ts:8)
+   - 职责: 邮箱格式验证
+   - 被引用: 3处
+
+2. `formatDate()` (src/utils/formatting.ts:12)
+   - 职责: 日期格式化
+   - 被引用: 7处
+
+### Components (12个)
+1. `Dashboard` (src/components/Dashboard.tsx:20)
+   - 类型: React Function Component
+   - Props: `{ userId: string }`
+   - 依赖: UserAPI, Analytics
+
+2. `Login` (src/components/Login.tsx:15)
+   - 类型: React Function Component
+   - Props: `{ onSuccess: () => void }`
+   - 依赖: AuthService
 
 ## 💡 关键洞察
 
 ### 架构模式
-- [识别出的设计模式]
-- [代码组织方式]
+- **分层架构**: Components → Services → Utils
+- **数据流**: 单向数据流，通过 props 和 context
+- **状态管理**: 使用 React Context + hooks
+- **API 调用**: 统一通过 Service 层
 
-### 潜在风险
-- [可能的问题点]
-- [技术债务]
+### 代码组织规律
+- 每个模块都有独立的 `index.ts` 作为入口
+- 类型定义集中在 `types/` 目录
+- 共享组件在 `shared/` 目录
+- 测试文件与源文件同目录，以 `.test.ts` 结尾
+
+### 技术栈识别
+- **框架**: React 18 + TypeScript
+- **状态管理**: React Context API
+- **样式方案**: CSS Modules
+- **构建工具**: Vite
+
+### 潜在风险点
+1. **高耦合区域**:
+   - `UserAPI` 被 5 个组件直接引用，修改时需谨慎
+   - `AuthService` 被 8 处调用，是核心依赖
+
+2. **技术债务**:
+   - 3个组件未添加 PropTypes 或 TypeScript 类型
+   - 部分工具函数缺少单元测试
+
+3. **修改影响范围**:
+   - 修改 `UserAPI` 接口 → 影响 5 个文件
+   - 修改 `ComponentBase` → 影响 12 个子组件
+   - 修改认证流程 → 影响整个应用
+
+## 🎯 任务建议（给 Plan Agent）
+
+基于以上分析，针对常见任务的建议：
+
+### 如果任务是"添加类型定义"
+- 涉及文件: [列出缺少类型的文件]
+- 可并行: ✅ 各文件独立，可并行处理
+- 推荐分组: 按模块分组 (auth 模块 / dashboard 模块 / shared)
+
+### 如果任务是"重构 UserAPI"
+- 涉及文件: UserAPI.ts + 5个引用文件
+- 可并行: ❌ 必须先修改 UserAPI，再更新引用
+- 推荐策略: 串行执行，分2个阶段
+
+### 如果任务是"优化性能"
+- 关键区域: [列出性能瓶颈]
+- 可并行: ⚠️ 部分可并行
+- 推荐策略: 混合执行
 
 ## 💾 缓存信息
 
@@ -142,6 +252,11 @@ ComponentA ← ServiceB ← UtilC
 > **用途**: 供后续 Plan、Executor agents 复用
 >
 > **有效期**: 长期有效，直到项目结构发生重大变更
+>
+> **包含信息**:
+> - 完整的文件结构和符号清单
+> - 详细的依赖关系图谱
+> - 任务执行建议
 ```
 
 ### 6️⃣ 缓存到 Memory

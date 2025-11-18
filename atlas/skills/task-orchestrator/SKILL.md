@@ -67,7 +67,13 @@ color: pink
 ```
 请使用 Plan agent 分析以下任务:
 任务: [用户的任务描述]
-项目路径: [当前工作目录]
+项目信息: [如果步骤0调用了 information-gatherer，将其返回的总结报告内容直接传递过来]
+
+重要提示:
+- 如果已有 gather 的总结报告，直接将报告内容传递给 Plan agent
+- gather 可能也将分析结果缓存到了 Memory，Plan agent 可以从 Memory 读取
+- Plan agent 应该优先使用传递的总结或 Memory 中的信息
+- 避免重复读取 gather 已经分析过的文件
 ```
 
 Plan agent 会返回一个详细的执行计划。
