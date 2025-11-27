@@ -5,8 +5,8 @@
         "matcher": "Task",
         "hooks": [
           {
-            "type": "command",
-            "command": "echo '{\"decision\": \"block\", \"reason\": \"Nested agent calls are not allowed. Complete your task directly without spawning subagents.\"}'"
+            "type": "prompt",
+            "prompt": "⚠️ CRITICAL: You are running inside a subagent. DO NOT use the Task tool. Nested agent calls are strictly forbidden. Complete your task directly using only basic tools (Read, Edit, Write, Grep, Glob, Bash, etc.)."
           }
         ]
       },
@@ -14,8 +14,8 @@
         "matcher": "Skill",
         "hooks": [
           {
-            "type": "command",
-            "command": "echo '{\"decision\": \"block\", \"reason\": \"Nested skill calls are not allowed. Complete your task directly without invoking skills.\"}'"
+            "type": "prompt",
+            "prompt": "⚠️ CRITICAL: You are running inside a subagent. DO NOT use the Skill tool. Nested skill calls are strictly forbidden. Complete your task directly without invoking any skills."
           }
         ]
       }
@@ -25,8 +25,8 @@
         "matcher": "*",
         "hooks": [
           {
-            "type": "command",
-            "command": "echo '{\"decision\": \"block\", \"reason\": \"Nested subagent calls are not allowed.\"}'"
+            "type": "prompt",
+            "prompt": "⚠️ CRITICAL CONSTRAINT: You are now running as a subagent. The following tools are FORBIDDEN for you:\n- Task tool (no spawning nested agents)\n- Skill tool (no invoking skills)\n- Any subagent-related operations\n\nYou MUST complete your assigned task using only basic tools: Read, Edit, Write, Grep, Glob, Bash, WebFetch, WebSearch, and MCP tools.\n\nViolating this constraint will cause task failure."
           }
         ]
       }
