@@ -1,12 +1,24 @@
 {
+  "description": "Atlas plugin hooks - constraints for subagents and context gathering guidance",
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Task|Skill",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Check the current execution context:\n\n- If you were spawned by a Task tool call (i.e., you are a subagent), you should not use Task or Skill tools. Return a deny decision with reason 'Subagents should not spawn nested agents'.\n\n- If you are the main agent responding directly to user input, this tool call is appropriate. Return an approve decision."
+          }
+        ]
+      }
+    ],
     "SubagentStart": [
       {
         "matcher": "*",
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "⚠️ CRITICAL CONSTRAINT: You are now running as a subagent. The following tools are FORBIDDEN for you:\n- Task tool (no spawning nested agents)\n- Skill tool (no invoking skills)\n- Any subagent-related operations\n\nViolating this constraint will cause task failure."
+            "prompt": "You are now running as a subagent with a focused task scope.\n\nGuidance: Avoid using Task or Skill tools - these are reserved for the parent orchestrator. This helps maintain clean task hierarchy and prevents infinite loops."
           }
         ]
       }
@@ -17,7 +29,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Before processing this request, determine if you need to call information-gatherer agent to collect project context.\n\nYou SHOULD call information-gatherer first when the task involves:\n- Understanding project structure or codebase organization\n- Locating symbols (classes, functions, components)\n- Finding references or dependencies\n- Searching for code patterns or API usage\n- Assessing impact of modifications\n- Any multi-file operation or refactoring\n- Working with unfamiliar code\n\nYou may SKIP information gathering only when:\n- User provides exact file paths AND specific content to modify\n- User asks general questions unrelated to the current codebase\n\nWhen in doubt, gather information first. Having context is better than guessing.",
+            "prompt": "Consider delegating work to specialized agents to keep the main conversation focused and reduce token usage.\n\nAvailable agents (via Task tool):\n- information-gatherer: Collect project context, analyze structure, find symbols and dependencies\n- atlas-executor: Execute specific subtasks, code modifications, file operations\n\nAvailable skills (via Skill tool):\n- atlas:task-orchestrator: Coordinate complex multi-step tasks with parallel execution\n- atlas:gather: Structured information collection workflow\n- atlas:implement: Feature implementation workflow\n\nDelegating to agents keeps the main conversation concise. Skip delegation only when the user provides complete context or asks simple questions.",
             "timeout": 60
           }
         ]
