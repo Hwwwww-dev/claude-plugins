@@ -1,25 +1,5 @@
 {
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Task",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "⚠️ CRITICAL: You are running inside a subagent. DO NOT use the Task tool. Nested agent calls are strictly forbidden."
-          }
-        ]
-      },
-      {
-        "matcher": "Skill",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "⚠️ CRITICAL: You are running inside a subagent. DO NOT use the Skill tool. Nested skill calls are strictly forbidden. Complete your task directly without invoking any skills."
-          }
-        ]
-      }
-    ],
     "SubagentStart": [
       {
         "matcher": "*",
