@@ -113,7 +113,7 @@ Task 3:
 
 ## 执行示例
 
-### 示例: 批量添加类型定义
+### 示例 1: 并行执行 (子任务独立)
 
 ```
 用户: /orchestrate 给所有 React 组件添加 TypeScript 类型
@@ -121,16 +121,54 @@ Task 3:
 执行流程:
 
 1. Task tool → Plan agent
-   返回: 发现15个组件,分3组并行
+   返回: 发现15个组件,分3组并行,策略: parallel
 
 2. 同时发起3个 Task tool 调用 (同一条消息中):
    - Task(atlas:atlas-executor): 处理 auth 组件 (5个)
    - Task(atlas:atlas-executor): 处理 dashboard 组件 (5个)
    - Task(atlas:atlas-executor): 处理 shared 组件 (5个)
 
-3. 聚合结果并报告:
-   成功: 14/15
-   失败: 1个 (ComplexComponent.tsx)
+3. 聚合结果并报告
+```
+
+### 示例 2: 串行执行 (子任务有依赖)
+
+```
+用户: /orchestrate 重构数据库层,先改 schema 再改 repository
+
+执行流程:
+
+1. Task tool → Plan agent
+   返回: 2个子任务有依赖,策略: sequential
+
+2. 第一步: Task(atlas:atlas-executor) 修改 schema
+   等待完成...
+
+3. 第二步: Task(atlas:atlas-executor) 修改 repository
+   等待完成...
+
+4. 聚合结果并报告
+```
+
+### 示例 3: 混合执行 (部分有依赖)
+
+```
+用户: /orchestrate 重构 auth 模块,先提取公共逻辑再更新各组件
+
+执行流程:
+
+1. Task tool → Plan agent
+   返回: 策略: mixed (阶段1串行,阶段2并行)
+
+2. 阶段1 (串行): Task(atlas:atlas-executor) 提取公共逻辑到 auth-utils.ts
+   等待完成...
+
+3. 阶段2 (并行,同一条消息):
+   - Task(atlas:atlas-executor): 更新 Login.tsx
+   - Task(atlas:atlas-executor): 更新 Register.tsx
+   - Task(atlas:atlas-executor): 更新 Profile.tsx
+
+4. 聚合结果并报告
 ```
 
 ## 策略选择
