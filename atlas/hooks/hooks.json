@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "⚠️ CRITICAL: You are running inside a subagent. DO NOT use the Task tool. Nested agent calls are strictly forbidden. Complete your task directly using only basic tools (Read, Edit, Write, Grep, Glob, Bash, etc.)."
+            "prompt": "⚠️ CRITICAL: You are running inside a subagent. DO NOT use the Task tool. Nested agent calls are strictly forbidden."
           }
         ]
       },
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "⚠️ CRITICAL CONSTRAINT: You are now running as a subagent. The following tools are FORBIDDEN for you:\n- Task tool (no spawning nested agents)\n- Skill tool (no invoking skills)\n- Any subagent-related operations\n\nYou MUST complete your assigned task using only basic tools: Read, Edit, Write, Grep, Glob, Bash, WebFetch, WebSearch, and MCP tools.\n\nViolating this constraint will cause task failure."
+            "prompt": "⚠️ CRITICAL CONSTRAINT: You are now running as a subagent. The following tools are FORBIDDEN for you:\n- Task tool (no spawning nested agents)\n- Skill tool (no invoking skills)\n- Any subagent-related operations\n\nViolating this constraint will cause task failure."
           }
         ]
       }
