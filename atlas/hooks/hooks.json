@@ -1,14 +1,21 @@
 {
-  "description": "Atlas plugin hooks: prevent nested calls and auto-detect information gathering needs",
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Task|Skill",
+        "matcher": "Task",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Always block this tool call. Return: {\"decision\": \"block\", \"reason\": \"Nested Agent/Skill calls are not allowed\"}",
-            "timeout": 10
+            "type": "command",
+            "command": "echo '{\"decision\": \"block\", \"reason\": \"Nested agent calls are not allowed. Complete your task directly without spawning subagents.\"}'"
+          }
+        ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"decision\": \"block\", \"reason\": \"Nested skill calls are not allowed. Complete your task directly without invoking skills.\"}'"
           }
         ]
       }
@@ -18,9 +25,8 @@
         "matcher": "*",
         "hooks": [
           {
-            "type": "prompt",
-            "prompt": "Always block this tool call. Return: {\"decision\": \"block\", \"reason\": \"Nested Agent/Skill calls are not allowed\"}",
-            "timeout": 10
+            "type": "command",
+            "command": "echo '{\"decision\": \"block\", \"reason\": \"Nested subagent calls are not allowed.\"}'"
           }
         ]
       }
@@ -31,8 +37,8 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Analyze if the user's request requires gathering project information. If the request matches any of the following scenarios, you should proactively call the information-gatherer agent:\n\n**Scenarios requiring information-gatherer**:\n1. **Project structure analysis**: User asks about project structure, code organization, module division\n   - Examples: \"analyze this project\", \"what modules does the project have\", \"how is the code organized\"\n\n2. **Dependency analysis**: User needs to understand dependencies of a class/function/component\n   - Examples: \"where is UserAPI called\", \"find all references to LoginComponent\"\n\n3. **Code pattern search**: User needs to find specific code patterns or usage\n   - Examples: \"find all places using useState\", \"which files use the old API\"\n\n4. **Impact assessment**: User is preparing to modify code and needs impact analysis\n   - Examples: \"what files will be affected by modifying AuthService\", \"analyze before refactoring\"\n\n5. **First time exploring project**: User explicitly states unfamiliarity with the project\n   - Examples: \"I just inherited this project\", \"help me get familiar with the codebase\"\n\n**Scenarios NOT requiring information-gatherer**:\n- User already knows exactly which files and content to modify\n- User is asking simple technical questions (not related to current project code)\n- User requests direct modification tasks (in this case, judge first and gather info before execution if needed)\n\n**Decision logic**:\nIf the user's request matches the \"requiring\" scenarios above, you should:\n1. First call information-gatherer agent to collect necessary information\n2. Cache the collected information to Memory\n3. Continue processing the user's request based on the gathered information\n\nPlease analyze the user's request quickly. If information gathering is needed, call information-gatherer immediately without asking the user.",
-            "timeout": 30
+            "prompt": "Before processing this request, determine if you need to call information-gatherer agent to collect project context.\n\nYou SHOULD call information-gatherer first when the task involves:\n- Understanding project structure or codebase organization\n- Locating symbols (classes, functions, components)\n- Finding references or dependencies\n- Searching for code patterns or API usage\n- Assessing impact of modifications\n- Any multi-file operation or refactoring\n- Working with unfamiliar code\n\nYou may SKIP information gathering only when:\n- User provides exact file paths AND specific content to modify\n- User asks general questions unrelated to the current codebase\n\nWhen in doubt, gather information first. Having context is better than guessing.",
+            "timeout": 60
           }
         ]
       }
