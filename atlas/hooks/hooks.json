@@ -7,18 +7,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Check the current execution context:\n\n- If you were spawned by a Task tool call (i.e., you are a subagent), you should not use Task or Skill tools. Return a deny decision with reason 'Subagents should not spawn nested agents'.\n\n- If you are the main agent responding directly to user input, this tool call is appropriate. Return an approve decision."
-          }
-        ]
-      }
-    ],
-    "SubagentStart": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "You are now running as a subagent with a focused task scope.\n\nGuidance: Avoid using Task or Skill tools - these are reserved for the parent orchestrator. This helps maintain clean task hierarchy and prevents infinite loops."
+            "prompt": "Check the current execution context:\n- If you were spawned by a Task tool call (i.e., you are a subagent), you should not use Task or Skill tools. Return a deny decision with reason 'Subagents should not spawn nested agents'.\n- If you are the main agent responding directly to user input, this tool call is appropriate. Return an approve decision."
           }
         ]
       }
