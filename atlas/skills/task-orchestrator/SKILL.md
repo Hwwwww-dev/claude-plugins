@@ -46,10 +46,11 @@ color: pink
 ```
 使用 information-gatherer agent 收集项目信息:
 
+任务 ID: <task-id>  # 用于生成输出文件名，如 add-types-20251129
 任务: [信息收集需求]
 范围: [项目路径/特定目录]
 目标: [项目结构/依赖关系/代码模式]
-缓存: [Memory 文件名]
+输出: 将分析报告写入 docs/information/<task-id>.md
 ```
 
 **适用场景**：
@@ -58,7 +59,7 @@ color: pink
 - 评估修改的影响范围
 - 查找特定的代码模式
 
-收集到的信息会缓存到 Memory，供后续 Plan 和 Executor agents 复用。
+**重要**：收集到的信息会写入 `docs/information/<task-id>.md`，供后续 Plan 和 Executor agents 读取复用。
 
 #### 步骤1: 调用 Plan agent
 
@@ -67,13 +68,12 @@ color: pink
 ```
 请使用 Plan agent 分析以下任务:
 任务: [用户的任务描述]
-项目信息: [如果步骤0调用了 information-gatherer，将其返回的总结报告内容直接传递过来]
 
-重要提示:
-- 如果已有 gather 的总结报告，直接将报告内容传递给 Plan agent
-- gather 可能也将分析结果缓存到了 Memory，Plan agent 可以从 Memory 读取
-- Plan agent 应该优先使用传递的总结或 Memory 中的信息
-- 避免重复读取 gather 已经分析过的文件
+**重要**: 请先从 docs/information/<task-id>.md 读取信息收集报告！
+- 信息文件路径: docs/information/<task-id>.md
+- 该文件包含项目结构、文件清单、依赖关系等详细信息
+- 无需重复扫描项目文件，直接基于报告内容进行规划
+- 如需补充信息，可针对性读取特定文件
 ```
 
 Plan agent 会返回一个详细的执行计划。
@@ -86,8 +86,20 @@ Plan agent 会返回一个详细的执行计划。
 ```
 同时调用多个 atlas-executor agents:
 - atlas-executor: 执行子任务1
+  prompt: |
+    子任务1描述
+    **重要**: 请先从 docs/information/<task-id>.md 读取项目信息！
+    严格按照计划执行，不要自行扩展范围。
 - atlas-executor: 执行子任务2
+  prompt: |
+    子任务2描述
+    **重要**: 请先从 docs/information/<task-id>.md 读取项目信息！
+    严格按照计划执行，不要自行扩展范围。
 - atlas-executor: 执行子任务3
+  prompt: |
+    子任务3描述
+    **重要**: 请先从 docs/information/<task-id>.md 读取项目信息！
+    严格按照计划执行，不要自行扩展范围。
 
 一次性发起所有调用,实现并行执行。
 ```
@@ -95,17 +107,17 @@ Plan agent 会返回一个详细的执行计划。
 **如果 parallel_strategy = "sequential"**:
 ```
 依次调用 atlas-executor agents:
-1. 先执行子任务1,等待完成
-2. 再执行子任务2,等待完成
-3. 最后执行子任务3
+1. 先执行子任务1 (读取 docs/information/<task-id>.md)，等待完成
+2. 再执行子任务2 (读取 docs/information/<task-id>.md)，等待完成
+3. 最后执行子任务3 (读取 docs/information/<task-id>.md)
 ```
 
 **如果 parallel_strategy = "mixed"**:
 ```
 分阶段执行:
-- 阶段1 (串行): 子任务1
-- 阶段2 (并行): 子任务2, 3, 4
-- 阶段3 (串行): 子任务5
+- 阶段1 (串行): 子任务1 (读取 docs/information/<task-id>.md)
+- 阶段2 (并行): 子任务2, 3, 4 (每个都读取 docs/information/<task-id>.md)
+- 阶段3 (串行): 子任务5 (读取 docs/information/<task-id>.md)
 ```
 
 #### 步骤3: 聚合结果
@@ -151,15 +163,21 @@ Atlas 会自动分解任务并并行执行,速度更快。
 ```
 用户: "给所有 API 添加错误处理"
 
+步骤0: 调用 information-gatherer agent
+└─→ information-gatherer
+    prompt: 任务 ID: add-error-handling-20251129，收集所有 API 文件信息
+    返回: 已写入 docs/information/add-error-handling-20251129.md
+
 步骤1: 调用 Plan agent
 └─→ Plan agent
+    prompt: 任务是添加错误处理，请先从 docs/information/add-error-handling-20251129.md 读取信息！
     返回计划: 15个文件, 分3组并行
 
 步骤2: 并行执行
 一次性调用:
-├─→ atlas-executor: 处理文件 1-5
-├─→ atlas-executor: 处理文件 6-10
-└─→ atlas-executor: 处理文件 11-15
+├─→ atlas-executor: 处理文件 1-5，读取 docs/information/add-error-handling-20251129.md
+├─→ atlas-executor: 处理文件 6-10，读取 docs/information/add-error-handling-20251129.md
+└─→ atlas-executor: 处理文件 11-15，读取 docs/information/add-error-handling-20251129.md
 
 步骤3: 报告结果
 ✅ 成功: 14/15
@@ -171,18 +189,24 @@ Atlas 会自动分解任务并并行执行,速度更快。
 ```
 用户: "先提取公共逻辑,再更新所有调用"
 
+步骤0: 调用 information-gatherer agent
+└─→ information-gatherer
+    prompt: 任务 ID: extract-common-20251129，分析公共逻辑和调用关系
+    返回: 已写入 docs/information/extract-common-20251129.md
+
 步骤1: 调用 Plan agent
 └─→ Plan agent
+    prompt: 提取公共逻辑并更新调用，请先从 docs/information/extract-common-20251129.md 读取信息！
     返回计划: mixed 策略, 2个阶段
 
 步骤2: 分阶段执行
 阶段1 (串行):
-└─→ atlas-executor: 提取公共逻辑
+└─→ atlas-executor: 提取公共逻辑，读取 docs/information/extract-common-20251129.md
 
 阶段2 (并行):
-├─→ atlas-executor: 更新文件1
-├─→ atlas-executor: 更新文件2
-└─→ atlas-executor: 更新文件3
+├─→ atlas-executor: 更新文件1，读取 docs/information/extract-common-20251129.md
+├─→ atlas-executor: 更新文件2，读取 docs/information/extract-common-20251129.md
+└─→ atlas-executor: 更新文件3，读取 docs/information/extract-common-20251129.md
 
 步骤3: 报告
 ✅ 提取成功, 所有调用已更新

@@ -35,12 +35,15 @@ description: 任务协调与并发执行引擎。处理复杂多步骤任务、�
 使用 Task tool 调用 information-gatherer agent:
 subagent_type: "atlas:information-gatherer"
 prompt: |
+  任务 ID: <task-id>  # 用于生成输出文件名，如 add-types-20251129
   收集以下信息:
   - 任务背景: [用户要做什么]
   - 关注方向: [需要了解哪些方面]
   - 范围: [哪些目录/文件可能相关]
-  - 输出: 结构化的分析报告,包含发现的文件列表和建议
+  - 输出: 将分析报告写入 docs/information/<task-id>.md
 ```
+
+**重要**：information-gatherer 会将结果写入 `docs/information/<task-id>.md`，并在报告末尾提供"下一步指引"。
 
 ### 步骤 2: 任务规划
 
@@ -49,7 +52,12 @@ prompt: |
 subagent_type: "Plan"
 prompt: |
   任务: [用户任务描述]
-  项目信息: [information-gatherer 的报告,如有]
+
+  **重要**: 请先从 docs/information/<task-id>.md 读取信息收集报告！
+  - 信息文件路径: docs/information/<task-id>.md
+  - 该文件包含项目结构、文件清单、依赖关系等详细信息
+  - 无需重复扫描项目文件，直接基于报告内容进行规划
+  - 如需补充信息，可针对性读取特定文件
 
   请返回:
   1. 子任务分解 (每个子任务独立可执行)
@@ -72,15 +80,30 @@ prompt: |
 
 Task 1:
   subagent_type: "atlas:atlas-executor"
-  prompt: "执行子任务1: [描述] 涉及文件: [列表]"
+  prompt: |
+    执行子任务1: [描述]
+    涉及文件: [列表]
+
+    **重要**: 请先从 docs/information/<task-id>.md 读取项目信息！
+    严格按照计划执行，不要自行扩展范围。
 
 Task 2:
   subagent_type: "atlas:atlas-executor"
-  prompt: "执行子任务2: [描述] 涉及文件: [列表]"
+  prompt: |
+    执行子任务2: [描述]
+    涉及文件: [列表]
+
+    **重要**: 请先从 docs/information/<task-id>.md 读取项目信息！
+    严格按照计划执行，不要自行扩展范围。
 
 Task 3:
   subagent_type: "atlas:atlas-executor"
-  prompt: "执行子任务3: [描述] 涉及文件: [列表]"
+  prompt: |
+    执行子任务3: [描述]
+    涉及文件: [列表]
+
+    **重要**: 请先从 docs/information/<task-id>.md 读取项目信息！
+    严格按照计划执行，不要自行扩展范围。
 ```
 
 #### 错误做法: 逐个调用 (禁止!)
@@ -129,17 +152,22 @@ Task 3:
 执行流程:
 
 1. Task tool → information-gatherer agent
-   prompt: 收集项目中所有 React 组件的信息,包括文件位置、现有类型定义情况、组件结构
-   返回: 发现 src/components 下有15个组件,分布在 auth/dashboard/shared 三个目录
+   prompt: |
+     任务 ID: add-types-20251129
+     收集项目中所有 React 组件的信息,包括文件位置、现有类型定义情况、组件结构
+     输出: 将分析报告写入 docs/information/add-types-20251129.md
+   返回: 已写入 docs/information/add-types-20251129.md
 
 2. Task tool → Plan agent
-   prompt: 任务是给所有组件添加类型,信息收集发现15个组件...
+   prompt: |
+     任务是给所有组件添加类型
+     **重要**: 请先从 docs/information/add-types-20251129.md 读取信息！
    返回: 按目录分3组并行,策略: parallel
 
 3. 同时发起3个 Task tool 调用 (同一条消息中):
-   - Task(atlas:atlas-executor): 处理 auth 组件 (5个)
-   - Task(atlas:atlas-executor): 处理 dashboard 组件 (5个)
-   - Task(atlas:atlas-executor): 处理 shared 组件 (5个)
+   - Task(atlas:atlas-executor): 处理 auth 组件，读取 docs/information/add-types-20251129.md
+   - Task(atlas:atlas-executor): 处理 dashboard 组件，读取 docs/information/add-types-20251129.md
+   - Task(atlas:atlas-executor): 处理 shared 组件，读取 docs/information/add-types-20251129.md
 
 4. 聚合结果并报告
 ```
@@ -152,17 +180,24 @@ Task 3:
 执行流程:
 
 1. Task tool → information-gatherer agent
-   prompt: 分析数据库层的结构,找出 schema 和 repository 的关系和依赖
-   返回: schema 定义在 db/schema.ts,repository 在 db/repositories/ 下有5个文件依赖它
+   prompt: |
+     任务 ID: refactor-db-20251129
+     分析数据库层的结构,找出 schema 和 repository 的关系和依赖
+     输出: 将分析报告写入 docs/information/refactor-db-20251129.md
+   返回: 已写入 docs/information/refactor-db-20251129.md
 
 2. Task tool → Plan agent
-   prompt: 重构数据库层,信息收集显示 repository 依赖 schema...
+   prompt: |
+     重构数据库层
+     **重要**: 请先从 docs/information/refactor-db-20251129.md 读取信息！
    返回: 2个子任务有依赖,策略: sequential
 
 3. 第一步: Task(atlas:atlas-executor) 修改 schema
+   prompt: 修改 schema，读取 docs/information/refactor-db-20251129.md
    等待完成...
 
 4. 第二步: Task(atlas:atlas-executor) 修改 repository
+   prompt: 修改 repository，读取 docs/information/refactor-db-20251129.md
    等待完成...
 
 5. 聚合结果并报告
@@ -176,20 +211,26 @@ Task 3:
 执行流程:
 
 1. Task tool → information-gatherer agent
-   prompt: 分析 auth 模块的代码结构,找出重复的公共逻辑和所有使用它的组件
-   返回: 发现 Login/Register/Profile 三个组件有重复的验证逻辑,建议提取到 auth-utils.ts
+   prompt: |
+     任务 ID: refactor-auth-20251129
+     分析 auth 模块的代码结构,找出重复的公共逻辑和所有使用它的组件
+     输出: 将分析报告写入 docs/information/refactor-auth-20251129.md
+   返回: 已写入 docs/information/refactor-auth-20251129.md
 
 2. Task tool → Plan agent
-   prompt: 重构 auth 模块,信息收集建议先提取公共逻辑...
+   prompt: |
+     重构 auth 模块
+     **重要**: 请先从 docs/information/refactor-auth-20251129.md 读取信息！
    返回: 策略: mixed (阶段1串行提取,阶段2并行更新)
 
 3. 阶段1 (串行): Task(atlas:atlas-executor) 提取公共逻辑到 auth-utils.ts
+   prompt: 提取公共逻辑，读取 docs/information/refactor-auth-20251129.md
    等待完成...
 
 4. 阶段2 (并行,同一条消息):
-   - Task(atlas:atlas-executor): 更新 Login.tsx
-   - Task(atlas:atlas-executor): 更新 Register.tsx
-   - Task(atlas:atlas-executor): 更新 Profile.tsx
+   - Task(atlas:atlas-executor): 更新 Login.tsx，读取 docs/information/refactor-auth-20251129.md
+   - Task(atlas:atlas-executor): 更新 Register.tsx，读取 docs/information/refactor-auth-20251129.md
+   - Task(atlas:atlas-executor): 更新 Profile.tsx，读取 docs/information/refactor-auth-20251129.md
 
 5. 聚合结果并报告
 ```
