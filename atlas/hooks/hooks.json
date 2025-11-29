@@ -1,13 +1,13 @@
 {
-  "description": "Atlas plugin hooks - constraints for subagents and context gathering guidance",
+  "description": "Atlas plugin hooks",
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Task|Skill",
+        "matcher": "Skill",
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Check the current execution context:\n- If you were spawned by a Task tool call (i.e., you are a subagent), you should not use Task or Skill tools. Return a deny decision with reason 'Subagents should not spawn nested agents'.\n- If you are the main agent responding directly to user input, this tool call is appropriate. Return an approve decision."
+            "prompt": "If this is a subagent context (check if conversation started with a Task delegation), block with {\"decision\": \"block\", \"reason\": \"Use tools directly instead of Skill\"}. Otherwise approve."
           }
         ]
       }
