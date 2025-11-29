@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Consider delegating work to specialized agents to keep the main conversation focused and reduce token usage.\\n\\nAvailable agents (via Task tool):\\n- information-gatherer: Collect project context, analyze structure, find symbols and dependencies\\n- atlas-executor: Execute specific subtasks, code modifications, file operations\\n\\nAvailable skills (via Skill tool):\\n- atlas:task-orchestrator: Coordinate complex multi-step tasks with parallel execution\\n- atlas:gather: Structured information collection workflow\\n- atlas:implement: Feature implementation workflow\\n\\nDelegating to agents keeps the main conversation concise. Skip delegation only when the user provides complete context or asks simple questions.'"
+            "command": "echo 'Keep responses concise, clear, and valuable. Follow 八荣八耻, Occam\\'s Razor, Linus spirit.\n\nWhen uncertain, use AskUserQuestion to clarify before acting.\n\nDelegate to agents (via Task tool) for complex tasks:\n- information-gatherer: Project analysis, structure, dependencies\n- atlas-executor: Code modifications, file operations\n\nSkills: atlas:task-orchestrator, atlas:gather, atlas:implement\n\nSkip delegation for: simple Q&A, single-file edits, explicit user request.'"
           }
         ]
       }

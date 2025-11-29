@@ -4,237 +4,80 @@ description: 🚀 强大的任务协调与并发执行引擎。专门处理异�
 color: pink
 ---
 
-# Atlas 任务编排框架使用指南
+# Atlas 任务编排框架
 
-你正在阅读 Atlas Skill,这是一个强大的任务协调和执行框架。
+**核心理念**：通过 Task tool 调用专业 agents，实现任务分解与并行执行。
 
-## 何时使用 Atlas
+## 适用场景
 
-**核心理念**：当用户触发关键字时，意味着他们想把任务委托给 Atlas 框架，而不是在主线程直接处理。
+- 批量操作（多文件相同操作）
+- 项目级变更（影响整个模块）
+- 复杂组合（分析+执行）
+- 串行依赖（有先后顺序）
 
-**适用场景**：
-1. **任务委托**：用户明确要求"后台"、"异步"处理
-2. **批量操作**：多文件、多组件的相同操作
-3. **项目级变更**：影响整个项目或模块的修改
-4. **复杂组合**：需要分析+执行的多步骤任务
-5. **串行依赖**：有先后顺序的多步骤任务
+## 工作流程
 
-**示例场景**：
-- 用户说"修改版本号，后台执行" → 启动 Atlas
-- 给所有组件添加类型定义 → Atlas 并行处理
-- 重构整个模块的架构 → Atlas 分析+执行
-- 分析性能问题并优化 → Atlas 串行执行
-- 批量更新 import 路径 → Atlas 并行处理
-
-**为什么用 Atlas**：
-- 🎯 **专业化处理**：由专业 agent 分析和执行任务
-- 🚀 **并行加速**：多任务可并发执行，显著提升效率
-- 🧠 **智能分解**：自动拆分复杂任务为可执行子任务
-- 📊 **结果聚合**：自动收集所有子任务结果
-- 🔄 **灵活编排**：支持串行、并行、混合执行策略
-
-## 如何使用 Atlas
-
-### 方式1: 自动触发(推荐)
-
-当你识别到上述场景,**自动**按以下流程操作:
-
-#### 步骤0: 信息收集（可选）
-
-如果任务需要了解项目结构、依赖关系等信息，可以先调用 `information-gatherer` agent：
+### 步骤0: 信息收集（可选）
 
 ```
-使用 information-gatherer agent 收集项目信息:
-
-任务 ID: <task-id>  # 用于生成输出文件名，如 add-types-20251129
-任务: [信息收集需求]
-范围: [项目路径/特定目录]
-目标: [项目结构/依赖关系/代码模式]
-输出: 将分析报告写入 docs/information/<task-id>.md
+Task(subagent_type="atlas:information-gatherer")
+prompt: 任务ID: <id>, 收集[范围]的[目标]信息
+→ 输出到 docs/information/<id>.md
 ```
 
-**适用场景**：
-- 首次接触项目，需要了解代码结构
-- 需要分析特定符号的依赖关系
-- 评估修改的影响范围
-- 查找特定的代码模式
-
-**重要**：收集到的信息会写入 `docs/information/<task-id>.md`，供后续 Plan 和 Executor agents 读取复用。
-
-#### 步骤1: 调用 Plan agent
-
-首先调用 `Plan` agent 生成执行计划:
+### 步骤1: 调用 Plan agent
 
 ```
-请使用 Plan agent 分析以下任务:
-任务: [用户的任务描述]
-
-**重要**: 请先从 docs/information/<task-id>.md 读取信息收集报告！
-- 信息文件路径: docs/information/<task-id>.md
-- 该文件包含项目结构、文件清单、依赖关系等详细信息
-- 无需重复扫描项目文件，直接基于报告内容进行规划
-- 如需补充信息，可针对性读取特定文件
+Task(subagent_type="Plan")
+prompt: 任务描述 + 请先从 docs/information/<id>.md 读取信息
+→ 返回执行计划和并行策略
 ```
 
-Plan agent 会返回一个详细的执行计划。
+### 步骤2: 并发执行
 
-#### 步骤2: 根据计划并发执行
-
-拿到 Plan agent 的计划后,根据并行策略决定如何执行:
-
-**如果 parallel_strategy = "parallel"**:
+**parallel**: 一次性发起所有 executor
 ```
-同时调用多个 atlas-executor agents:
-- atlas-executor: 执行子任务1
-  prompt: |
-    子任务1描述
-    **重要**: 请先从 docs/information/<task-id>.md 读取项目信息！
-    严格按照计划执行，不要自行扩展范围。
-- atlas-executor: 执行子任务2
-  prompt: |
-    子任务2描述
-    **重要**: 请先从 docs/information/<task-id>.md 读取项目信息！
-    严格按照计划执行，不要自行扩展范围。
-- atlas-executor: 执行子任务3
-  prompt: |
-    子任务3描述
-    **重要**: 请先从 docs/information/<task-id>.md 读取项目信息！
-    严格按照计划执行，不要自行扩展范围。
-
-一次性发起所有调用,实现并行执行。
+同一消息中多个 Task(subagent_type="atlas:atlas-executor"):
+- executor1: 子任务1
+- executor2: 子任务2
+- executor3: 子任务3
 ```
 
-**如果 parallel_strategy = "sequential"**:
+**sequential**: 依次执行
 ```
-依次调用 atlas-executor agents:
-1. 先执行子任务1 (读取 docs/information/<task-id>.md)，等待完成
-2. 再执行子任务2 (读取 docs/information/<task-id>.md)，等待完成
-3. 最后执行子任务3 (读取 docs/information/<task-id>.md)
+Task executor1 → 等待 → Task executor2 → 等待 → Task executor3
 ```
 
-**如果 parallel_strategy = "mixed"**:
+**mixed**: 分阶段
 ```
-分阶段执行:
-- 阶段1 (串行): 子任务1 (读取 docs/information/<task-id>.md)
-- 阶段2 (并行): 子任务2, 3, 4 (每个都读取 docs/information/<task-id>.md)
-- 阶段3 (串行): 子任务5 (读取 docs/information/<task-id>.md)
+阶段1(串行): executor1
+阶段2(并行): executor2, executor3, executor4
 ```
 
-#### 步骤3: 聚合结果
+### 步骤3: 聚合报告
 
-收集所有 executor 的返回结果,生成综合报告。
+收集所有结果，生成综合报告。
 
-### 方式2: 建议用户使用命令
+## 核心原则
 
-如果任务特别复杂或你不确定,可以建议用户使用 `/orchestrate` 命令:
+### ✅ 必须做到
+- 主线程编排，通过 Task tool 调用 agents
+- 先调 Plan agent 规划
+- 可并行任务一次性发起
+- 收集结果后统一报告
 
-```
-这个任务适合使用 Atlas 框架来处理。你可以运行:
+### ❌ 禁止操作
+- 不要自己执行任务（由 executor 完成）
+- 不要串行调用可并行任务
+- 不要跳过 Plan agent
+- 禁止 Agent 中嵌套调用其他 Agent/Skill
 
-/orchestrate [任务描述]
+## 性能建议
 
-例如:
-/orchestrate 给所有组件添加 TypeScript 类型定义
-
-Atlas 会自动分解任务并并行执行,速度更快。
-```
-
-## 重要原则
-
-### ✅ 你应该做的
-
-1. **主线程编排**: 你在主线程,负责调用 agents
-2. **先调 Plan agent**: 总是先让 Plan agent 分析任务
-3. **并行发起**: 可并行的 executor 一次性发起
-4. **收集结果**: 聚合所有 executor 的结果
-5. **清晰报告**: 向用户报告执行状况
-
-### ❌ 你不应该做的
-
-1. **不要让 skill 调用 agents**: Skill 只提供指导,实际调用由主线程完成
-2. **不要自己执行任务**: 你不直接修改文件,由 executor 完成
-3. **不要串行调用可并行任务**: 应一次性发起多个 executor
-4. **不要跳过 Plan agent**: 复杂任务必须先规划
-
-## 完整工作流示例
-
-### 示例1: 批量操作
-
-```
-用户: "给所有 API 添加错误处理"
-
-步骤0: 调用 information-gatherer agent
-└─→ information-gatherer
-    prompt: 任务 ID: add-error-handling-20251129，收集所有 API 文件信息
-    返回: 已写入 docs/information/add-error-handling-20251129.md
-
-步骤1: 调用 Plan agent
-└─→ Plan agent
-    prompt: 任务是添加错误处理，请先从 docs/information/add-error-handling-20251129.md 读取信息！
-    返回计划: 15个文件, 分3组并行
-
-步骤2: 并行执行
-一次性调用:
-├─→ atlas-executor: 处理文件 1-5，读取 docs/information/add-error-handling-20251129.md
-├─→ atlas-executor: 处理文件 6-10，读取 docs/information/add-error-handling-20251129.md
-└─→ atlas-executor: 处理文件 11-15，读取 docs/information/add-error-handling-20251129.md
-
-步骤3: 报告结果
-✅ 成功: 14/15
-❌ 失败: 1/15 (需人工处理)
-```
-
-### 示例2: 有依赖的任务
-
-```
-用户: "先提取公共逻辑,再更新所有调用"
-
-步骤0: 调用 information-gatherer agent
-└─→ information-gatherer
-    prompt: 任务 ID: extract-common-20251129，分析公共逻辑和调用关系
-    返回: 已写入 docs/information/extract-common-20251129.md
-
-步骤1: 调用 Plan agent
-└─→ Plan agent
-    prompt: 提取公共逻辑并更新调用，请先从 docs/information/extract-common-20251129.md 读取信息！
-    返回计划: mixed 策略, 2个阶段
-
-步骤2: 分阶段执行
-阶段1 (串行):
-└─→ atlas-executor: 提取公共逻辑，读取 docs/information/extract-common-20251129.md
-
-阶段2 (并行):
-├─→ atlas-executor: 更新文件1，读取 docs/information/extract-common-20251129.md
-├─→ atlas-executor: 更新文件2，读取 docs/information/extract-common-20251129.md
-└─→ atlas-executor: 更新文件3，读取 docs/information/extract-common-20251129.md
-
-步骤3: 报告
-✅ 提取成功, 所有调用已更新
-```
-
-## 不适合使用 Atlas 的场景
-
-只有以下情况不用 Atlas：
-- ❌ 禁止嵌套 Agent: 如果已经在 Agent 或者 Skill 中，禁止再调用任何 Agent，否则杀无赦
-
-## 关键原则
-
-### 角色分工
-- **Plan agent**: 只规划不执行 - 分析任务、分解子任务、生成计划
-- **executor**: 只执行不规划 - 执行子任务、修改文件、报告结果
-- **你(主线程)**: 负责编排 - 识别场景、调用agents、聚合结果
-
-### 并行执行
-```
-✅ 正确: 一次性发起所有可并行的 executor
-❌ 错误: 逐个调用 executor 等待完成
-```
-
-### 性能建议
-- 合理分组 (3-5个 executor 为佳)
-- 平衡负载 (每组工作量相近)
-- 超过10个子任务时分批执行
+- 合理分组（3-5个 executor）
+- 平衡负载
+- 超10个子任务分批执行
 
 ---
 
-**记住: Atlas 是任务执行引擎,不是任务规划工具。先规划(Plan agent),再执行(executor),最后聚合(你)。**
+**记住**: Atlas 是执行引擎。先规划(Plan)，再执行(executor)，最后聚合(你)。
