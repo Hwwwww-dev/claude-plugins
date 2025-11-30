@@ -1,6 +1,17 @@
 {
   "description": "Atlas plugin hooks",
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"[Serena] If not loaded, run 'mcp__serena__activate_project' to mount cwd. For new projects, run 'mcp__serena__onboarding' first to build indexes and memories.\""
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Skill",
