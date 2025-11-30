@@ -6,8 +6,8 @@
         "matcher": "startup|clear|compact",
         "hooks": [
           {
-            "type": "command",
-            "command": "echo \"[Serena] If not loaded, run 'mcp__serena__activate_project' to mount cwd. For new projects, run 'mcp__serena__onboarding' first to build indexes and memories.\""
+            "type": "prompt",
+            "prompt": "Check if Serena MCP is loaded (mcp__serena__ tools available). If not loaded, ask the user: 'Serena MCP not detected. Activate project now? (mcp__serena__activate_project)'. If this is a new project without onboarding, also mention running 'mcp__serena__onboarding' first."
           }
         ]
       }
