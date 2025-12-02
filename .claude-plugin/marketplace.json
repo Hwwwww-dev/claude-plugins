@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Community marketplace for Claude Code plugins",
-    "version": "1.6.1"
+    "version": "1.7.0"
   },
   "plugins": [
     {
       "name": "atlas",
       "source": "./atlas",
       "description": "强大的任务协调与并发执行框架。智能分解复杂任务并并发执行,支持批量操作、项目级变更、多步骤任务编排。智能信息收集系统和 Repo Wiki 自动文档生成,支持项目级到符号级的深度分析。",
-      "version": "1.6.1",
+      "version": "1.7.0",
       "author": {
         "name": "Hwwwww"
       },
