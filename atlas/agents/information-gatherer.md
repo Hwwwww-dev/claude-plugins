@@ -16,7 +16,214 @@ color: orange
 分析范围: [路径/目录/文件]
 收集目标: [结构/依赖/模式/符号]
 输出要求: [详细程度]
+输出格式: [report | PKG]  # 可选，默认 report
+PKG 层级: [project | modules | symbols | quality]  # 仅 PKG 模式
 ```
+
+---
+
+## PKG 模式
+
+当输入包含 `输出格式: PKG` 时，切换到 Project Knowledge Graph 输出模式，输出结构化 JSON 数据而非 Markdown 报告。
+
+### PKG 输入格式
+
+```
+任务 ID: <task-id>
+输出格式: PKG
+PKG 层级: [project | modules | symbols | quality]
+分析范围: [路径，默认 "."]
+分析深度: [数字，默认 2]
+```
+
+### PKG 输出路径
+
+| PKG 层级 | 输出文件 |
+|---------|---------|
+| project | `.claude/repowiki/.pkg/project.json` |
+| modules | `.claude/repowiki/.pkg/modules.json` |
+| symbols | `.claude/repowiki/.pkg/symbols.json` |
+| quality | `.claude/repowiki/.pkg/quality.json` |
+
+### PKG 收集策略
+
+#### project 层级
+
+**工具**: Glob + Read 配置文件
+
+**收集内容**:
+```json
+{
+  "metadata": {
+    "name": "项目名称",
+    "version": "版本号",
+    "description": "描述",
+    "license": "许可证",
+    "author": "作者",
+    "repository": "仓库地址"
+  },
+  "techStack": {
+    "language": "主语言",
+    "framework": "框架",
+    "database": "数据库",
+    "packageManager": "包管理器"
+  },
+  "directory": {
+    "tree": "目录树结构",
+    "roles": {"src": "源代码", "tests": "测试"},
+    "stats": {"ts": 45, "tsx": 23}
+  },
+  "dependencies": {
+    "production": [{"name": "...", "version": "...", "purpose": "..."}],
+    "development": [...]
+  },
+  "build": {
+    "scripts": {"build": "tsc", "test": "jest"},
+    "envVars": ["DATABASE_URL", "API_KEY"],
+    "docker": "Dockerfile 概要",
+    "ci": "CI 配置概要"
+  }
+}
+```
+
+#### modules 层级
+
+**工具**: Glob + Grep + Serena (get_symbols_overview)
+
+**收集内容**:
+```json
+{
+  "modules": [
+    {
+      "name": "模块名",
+      "path": "路径",
+      "entry": "入口文件",
+      "exports": ["导出符号列表"],
+      "layer": "controller|service|repository|util",
+      "patterns": ["singleton", "factory"]
+    }
+  ],
+  "dependencies": {
+    "graph": "Mermaid 图表代码",
+    "cycles": ["循环依赖警告"]
+  },
+  "layers": {
+    "controllers": ["文件列表"],
+    "services": ["文件列表"],
+    "repositories": ["文件列表"]
+  }
+}
+```
+
+#### symbols 层级
+
+**工具**: Serena MCP 优先
+
+**收集内容**:
+```json
+{
+  "modules": {
+    "ModuleName": {
+      "classes": [
+        {
+          "name": "ClassName",
+          "visibility": "public",
+          "extends": "BaseClass",
+          "implements": ["Interface1"],
+          "generics": ["T", "K"],
+          "properties": [
+            {"name": "prop", "type": "string", "visibility": "public"}
+          ],
+          "methods": [
+            {
+              "name": "method",
+              "visibility": "public",
+              "params": [{"name": "arg", "type": "number"}],
+              "returns": "void",
+              "description": "JSDoc 说明"
+            }
+          ]
+        }
+      ],
+      "interfaces": [...],
+      "functions": [...],
+      "types": [...]
+    }
+  },
+  "apiEndpoints": [
+    {
+      "method": "GET",
+      "path": "/api/users",
+      "handler": "UserController.list",
+      "auth": true,
+      "params": [],
+      "response": "User[]"
+    }
+  ],
+  "stats": {
+    "total": 156,
+    "documented": 142,
+    "coverage": 0.91
+  }
+}
+```
+
+#### quality 层级
+
+**工具**: Glob + 统计分析
+
+**收集内容**:
+```json
+{
+  "complexity": {
+    "fileStats": [
+      {"path": "file.ts", "lines": 245, "functions": 12}
+    ],
+    "largeFunctions": [
+      {"path": "file.ts", "name": "bigFunc", "lines": 89}
+    ],
+    "deepNesting": [
+      {"path": "file.ts", "name": "func", "depth": 5}
+    ]
+  },
+  "organization": {
+    "fileCount": 156,
+    "avgFileSize": 120,
+    "largeModules": ["module1", "module2"],
+    "suggestions": ["建议拆分 module1"]
+  }
+}
+```
+
+### PKG 输出摘要
+
+PKG 模式下，返回给主对话的摘要格式：
+
+```markdown
+📦 PKG 收集完成
+
+**层级**: [project | modules | symbols | quality]
+**范围**: [分析路径]
+**数据量**: [统计信息]
+
+💾 已写入: .claude/repowiki/.pkg/[layer].json
+
+🔜 下一阶段可读取此文件继续处理
+```
+
+### PKG 采样策略
+
+当符号数过多时（> 100），执行智能采样：
+
+1. **优先级排序**: public > protected > private
+2. **跳过规则**:
+   - `@internal` 或 `@private` 标记
+   - test/mock/fixture 目录
+   - 自动生成代码（.generated.ts）
+3. **分批处理**: 每批 50 个符号
+4. **记录未处理**: 在 `skipped` 字段中记录
+
+---
 
 ## 执行流程
 

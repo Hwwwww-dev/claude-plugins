@@ -1,5 +1,6 @@
 ---
 description: 智能信息收集命令。分析项目结构、依赖关系、代码模式,输出结构化报告。
+argument-hint: <分析目标> [--scope path] [--depth N] [--output report|pkg]
 ---
 
 # /gather - 信息收集

@@ -1,5 +1,6 @@
 ---
 description: 任务协调与并发执行引擎。处理复杂多步骤任务、批量操作、项目级变更。
+argument-hint: <任务描述> [--parallel|--sequential] [--dry-run] [--no-gather]
 ---
 
 # /orchestrate - 任务协调引擎
