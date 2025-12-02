@@ -119,6 +119,14 @@ PKG 层级: [project | modules | symbols | quality]
 
 **工具**: Serena MCP 优先
 
+**签名规范化算法**:
+```
+规范化格式: {visibility} {name}({params}):{returns}
+示例: "public getUserById(id: string): Promise<User>"
+计算: SHA256(规范化签名) -> signatureHash
+用途: 快速对比变更，无需重新解析
+```
+
 **收集内容**:
 ```json
 {
@@ -131,8 +139,21 @@ PKG 层级: [project | modules | symbols | quality]
           "extends": "BaseClass",
           "implements": ["Interface1"],
           "generics": ["T", "K"],
+          "location": {
+            "file": "src/models/User.ts",
+            "line": 12,
+            "column": 14
+          },
+          "signatureHash": "a3b2c1...",
+          "changeTimestamp": "2025-12-02T10:30:00Z",
           "properties": [
-            {"name": "prop", "type": "string", "visibility": "public"}
+            {
+              "name": "prop",
+              "type": "string",
+              "visibility": "public",
+              "location": {"file": "...", "line": 15, "column": 4},
+              "signatureHash": "d4e5f6..."
+            }
           ],
           "methods": [
             {
@@ -140,7 +161,10 @@ PKG 层级: [project | modules | symbols | quality]
               "visibility": "public",
               "params": [{"name": "arg", "type": "number"}],
               "returns": "void",
-              "description": "JSDoc 说明"
+              "description": "JSDoc 说明",
+              "location": {"file": "...", "line": 20, "column": 4},
+              "signatureHash": "g7h8i9...",
+              "changeTimestamp": "2025-12-02T10:30:00Z"
             }
           ]
         }
@@ -157,7 +181,9 @@ PKG 层级: [project | modules | symbols | quality]
       "handler": "UserController.list",
       "auth": true,
       "params": [],
-      "response": "User[]"
+      "response": "User[]",
+      "location": {"file": "src/routes/users.ts", "line": 45, "column": 8},
+      "signatureHash": "j1k2l3..."
     }
   ],
   "stats": {
@@ -167,6 +193,13 @@ PKG 层级: [project | modules | symbols | quality]
   }
 }
 ```
+
+**新增字段说明**:
+- `signatureHash`: SHA256 签名哈希（8字符前缀），用于快速对比是否变更
+- `location`: 符号定义位置 `{file, line, column}`，支持跳转和追溯
+- `changeTimestamp`: ISO 8601 时间戳（可选），记录符号新增或变更时间
+
+**向后兼容**: 这些字段为可选增强字段，缺失时不影响现有功能
 
 #### quality 层级
 

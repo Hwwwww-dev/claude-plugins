@@ -24,31 +24,37 @@ argument-hint: [--force] [--lang zh|en] [--depth N] [--scope path] [--skip-symbo
 
 ## 执行流程
 
-Phase 0 环境检测 → Phase 1 规划 → Phase 2 信息收集 → Phase 3 文档生成 → Phase 4 验证
+Phase 0 环境检测 → Phase 1 语义变更检测 → Phase 2 规划 → Phase 3 信息收集 → Phase 4 文档生成 → Phase 5 AI索引生成 → Phase 6 验证 → Phase 7 上下文优化
 
 ### Subagent 分配（必须严格遵守）
 
 | Phase | 功能 | Subagent | 说明 |
 |:------|:-----|:---------|:-----|
 | 0 | 环境检测 | 主进程 | 不需要 subagent |
-| 1 | 规划 | `Plan` | 必须生成详细 todos |
-| 2 | 信息收集 | `atlas:information-gatherer` | 读取 todos 执行 |
-| 3 | 文档生成 | `atlas:atlas-executor` | 读取 todos 执行 |
-| 4 | 验证 | 主进程 | 不需要 subagent |
+| 1 | 语义变更检测 | `atlas:repo-semantic-analyzer` | 检测语义级变更 |
+| 2 | 规划 | `Plan` | 必须生成详细 todos |
+| 3 | 信息收集 | `atlas:information-gatherer` | 读取 todos 执行 |
+| 4 | 文档生成 | `atlas:atlas-executor` | 读取 todos 执行 |
+| 5 | AI索引生成 | `atlas:repo-context-indexer` | 生成快速查询索引 |
+| 6 | 验证 | 主进程 | 不需要 subagent |
+| 7 | 上下文优化 | 主进程 | 生成 wiki-context.json |
 
-**🚨 严禁混用 subagent！Plan 只做规划，information-gatherer 只做信息收集，atlas-executor 只做文档生成！**
+**🚨 严禁混用 subagent！Plan 只做规划，information-gatherer 只做信息收集，atlas-executor 只做文档生成，repo-semantic-analyzer 只做变更检测，repo-context-indexer 只做索引生成！**
 
 ### 数据流转
 
 | Phase | 读取 | 输出 | 传递方式 |
 |:------|:-----|:-----|:---------|
-| 0 | 项目目录、git 状态 | 环境报告 (mode, fileCount, changedFiles) | 内存传递给 Phase 1 |
-| 1 | Phase 0 环境报告 | 执行计划 JSON | 内存传递给 Phase 2 |
-| 2 | Phase 1 计划 | PKG 文件 (.meta/*.pkg.json) | 文件写入 |
-| 3 | PKG 文件 | 文档文件 (*.md) | 文件写入 |
-| 4 | 文档文件、PKG 文件 | 验证报告 + 最终报告 | 文件写入 + 输出 |
+| 0 | 项目目录、git 状态 | 环境报告 (mode, fileCount, changedFiles) | 内存传递给 Phase 1/2 |
+| 1 | Phase 0 环境报告、git diff | 变更影响分析 (.meta/semantic-changes.json) | 文件写入 + 传递给 Phase 2 |
+| 2 | Phase 0/1 报告 | 执行计划 JSON | 内存传递给 Phase 3 |
+| 3 | Phase 2 计划 | PKG 文件 (.meta/*.pkg.json) | 文件写入 |
+| 4 | PKG 文件 | 文档文件 (*.md) | 文件写入 |
+| 5 | 文档文件、PKG 文件 | 索引文件 (.index/*.json) | 文件写入 |
+| 6 | 文档文件、PKG 文件、索引文件 | 验证报告 + 最终报告 | 文件写入 + 输出 |
+| 7 | 索引文件、验证报告 | wiki-context.json | 文件写入 |
 
-**关键约束**: Phase 2/3/4 必须从文件读取 PKG，不依赖内存传递
+**关键约束**: Phase 3/4/5/6/7 必须从文件读取 PKG/索引，不依赖内存传递
 
 ---
 
@@ -56,7 +62,7 @@ Phase 0 环境检测 → Phase 1 规划 → Phase 2 信息收集 → Phase 3 文
 
 **输入**: 项目目录、git 状态、命令参数
 
-**输出** (传递给 Phase 1):
+**输出** (传递给 Phase 2):
 ```json
 {
   "mode": "FULL_BUILD | INCREMENTAL",
@@ -67,17 +73,66 @@ Phase 0 环境检测 → Phase 1 规划 → Phase 2 信息收集 → Phase 3 文
 ```
 
 **操作**:
-- 创建目录 `.claude/repowiki/{.meta,architecture,api,guides,decisions,symbols,quality,features}`
+- 创建目录 `.claude/repowiki/{.meta,.index,architecture,api,guides,decisions,symbols,quality,features}`
 - 检测构建模式: FULL_BUILD (Wiki不存在/--force/配置变更) | INCREMENTAL (仅代码变更)
 - 判断规模: <100 全量 | 100-500 采样 | 500-2000 分片 | >2000 需 --scope
 
 ---
 
-## Phase 1: 规划
+## Phase 1: 语义变更检测
+
+**条件**: 仅在 **INCREMENTAL** 模式执行（FULL_BUILD 跳过此阶段）
+
+**Subagent**: `atlas:repo-semantic-analyzer` (必须使用 Task tool 的 subagent_type="atlas:repo-semantic-analyzer")
+
+**输入**:
+- Phase 0 环境报告 (mode, changedFiles)
+- git diff 输出
+
+**输出** (写入文件):
+- `.meta/semantic-changes.json`
+
+**输出格式**:
+```json
+{
+  "timestamp": "2024-01-15T10:30:00Z",
+  "changedFiles": ["src/user.ts", "src/order.ts"],
+  "semanticChanges": {
+    "newSymbols": [
+      {"type": "function", "name": "validateUser", "module": "user", "file": "src/user.ts"}
+    ],
+    "modifiedSymbols": [
+      {"type": "class", "name": "OrderService", "module": "order", "file": "src/order.ts", "change": "method added"}
+    ],
+    "deletedSymbols": [],
+    "affectedModules": ["user", "order"],
+    "affectedDocs": ["symbols/user-module.md", "api/endpoints.md"]
+  },
+  "impactLevel": "medium"
+}
+```
+
+**操作**:
+1. 使用 `git diff HEAD~1 HEAD` 获取文件变更
+2. 对变更文件进行语义分析（使用 Serena MCP 的 `find_symbol` / `find_referencing_symbols`）
+3. 识别新增/修改/删除的符号（类、函数、接口等）
+4. 分析变更影响范围（依赖关系、引用位置）
+5. 确定需要更新的文档文件列表
+6. 输出结构化的变更影响分析到 `.meta/semantic-changes.json`
+
+**Subagent Prompt 必须包含**:
+1. git diff 命令获取变更内容
+2. 输出文件完整路径: `.claude/repowiki/.meta/semantic-changes.json`
+3. 使用 Serena MCP 工具进行语义分析
+4. 输出格式必须符合上述 JSON schema
+
+---
+
+## Phase 2: 规划
 
 **Subagent**: `Plan` (必须使用 Task tool 的 subagent_type="Plan")
 
-**输入**: Phase 0 环境报告
+**输入**: Phase 0 环境报告 + Phase 1 语义变更分析（如有）
 
 **输出**:
 1. **TodoWrite** - 必须使用 TodoWrite 工具生成详细的执行计划
@@ -95,20 +150,20 @@ Plan agent 必须通过 **TodoWrite** 根据项目实际情况动态生成 todos
 
 **Todos 结构**（按实际需要生成）:
 ```
-Phase 2 - 信息收集（根据需要选择）:
+Phase 3 - 信息收集（根据需要选择）:
 - 收集项目元数据 → .meta/project.pkg.json
 - 分析模块结构 → .meta/modules.pkg.json
 - 统计代码质量 → .meta/quality.pkg.json
 - 提取符号信息 → .meta/symbols.pkg.json（如未 --skip-symbols）
 
-Phase 3 - 文档生成（根据条件生成规则选择）:
+Phase 4 - 文档生成（根据条件生成规则选择）:
 - 生成首页和架构文档
 - 生成 API 文档（如检测到 API）
 - 生成开发指南
 - 生成符号文档（如未 --skip-symbols）
 - 生成功能文档（如检测到特定功能或 --features）
 
-Phase 4 - 验证:
+Phase 6 - 验证:
 - 验证文档完整性
 - 生成验证报告
 ```
@@ -118,7 +173,7 @@ Phase 4 - 验证:
 2. todos 内容**根据项目实际情况动态决定**，尽可能信息
 3. 后续 agent **必须严格按照 todos 顺序执行**
 
-**执行计划 JSON** (传递给 Phase 2):
+**执行计划 JSON** (传递给 Phase 3):
 ```json
 {
   "collectors": ["project", "modules", "quality", "symbols"],
@@ -132,13 +187,13 @@ Phase 4 - 验证:
 
 ---
 
-## Phase 2: 信息收集
+## Phase 3: 信息收集
 
 **Subagent**: `atlas:information-gatherer` (必须使用 Task tool 的 subagent_type="atlas:information-gatherer")
 
-**🚨 必须严格按照 Phase 1 生成的 todos 执行，每完成一个 todo 立即标记为 completed**
+**🚨 必须严格按照 Phase 2 生成的 todos 执行，每完成一个 todo 立即标记为 completed**
 
-**输入**: Phase 1 执行计划 + Phase 1 生成的 todos
+**输入**: Phase 2 执行计划 + Phase 2 生成的 todos
 
 **输出** (写入文件):
 - `.meta/project.pkg.json`
@@ -206,18 +261,18 @@ Phase 4 - 验证:
 
 ---
 
-## Phase 3: 文档生成
+## Phase 4: 文档生成
 
 **Subagent**: `atlas:atlas-executor` (必须使用 Task tool 的 subagent_type="atlas:atlas-executor")
 
-**🚨 必须严格按照 Phase 1 生成的 todos 执行，每完成一个 todo 立即标记为 completed**
+**🚨 必须严格按照 Phase 2 生成的 todos 执行，每完成一个 todo 立即标记为 completed**
 
 **输入** (从文件读取):
 - `.meta/project.pkg.json`
 - `.meta/modules.pkg.json`
 - `.meta/quality.pkg.json`
 - `.meta/symbols.pkg.json`
-- Phase 1 生成的 todos（必须遵循）
+- Phase 2 生成的 todos（必须遵循）
 
 **输出** (写入文件): 各 *.md 文档
 
@@ -259,11 +314,93 @@ Phase 4 - 验证:
 
 ---
 
-## Phase 4: 验证
+## Phase 5: AI索引生成
+
+**Subagent**: `atlas:repo-context-indexer` (必须使用 Task tool 的 subagent_type="atlas:repo-context-indexer")
+
+**输入** (从文件读取):
+- 所有生成的 *.md 文档
+- `.meta/project.pkg.json`
+- `.meta/modules.pkg.json`
+- `.meta/symbols.pkg.json`
+
+**输出** (写入文件):
+- `.index/quick-lookup.json` - 快速查询索引
+- `.index/symbol-map.json` - 符号映射表
+- `.index/doc-graph.json` - 文档关系图
+
+### 索引结构
+
+#### quick-lookup.json
+```json
+{
+  "project": {
+    "name": "my-app",
+    "tech": ["TypeScript", "NestJS"],
+    "entryDocs": ["index.md", "architecture/overview.md"]
+  },
+  "quickSearch": {
+    "UserService": {
+      "type": "class",
+      "file": "src/user/user.service.ts",
+      "doc": "symbols/user-module.md#userservice"
+    },
+    "authentication": {
+      "type": "feature",
+      "doc": "features/authentication.md"
+    }
+  }
+}
+```
+
+#### symbol-map.json
+```json
+{
+  "classes": ["UserService", "OrderService"],
+  "interfaces": ["IUser", "IOrder"],
+  "functions": ["validateUser", "processOrder"],
+  "endpoints": ["/users", "/orders"],
+  "symbolToDocs": {
+    "UserService": ["symbols/user-module.md", "api/endpoints.md"]
+  }
+}
+```
+
+#### doc-graph.json
+```json
+{
+  "nodes": [
+    {"id": "index.md", "type": "home", "weight": 10},
+    {"id": "architecture/overview.md", "type": "arch", "weight": 8}
+  ],
+  "edges": [
+    {"from": "index.md", "to": "architecture/overview.md", "type": "reference"}
+  ]
+}
+```
+
+**操作**:
+1. 扫描所有生成的 markdown 文档
+2. 提取关键信息（标题、符号引用、链接关系）
+3. 构建快速查询索引，支持符号名、功能名快速定位
+4. 生成符号到文档的映射表
+5. 分析文档间引用关系，构建文档关系图
+6. 输出结构化索引文件到 `.index/` 目录
+
+**Subagent Prompt 必须包含**:
+1. 输入文档目录: `.claude/repowiki/`
+2. 输出索引目录: `.claude/repowiki/.index/`
+3. 索引格式必须符合上述 JSON schema
+4. 优先索引高频访问的符号和文档
+
+---
+
+## Phase 6: 验证
 
 **输入** (从文件读取):
 - 所有生成的 *.md 文档
 - `.meta/symbols.pkg.json` (计算覆盖率)
+- `.index/*.json` (索引文件)
 
 **输出**:
 - `.meta/validation-report.md` (写入文件)
@@ -277,6 +414,74 @@ Phase 4 - 验证:
 | 2 | 章节完整 | H1/H2 存在 |
 | 3 | 符号覆盖 | ≥90% |
 | 4 | 链接有效 | 100% |
+
+---
+
+## Phase 7: 上下文优化
+
+**输入** (从文件读取):
+- `.index/quick-lookup.json`
+- `.index/symbol-map.json`
+- `.index/doc-graph.json`
+- `.meta/validation-report.md`
+
+**输出** (写入文件):
+- `.claude/wiki-context.json` - Wiki 上下文配置
+
+### wiki-context.json 格式
+
+```json
+{
+  "version": "1.0.0",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "projectName": "my-app",
+  "wikiPath": ".claude/repowiki",
+  "entryPoints": [
+    {
+      "path": "index.md",
+      "title": "项目首页",
+      "description": "项目概览和快速开始",
+      "weight": 10
+    },
+    {
+      "path": "architecture/overview.md",
+      "title": "架构总览",
+      "description": "系统架构和核心模块",
+      "weight": 9
+    }
+  ],
+  "quickAccess": {
+    "symbols": ".index/symbol-map.json",
+    "search": ".index/quick-lookup.json",
+    "graph": ".index/doc-graph.json"
+  },
+  "metadata": {
+    "totalDocs": 12,
+    "totalSymbols": 58,
+    "coverage": 94,
+    "lastBuildMode": "FULL_BUILD"
+  },
+  "contextRules": {
+    "maxDocsPerQuery": 5,
+    "priorityDocs": ["index.md", "architecture/overview.md"],
+    "excludePatterns": ["*.pkg.json", "validation-report.md"]
+  }
+}
+```
+
+**操作**:
+1. 读取索引文件和验证报告
+2. 确定高优先级入口文档（index.md、overview.md 等）
+3. 配置快速访问路径，指向索引文件
+4. 收集元数据统计信息
+5. 定义上下文使用规则（单次查询最大文档数、优先级文档等）
+6. 输出 wiki-context.json 到 `.claude/` 目录
+7. 该文件可被 Claude Code 自动识别，优化 Wiki 相关查询的上下文加载
+
+**目的**:
+- 优化 Claude Code 对 Wiki 的上下文理解和检索效率
+- 提供快速访问索引，减少全文扫描
+- 智能控制单次对话的上下文大小
 
 ---
 
@@ -607,14 +812,16 @@ sequenceDiagram
 ## 约束
 
 **Subagent 使用（最高优先级）**:
-- Phase 1 规划 → **必须使用 `Plan`**，禁止使用其他 subagent
-- Phase 2 信息收集 → **必须使用 `atlas:information-gatherer`**，禁止使用 Plan 或 atlas-executor
-- Phase 3 文档生成 → **必须使用 `atlas:atlas-executor`**，禁止使用 Plan 或 information-gatherer
+- Phase 1 语义变更检测 → **必须使用 `atlas:repo-semantic-analyzer`**，仅在 INCREMENTAL 模式执行
+- Phase 2 规划 → **必须使用 `Plan`**，禁止使用其他 subagent
+- Phase 3 信息收集 → **必须使用 `atlas:information-gatherer`**，禁止使用 Plan 或 atlas-executor
+- Phase 4 文档生成 → **必须使用 `atlas:atlas-executor`**，禁止使用 Plan 或 information-gatherer
+- Phase 5 AI索引生成 → **必须使用 `atlas:repo-context-indexer`**，禁止使用其他 subagent
 - **🚨 混用 subagent 是严重错误，必须严格遵守上述分配！**
 
 **Todos 管理（最高优先级）**:
-- Phase 1 的 Plan agent **必须**通过 TodoWrite 生成详细的执行 todos
-- Phase 2/3 的 agent **必须**严格按照 todos 顺序执行
+- Phase 2 的 Plan agent **必须**通过 TodoWrite 生成详细的执行 todos
+- Phase 3/4 的 agent **必须**严格按照 todos 顺序执行
 - 每完成一个 todo，**必须立即**通过 TodoWrite 标记为 completed
 - **🚨 不按 todos 执行是严重错误！**
 
@@ -662,6 +869,8 @@ sequenceDiagram
 **简单库** (5 文件):
 ```
 .claude/repowiki/
+├── .meta/           # PKG 数据
+├── .index/          # 快速查询索引
 ├── index.md
 ├── architecture/
 │   ├── overview.md
@@ -675,6 +884,15 @@ sequenceDiagram
 **Web 应用** (12 文件):
 ```
 .claude/repowiki/
+├── .meta/           # PKG 数据
+│   ├── project.pkg.json
+│   ├── modules.pkg.json
+│   ├── symbols.pkg.json
+│   └── validation-report.md
+├── .index/          # AI 索引
+│   ├── quick-lookup.json
+│   ├── symbol-map.json
+│   └── doc-graph.json
 ├── index.md
 ├── architecture/
 │   ├── overview.md
