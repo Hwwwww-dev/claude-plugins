@@ -1,6 +1,6 @@
 ---
 description: 自主文档编排器。生成深度结构化的 Repo Wiki，支持项目级到符号级分析，含4层验证机制。
-argument-hint: [--force] [--lang zh|en] [--depth N] [--scope path] [--skip-symbols] [--features list] [--mode parallel|limited|sequential] [--concurrency N]
+argument-hint: [--force] [--lang zh|en] [--depth N] [--scope path] [--skip-symbols] [--features list] [--mode parallel|limited|sequential] [--concurrency N] [--preview]
 ---
 
 # Repo Wiki 编排器
@@ -19,6 +19,7 @@ argument-hint: [--force] [--lang zh|en] [--depth N] [--scope path] [--skip-symbo
 | `--features` | 指定功能点，逗号分隔 | 自动检测 |
 | `--mode` | 执行模式 | 自动检测 |
 | `--concurrency` | 最大并发数 | 2 |
+| `--preview` | 预览模式，仅显示变更不写入 | false |
 
 ---
 
@@ -900,6 +901,78 @@ sequenceDiagram
 
 ---
 
+## 预览模式
+
+### 触发方式
+
+```bash
+/atlas:repo-wiki --preview
+```
+
+### 预览流程
+
+**--preview 模式下，Phase 0-3 正常执行，Phase 4-7 改为预览输出：**
+
+1. **Phase 0-3**: 正常执行（环境检测、变更分析、规划、信息收集）
+2. **Phase 4**: 不写入文件，而是生成文档预览
+3. **Phase 5-7**: 跳过
+
+### 预览输出格式
+
+```markdown
+# Repo Wiki 预览
+
+## 构建信息
+| 指标 | 值 |
+|:-----|:---|
+| 模式 | INCREMENTAL |
+| 变更文件 | 3 |
+| 影响文档 | 5 |
+
+## 将生成/更新的文档
+
+### 新增文档
+| 文件 | 预计行数 | 说明 |
+|:-----|:---------|:-----|
+| symbols/payment-module.md | ~80 | 新增 payment 模块符号文档 |
+
+### 更新文档
+| 文件 | 变更类型 | 影响范围 |
+|:-----|:---------|:---------|
+| index.md | 更新 | 导航表格新增 payment 链接 |
+| symbols/user-module.md | 更新 | UserService.create 签名变更 |
+| api/endpoints.md | 更新 | 新增 POST /api/payments |
+
+### 不变文档
+- architecture/overview.md
+- guides/development.md
+- quality/complexity.md
+
+## PKG 数据预览
+
+### 变更符号
+| 符号 | 文件 | 变更类型 |
+|:-----|:-----|:---------|
+| PaymentService | src/payment/payment.service.ts | 新增 |
+| UserService.create | src/user/user.service.ts | 签名变更 |
+
+## 预计影响
+- 新增文档: 1 个
+- 更新文档: 4 个
+- 总行数变化: +120 行
+
+---
+使用 `/atlas:repo-wiki` 执行实际生成
+```
+
+### 使用场景
+
+1. **增量更新验证**: 检查变更检测是否准确识别了影响范围
+2. **大型项目预估**: 在执行前了解将生成的文档数量
+3. **CI/CD 集成**: 在 PR 中展示文档变更预览
+
+---
+
 ## 示例
 
 ### 命令用法
@@ -907,6 +980,9 @@ sequenceDiagram
 ```bash
 # 基础用法 - 自动检测所有参数
 /atlas:repo-wiki
+
+# 预览模式 - 仅显示将要生成的文档，不实际写入
+/atlas:repo-wiki --preview
 
 # 英文文档，限定 src 目录
 /atlas:repo-wiki --lang en --scope src
@@ -919,6 +995,9 @@ sequenceDiagram
 
 # 强制重建，限制并发
 /atlas:repo-wiki --force --concurrency 1
+
+# 预览增量更新
+/atlas:repo-wiki --preview
 ```
 
 ### 输出示例

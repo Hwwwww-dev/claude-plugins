@@ -1,6 +1,6 @@
 ---
-description: 任务协调与并发执行引擎。处理复杂多步骤任务、批量操作、项目级变更。
-argument-hint: <任务描述> [--parallel|--sequential] [--dry-run] [--no-gather]
+description: 任务协调与并发执行引擎。处理复杂多步骤任务、批量操作、项目级变更。支持回滚和断点续传。
+argument-hint: <任务描述> [--parallel|--sequential] [--dry-run] [--no-gather] [--auto-rollback] [--resume <id>]
 ---
 
 # /orchestrate - 任务协调引擎
@@ -28,13 +28,61 @@ argument-hint: <任务描述> [--parallel|--sequential] [--dry-run] [--no-gather
 问题3: 是否先收集信息
 - yes (推荐): 先调用 information-gatherer
 - no: 直接规划执行
+
+问题4: 失败处理
+- auto-rollback: 失败时自动回滚
+- manual: 失败时询问处理方式（默认）
 ```
 
 **如果用户已指定选项（如 `--parallel --dry-run`），跳过询问。**
 
+**如果用户指定 `--resume <id>`，跳到断点续传流程。**
+
 ---
 
 ## 第二步：执行工作流
+
+### 2.0 检查点创建
+
+**在执行任何修改前，自动创建检查点：**
+
+```bash
+# 创建 git stash 作为检查点
+git stash push -m "atlas-checkpoint-{execution-id}"
+```
+
+**初始化执行状态文件：**
+```
+写入: .claude/orchestrate/.state/{execution-id}.json
+```
+
+**状态文件结构**:
+```json
+{
+  "executionId": "task-20240115-103000",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "task": "给所有 React 组件添加 TypeScript 类型",
+  "options": {
+    "strategy": "auto",
+    "autoRollback": false
+  },
+  "checkpoint": {
+    "stashId": "atlas-checkpoint-task-20240115-103000",
+    "created": true
+  },
+  "subtasks": [
+    {"id": 1, "status": "pending", "files": ["Login.tsx", "Register.tsx"]},
+    {"id": 2, "status": "pending", "files": ["Overview.tsx", "Analytics.tsx"]},
+    {"id": 3, "status": "pending", "files": ["Button.tsx", "Input.tsx"]}
+  ],
+  "progress": {
+    "total": 3,
+    "completed": 0,
+    "failed": 0,
+    "pending": 3
+  }
+}
+```
 
 ### 2.1 信息收集（如选择）
 
@@ -74,6 +122,8 @@ prompt: |
   4. 依赖关系 (如有)
 ```
 
+**规划完成后更新状态文件**，记录所有子任务。
+
 ### 2.3 执行
 
 **固定输入结构**:
@@ -99,7 +149,46 @@ prompt: |
 **sequential**: 逐个执行，等待完成后继续
 **mixed**: 分阶段，阶段内并行
 
-### 2.4 聚合报告
+**每个子任务完成后立即更新状态文件**:
+```json
+{"id": 1, "status": "completed", "files": [...], "result": "success"}
+```
+
+### 2.4 失败处理
+
+**子任务失败时**:
+
+#### --auto-rollback 模式
+```bash
+# 自动回滚所有修改
+git stash pop
+
+# 输出
+⚠️ 子任务 #N 失败，已自动回滚所有修改
+原因: [失败原因]
+建议: [修复建议]
+```
+
+#### 默认模式（手动处理）
+```
+子任务 #N 失败
+
+选项:
+1. 回滚: 恢复到检查点状态
+2. 跳过: 继续执行其他子任务
+3. 重试: 重新执行失败的子任务
+4. 终止: 保留已完成的修改，终止执行
+
+请选择处理方式:
+```
+
+**用户选择回滚时**:
+```bash
+git stash pop
+echo "已回滚到检查点"
+```
+
+### 2.5 聚合报告
 
 **固定输出结构**:
 ```markdown
@@ -107,6 +196,9 @@ prompt: |
 
 ## 任务
 [描述]
+
+## 执行 ID
+task-20240115-103000
 
 ## 统计
 - 子任务: X 个
@@ -119,72 +211,135 @@ prompt: |
 ## 失败详情 (如有)
 - 子任务#N: [原因] → [建议]
 
+## 检查点
+- 状态: 已清理 / 可用于回滚
+- 命令: `/orchestrate --resume task-20240115-103000`
+
 ## 后续建议
 - [建议1]
 - [建议2]
 ```
 
+**成功完成后清理检查点**:
+```bash
+git stash drop "atlas-checkpoint-{execution-id}"
+```
+
+---
+
+## 断点续传
+
+### 触发方式
+
+```bash
+/orchestrate --resume task-20240115-103000
+```
+
+### 续传流程
+
+1. **读取状态文件**:
+   ```
+   读取: .claude/orchestrate/.state/{execution-id}.json
+   ```
+
+2. **显示执行状态**:
+   ```markdown
+   ## 断点续传
+
+   执行 ID: task-20240115-103000
+   原始任务: 给所有 React 组件添加 TypeScript 类型
+
+   进度:
+   - ✅ 子任务 #1: 完成
+   - ❌ 子任务 #2: 失败
+   - ⏸️ 子任务 #3: 待执行
+
+   继续选项:
+   1. 重试失败: 重新执行 #2，然后执行 #3
+   2. 跳过失败: 直接执行 #3
+   3. 全部重新执行: 回滚并重新开始
+   4. 放弃: 清理状态，保留当前修改
+   ```
+
+3. **根据选择执行**:
+   - 重试失败：从失败点重新执行
+   - 跳过失败：继续执行待执行任务
+   - 全部重新执行：回滚检查点，重新开始
+   - 放弃：清理状态文件和检查点
+
+4. **更新状态文件**直到完成
+
 ---
 
 ## 执行示例
 
-### 示例 1: 并行执行
+### 示例 1: 并行执行（带检查点）
 
 ```
 用户: /orchestrate 给所有 React 组件添加 TypeScript 类型
 
+0. 创建检查点:
+   git stash push -m "atlas-checkpoint-add-types-20240115"
+   写入状态文件到 .claude/orchestrate/.state/add-types-20240115.json
+
 1. information-gatherer:
-   任务 ID: add-types-20251129
+   任务 ID: add-types-20240115
    收集目标: 所有 React 组件位置和现有类型情况
-   → docs/information/add-types-20251129.md
+   → docs/information/add-types-20240115.md
 
 2. Plan agent:
    任务: 添加类型
-   上下文: docs/information/add-types-20251129.md
+   上下文: docs/information/add-types-20240115.md
    → 返回: 3组并行, 策略: parallel
+   更新状态文件（记录 3 个子任务）
 
 3. 同时发起 3 个 executor (同一条消息):
    - #1: auth 组件, 文件: [Login.tsx, Register.tsx]
    - #2: dashboard 组件, 文件: [Overview.tsx, Analytics.tsx]
    - #3: shared 组件, 文件: [Button.tsx, Input.tsx]
+   每个完成后更新状态文件
 
 4. 聚合结果并报告
+   清理检查点
 ```
 
-### 示例 2: 串行执行
+### 示例 2: 失败回滚
 
 ```
-用户: /orchestrate 重构数据库层，先改 schema 再改 repository
+用户: /orchestrate 重构 API 层 --auto-rollback
 
-1. information-gatherer → 分析数据库层结构
+1. 创建检查点
+2. 执行子任务 #1 ✅
+3. 执行子任务 #2 ❌ 失败
 
-2. Plan agent → 返回: 2个子任务有依赖, 策略: sequential
+自动回滚:
+git stash pop
+清理状态文件
 
-3. executor #1: 修改 schema → 等待完成
-4. executor #2: 修改 repository → 等待完成
-
-5. 聚合结果并报告
+输出:
+⚠️ 子任务 #2 失败，已自动回滚所有修改
+修改的文件已恢复到执行前状态
+建议: 检查 api/order.ts:45 的类型错误后重试
 ```
 
-### 示例 3: 混合执行
+### 示例 3: 断点续传
 
 ```
-用户: /orchestrate 重构 auth 模块，先提取公共逻辑再更新各组件
+用户: /orchestrate --resume add-types-20240115
 
-1. information-gatherer → 分析 auth 模块
+读取状态:
+- 子任务 #1: 完成
+- 子任务 #2: 失败
+- 子任务 #3: 待执行
 
-2. Plan agent → 返回: 策略: mixed
+用户选择: 跳过失败
 
-3. 阶段1 (串行):
-   executor #1: 提取公共逻辑到 auth-utils.ts
-   等待完成...
+继续执行:
+- 执行子任务 #3 ✅
 
-4. 阶段2 (并行, 同一条消息):
-   - executor #2: 更新 Login.tsx
-   - executor #3: 更新 Register.tsx
-   - executor #4: 更新 Profile.tsx
-
-5. 聚合结果并报告
+最终报告:
+- 完成: 2/3
+- 跳过: 1 (子任务 #2)
 ```
 
 ---
@@ -212,11 +367,15 @@ prompt: |
 ## 核心约束
 
 **必须做**:
+- 执行前创建检查点（git stash）
+- 维护状态文件（支持断点续传）
 - 使用固定输入结构调用 agents
 - 并行任务在同一消息中一次性发起
 - 收集结果后使用固定格式报告
+- 每个子任务完成后更新状态文件
 
 **禁止做**:
 - 自己直接修改文件
 - 串行调用可并行任务
-- 因部分失败放弃其他任务
+- 因部分失败放弃其他任务（除非 --auto-rollback）
+- 跳过检查点创建步骤
