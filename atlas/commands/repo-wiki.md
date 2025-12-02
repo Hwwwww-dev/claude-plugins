@@ -26,6 +26,18 @@ argument-hint: [--force] [--lang zh|en] [--depth N] [--scope path] [--skip-symbo
 
 Phase 0 环境检测 → Phase 1 规划 → Phase 2 信息收集 → Phase 3 文档生成 → Phase 4 验证
 
+### Subagent 分配（必须严格遵守）
+
+| Phase | 功能 | Subagent | 说明 |
+|:------|:-----|:---------|:-----|
+| 0 | 环境检测 | 主进程 | 不需要 subagent |
+| 1 | 规划 | `Plan` | 必须生成详细 todos |
+| 2 | 信息收集 | `atlas:information-gatherer` | 读取 todos 执行 |
+| 3 | 文档生成 | `atlas:atlas-executor` | 读取 todos 执行 |
+| 4 | 验证 | 主进程 | 不需要 subagent |
+
+**🚨 严禁混用 subagent！Plan 只做规划，information-gatherer 只做信息收集，atlas-executor 只做文档生成！**
+
 ### 数据流转
 
 | Phase | 读取 | 输出 | 传递方式 |
@@ -63,9 +75,50 @@ Phase 0 环境检测 → Phase 1 规划 → Phase 2 信息收集 → Phase 3 文
 
 ## Phase 1: 规划
 
+**Subagent**: `Plan` (必须使用 Task tool 的 subagent_type="Plan")
+
 **输入**: Phase 0 环境报告
 
-**输出** (传递给 Phase 2):
+**输出**:
+1. **TodoWrite** - 必须使用 TodoWrite 工具生成详细的执行计划
+2. **执行计划 JSON** - 传递给后续阶段
+
+### Todos 生成要求
+
+Plan agent 必须通过 **TodoWrite** 根据项目实际情况动态生成 todos：
+
+**生成原则**:
+- 根据 Phase 0 环境检测结果决定需要哪些收集器和文档
+- 根据 --skip-symbols、--features 等参数调整 todos
+- 根据项目规模和类型决定并行策略
+- 每个 todo 必须具体、可执行、可验证
+
+**Todos 结构**（按实际需要生成）:
+```
+Phase 2 - 信息收集（根据需要选择）:
+- 收集项目元数据 → .meta/project.pkg.json
+- 分析模块结构 → .meta/modules.pkg.json
+- 统计代码质量 → .meta/quality.pkg.json
+- 提取符号信息 → .meta/symbols.pkg.json（如未 --skip-symbols）
+
+Phase 3 - 文档生成（根据条件生成规则选择）:
+- 生成首页和架构文档
+- 生成 API 文档（如检测到 API）
+- 生成开发指南
+- 生成符号文档（如未 --skip-symbols）
+- 生成功能文档（如检测到特定功能或 --features）
+
+Phase 4 - 验证:
+- 验证文档完整性
+- 生成验证报告
+```
+
+**🚨 关键要求**:
+1. Plan agent **必须**调用 TodoWrite 生成 todos
+2. todos 内容**根据项目实际情况动态决定**，尽可能信息
+3. 后续 agent **必须严格按照 todos 顺序执行**
+
+**执行计划 JSON** (传递给 Phase 2):
 ```json
 {
   "collectors": ["project", "modules", "quality", "symbols"],
@@ -75,13 +128,17 @@ Phase 0 环境检测 → Phase 1 规划 → Phase 2 信息收集 → Phase 3 文
 }
 ```
 
-**操作**: Plan Agent 分析项目，制定 PKG 收集计划
+**操作**: Plan Agent 分析项目，通过 TodoWrite 生成详细执行计划
 
 ---
 
 ## Phase 2: 信息收集
 
-**输入**: Phase 1 执行计划
+**Subagent**: `atlas:information-gatherer` (必须使用 Task tool 的 subagent_type="atlas:information-gatherer")
+
+**🚨 必须严格按照 Phase 1 生成的 todos 执行，每完成一个 todo 立即标记为 completed**
+
+**输入**: Phase 1 执行计划 + Phase 1 生成的 todos
 
 **输出** (写入文件):
 - `.meta/project.pkg.json`
@@ -151,11 +208,16 @@ Phase 0 环境检测 → Phase 1 规划 → Phase 2 信息收集 → Phase 3 文
 
 ## Phase 3: 文档生成
 
+**Subagent**: `atlas:atlas-executor` (必须使用 Task tool 的 subagent_type="atlas:atlas-executor")
+
+**🚨 必须严格按照 Phase 1 生成的 todos 执行，每完成一个 todo 立即标记为 completed**
+
 **输入** (从文件读取):
 - `.meta/project.pkg.json`
 - `.meta/modules.pkg.json`
 - `.meta/quality.pkg.json`
 - `.meta/symbols.pkg.json`
+- Phase 1 生成的 todos（必须遵循）
 
 **输出** (写入文件): 各 *.md 文档
 
@@ -543,6 +605,18 @@ sequenceDiagram
 ---
 
 ## 约束
+
+**Subagent 使用（最高优先级）**:
+- Phase 1 规划 → **必须使用 `Plan`**，禁止使用其他 subagent
+- Phase 2 信息收集 → **必须使用 `atlas:information-gatherer`**，禁止使用 Plan 或 atlas-executor
+- Phase 3 文档生成 → **必须使用 `atlas:atlas-executor`**，禁止使用 Plan 或 information-gatherer
+- **🚨 混用 subagent 是严重错误，必须严格遵守上述分配！**
+
+**Todos 管理（最高优先级）**:
+- Phase 1 的 Plan agent **必须**通过 TodoWrite 生成详细的执行 todos
+- Phase 2/3 的 agent **必须**严格按照 todos 顺序执行
+- 每完成一个 todo，**必须立即**通过 TodoWrite 标记为 completed
+- **🚨 不按 todos 执行是严重错误！**
 
 **执行**: 阶段顺序不可跳跃 | symbols 等待 modules | PKG 是唯一数据媒介 | 优先 Serena MCP
 
