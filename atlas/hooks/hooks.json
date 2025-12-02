@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo \"Keep responses concise, clear, and valuable. Follow 八荣八耻, Occam's Razor, Linus spirit. When uncertain, use AskUserQuestion to clarify before acting. Delegate to agents [via Task tool] for complex tasks: information-gatherer for Project analysis, structure, dependencies; atlas-executor for Code modifications, file operations. Skills: atlas:task-orchestrator, atlas:gather, atlas:implement. Skip delegation for: simple Q&A, single-file edits, explicit user request.\""
+            "command": "echo \"Keep responses concise, clear, and valuable. Follow 八荣八耻, Occam's Razor, Linus spirit. When uncertain, use AskUserQuestion to clarify before acting. [RepoWiki] Check $PWD/.claude/wiki-context.json and $PWD/.claude/repowiki/index.md for project context. Delegate to agents [via Task tool] for complex tasks: information-gatherer for Project analysis, structure, dependencies; atlas-executor for Code modifications, file operations. Skills: atlas:task-orchestrator, atlas:gather, atlas:implement. Skip delegation for: simple Q&A, single-file edits, explicit user request.\""
           }
         ]
       }

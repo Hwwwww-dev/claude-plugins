@@ -24,7 +24,7 @@ argument-hint: [--force] [--lang zh|en] [--depth N] [--scope path] [--skip-symbo
 
 ## 执行流程
 
-Phase 0 环境检测 → Phase 1 语义变更检测 → Phase 2 规划 → Phase 3 信息收集 → Phase 4 文档生成 → Phase 5 AI索引生成 → Phase 6 验证 → Phase 7 上下文优化
+Phase 0 环境检测 → Phase 1 语义变更检测 → Phase 2 规划 → Phase 3 信息收集 → Phase 4 文档生成 → Phase 5 AI索引生成 → Phase 6 上下文优化 → Phase 7 验证
 
 ### Subagent 分配（必须严格遵守）
 
@@ -36,8 +36,8 @@ Phase 0 环境检测 → Phase 1 语义变更检测 → Phase 2 规划 → Phase
 | 3 | 信息收集 | `atlas:information-gatherer` | 读取 todos 执行 |
 | 4 | 文档生成 | `atlas:atlas-executor` | 读取 todos 执行 |
 | 5 | AI索引生成 | `atlas:repo-context-indexer` | 生成快速查询索引 |
-| 6 | 验证 | `atlas:atlas-executor` | 全面检查生成的文档 |
-| 7 | 上下文优化 | 主进程 | 生成 wiki-context.json |
+| 6 | 上下文优化 | 主进程 | 生成 wiki-context.json |
+| 7 | 验证 | `atlas:atlas-executor` | 全面检查所有生成内容 |
 
 **🚨 严禁混用 subagent！Plan 只做规划，information-gatherer 只做信息收集，atlas-executor 负责文档生成和验证，repo-semantic-analyzer 只做变更检测，repo-context-indexer 只做索引生成！**
 
@@ -51,8 +51,8 @@ Phase 0 环境检测 → Phase 1 语义变更检测 → Phase 2 规划 → Phase
 | 3 | Phase 2 计划 | PKG 文件 (.meta/*.pkg.json) | 文件写入 |
 | 4 | PKG 文件 | 文档文件 (*.md) | 文件写入 |
 | 5 | 文档文件、PKG 文件 | 索引文件 (.index/*.json) | 文件写入 |
-| 6 | 文档文件、PKG 文件、索引文件 | 验证报告 (.meta/validation-report.md) | 文件写入 + 返回摘要 |
-| 7 | 索引文件、验证报告 | wiki-context.json + 最终报告 | 文件写入 + 输出 |
+| 6 | 索引文件 | wiki-context.json | 文件写入 |
+| 7 | 所有生成内容 | 验证报告 (.meta/validation-report.md) + 最终报告 | 文件写入 + 输出 |
 
 **关键约束**: Phase 3/4/5/6/7 必须从文件读取 PKG/索引，不依赖内存传递
 
@@ -395,72 +395,12 @@ Phase 6 - 验证:
 
 ---
 
-## Phase 6: 验证
-
-**Subagent**: `atlas:atlas-executor` (必须使用 Task tool 的 subagent_type="atlas:atlas-executor")
-
-**输入** (从文件读取):
-- 所有生成的 *.md 文档
-- `.meta/symbols.pkg.json` (计算覆盖率)
-- `.index/*.json` (索引文件)
-- Phase 2 生成的 todos（对照执行结果）
-
-**输出**:
-- `.meta/validation-report.md` (写入文件)
-- 验证结果摘要 (返回给主进程)
-
-### 验证项
-
-| 层级 | 项目 | 标准 | 操作 |
-|:-----|:-----|:-----|:-----|
-| 1 | 核心文档存在 | index.md 必须存在且 ≥10 行 | 检查文件存在性和行数 |
-| 2 | 必需文档完整 | architecture/overview.md, guides/development.md 等 | 逐一检查必需文档 |
-| 3 | 章节结构正确 | H1/H2 存在，表格格式正确 | 解析 markdown 结构 |
-| 4 | 导航链接有效 | index.md 中所有链接指向存在的文件 | 验证相对链接 |
-| 5 | 符号覆盖率 | ≥90% (警告) | 对比 symbols.pkg.json |
-| 6 | 索引完整性 | quick-lookup.json 包含所有文档 | 对比 .index/ 和文档 |
-
-### 关键检查项
-
-**index.md 专项检查**:
-1. 文件存在且内容非空
-2. 包含正确的项目名称 (H1)
-3. 技术栈表格存在且有数据
-4. 导航表格中的链接全部有效
-5. 生成时间戳存在
-
-**文档一致性检查**:
-1. PKG 文件中记录的模块 → 对应的 symbols/*.md 是否存在
-2. 检测到的 API → api/endpoints.md 是否包含
-3. 条件生成的文档 → 是否符合生成条件
-
-### 验证失败处理
-
-| 问题类型 | 严重性 | 处理方式 |
-|:---------|:-------|:---------|
-| index.md 不存在/为空 | 🔴 严重 | 报告错误，建议重新执行 Phase 4 |
-| 必需文档缺失 | 🔴 严重 | 列出缺失文档，建议补充生成 |
-| 链接失效 | 🟡 警告 | 列出失效链接，建议修复 |
-| 符号覆盖不足 | 🟡 警告 | 报告覆盖率，列出未覆盖符号 |
-| 章节结构异常 | 🟡 警告 | 报告异常文档，建议检查 |
-
-### Subagent Prompt 必须包含
-
-1. Wiki 目录路径: `.claude/repowiki/`
-2. 必须检查的核心文档列表
-3. 验证报告输出路径: `.claude/repowiki/.meta/validation-report.md`
-4. 验证项优先级: 核心文档 > 必需文档 > 链接 > 覆盖率
-5. 返回结构化验证结果给主进程
-
----
-
-## Phase 7: 上下文优化
+## Phase 6: 上下文优化
 
 **输入** (从文件读取):
 - `.index/quick-lookup.json`
 - `.index/symbol-map.json`
 - `.index/doc-graph.json`
-- `.meta/validation-report.md`
 
 **输出** (写入文件):
 - `.claude/wiki-context.json` - Wiki 上下文配置
@@ -507,7 +447,7 @@ Phase 6 - 验证:
 ```
 
 **操作**:
-1. 读取索引文件和验证报告
+1. 读取索引文件
 2. 确定高优先级入口文档（index.md、overview.md 等）
 3. 配置快速访问路径，指向索引文件
 4. 收集元数据统计信息
@@ -519,6 +459,84 @@ Phase 6 - 验证:
 - 优化 Claude Code 对 Wiki 的上下文理解和检索效率
 - 提供快速访问索引，减少全文扫描
 - 智能控制单次对话的上下文大小
+
+---
+
+## Phase 7: 验证（最终检查）
+
+**Subagent**: `atlas:atlas-executor` (必须使用 Task tool 的 subagent_type="atlas:atlas-executor")
+
+**🚨 这是最后一个阶段，必须全面检查所有生成的内容，不能有任何疏漏！**
+
+**输入** (从文件读取):
+- 所有生成的 *.md 文档
+- `.meta/*.pkg.json` (PKG 文件)
+- `.index/*.json` (索引文件)
+- `.claude/wiki-context.json` (上下文配置)
+- Phase 2 生成的 todos（对照执行结果）
+
+**输出**:
+- `.meta/validation-report.md` (写入文件)
+- 验证结果摘要 + 最终报告 (返回给主进程)
+
+### 验证项
+
+| 层级 | 项目 | 标准 | 操作 |
+|:-----|:-----|:-----|:-----|
+| 1 | 核心文档存在 | index.md 必须存在且 ≥10 行 | 检查文件存在性和行数 |
+| 2 | 必需文档完整 | architecture/overview.md, guides/development.md 等 | 逐一检查必需文档 |
+| 3 | 章节结构正确 | H1/H2 存在，表格格式正确 | 解析 markdown 结构 |
+| 4 | 导航链接有效 | index.md 中所有链接指向存在的文件 | 验证相对链接 |
+| 5 | 符号覆盖率 | ≥90% (警告) | 对比 symbols.pkg.json |
+| 6 | 索引完整性 | quick-lookup.json 包含所有文档 | 对比 .index/ 和文档 |
+| 7 | 上下文配置有效 | wiki-context.json 格式正确且路径有效 | 验证 JSON 和路径 |
+
+### 关键检查项
+
+**index.md 专项检查**:
+1. 文件存在且内容非空
+2. 包含正确的项目名称 (H1)
+3. 技术栈表格存在且有数据
+4. 导航表格中的链接全部有效
+5. 生成时间戳存在
+
+**文档一致性检查**:
+1. PKG 文件中记录的模块 → 对应的 symbols/*.md 是否存在
+2. 检测到的 API → api/endpoints.md 是否包含
+3. 条件生成的文档 → 是否符合生成条件
+
+**索引完整性检查**:
+1. .index/ 目录下所有 JSON 文件格式正确
+2. quick-lookup.json 中的符号引用有效
+3. symbol-map.json 中的文档链接存在
+4. doc-graph.json 中的节点对应实际文档
+
+**上下文配置检查**:
+1. wiki-context.json 存在且格式正确
+2. entryPoints 中的文档路径有效
+3. quickAccess 中的索引文件存在
+
+### 验证失败处理
+
+| 问题类型 | 严重性 | 处理方式 |
+|:---------|:-------|:---------|
+| index.md 不存在/为空 | 🔴 严重 | 报告错误，建议重新执行 Phase 4 |
+| 必需文档缺失 | 🔴 严重 | 列出缺失文档，建议补充生成 |
+| wiki-context.json 无效 | 🔴 严重 | 报告错误，建议重新执行 Phase 6 |
+| 链接失效 | 🟡 警告 | 列出失效链接，建议修复 |
+| 符号覆盖不足 | 🟡 警告 | 报告覆盖率，列出未覆盖符号 |
+| 章节结构异常 | 🟡 警告 | 报告异常文档，建议检查 |
+| 索引不完整 | 🟡 警告 | 列出缺失项，建议重新索引 |
+
+### Subagent Prompt 必须包含
+
+1. Wiki 目录路径: `.claude/repowiki/`
+2. 必须检查的核心文档列表
+3. 必须检查的索引文件列表: `.index/quick-lookup.json`, `.index/symbol-map.json`, `.index/doc-graph.json`
+4. 必须检查的上下文配置: `.claude/wiki-context.json`
+5. 验证报告输出路径: `.claude/repowiki/.meta/validation-report.md`
+6. 验证项优先级: 核心文档 > 必需文档 > 索引 > 上下文 > 链接 > 覆盖率
+7. 返回结构化验证结果 + 最终报告给主进程
 
 ---
 
@@ -854,7 +872,8 @@ sequenceDiagram
 - Phase 3 信息收集 → **必须使用 `atlas:information-gatherer`**，禁止使用 Plan 或 atlas-executor
 - Phase 4 文档生成 → **必须使用 `atlas:atlas-executor`**，禁止使用 Plan 或 information-gatherer
 - Phase 5 AI索引生成 → **必须使用 `atlas:repo-context-indexer`**，禁止使用其他 subagent
-- Phase 6 验证 → **必须使用 `atlas:atlas-executor`**，全面检查生成的文档完整性
+- Phase 6 上下文优化 → **主进程执行**，生成 wiki-context.json
+- Phase 7 验证 → **必须使用 `atlas:atlas-executor`**，全面检查所有生成内容，不能有任何疏漏
 - **🚨 混用 subagent 是严重错误，必须严格遵守上述分配！**
 
 **Todos 管理（最高优先级）**:
