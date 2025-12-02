@@ -36,10 +36,10 @@ Phase 0 环境检测 → Phase 1 语义变更检测 → Phase 2 规划 → Phase
 | 3 | 信息收集 | `atlas:information-gatherer` | 读取 todos 执行 |
 | 4 | 文档生成 | `atlas:atlas-executor` | 读取 todos 执行 |
 | 5 | AI索引生成 | `atlas:repo-context-indexer` | 生成快速查询索引 |
-| 6 | 验证 | 主进程 | 不需要 subagent |
+| 6 | 验证 | `atlas:atlas-executor` | 全面检查生成的文档 |
 | 7 | 上下文优化 | 主进程 | 生成 wiki-context.json |
 
-**🚨 严禁混用 subagent！Plan 只做规划，information-gatherer 只做信息收集，atlas-executor 只做文档生成，repo-semantic-analyzer 只做变更检测，repo-context-indexer 只做索引生成！**
+**🚨 严禁混用 subagent！Plan 只做规划，information-gatherer 只做信息收集，atlas-executor 负责文档生成和验证，repo-semantic-analyzer 只做变更检测，repo-context-indexer 只做索引生成！**
 
 ### 数据流转
 
@@ -51,8 +51,8 @@ Phase 0 环境检测 → Phase 1 语义变更检测 → Phase 2 规划 → Phase
 | 3 | Phase 2 计划 | PKG 文件 (.meta/*.pkg.json) | 文件写入 |
 | 4 | PKG 文件 | 文档文件 (*.md) | 文件写入 |
 | 5 | 文档文件、PKG 文件 | 索引文件 (.index/*.json) | 文件写入 |
-| 6 | 文档文件、PKG 文件、索引文件 | 验证报告 + 最终报告 | 文件写入 + 输出 |
-| 7 | 索引文件、验证报告 | wiki-context.json | 文件写入 |
+| 6 | 文档文件、PKG 文件、索引文件 | 验证报告 (.meta/validation-report.md) | 文件写入 + 返回摘要 |
+| 7 | 索引文件、验证报告 | wiki-context.json + 最终报告 | 文件写入 + 输出 |
 
 **关键约束**: Phase 3/4/5/6/7 必须从文件读取 PKG/索引，不依赖内存传递
 
@@ -397,23 +397,60 @@ Phase 6 - 验证:
 
 ## Phase 6: 验证
 
+**Subagent**: `atlas:atlas-executor` (必须使用 Task tool 的 subagent_type="atlas:atlas-executor")
+
 **输入** (从文件读取):
 - 所有生成的 *.md 文档
 - `.meta/symbols.pkg.json` (计算覆盖率)
 - `.index/*.json` (索引文件)
+- Phase 2 生成的 todos（对照执行结果）
 
 **输出**:
 - `.meta/validation-report.md` (写入文件)
-- 最终报告 (输出到用户)
+- 验证结果摘要 (返回给主进程)
 
 ### 验证项
 
-| 层级 | 项目 | 标准 |
-|:-----|:-----|:-----|
-| 1 | 文档存在 | ≥10 行 |
-| 2 | 章节完整 | H1/H2 存在 |
-| 3 | 符号覆盖 | ≥90% |
-| 4 | 链接有效 | 100% |
+| 层级 | 项目 | 标准 | 操作 |
+|:-----|:-----|:-----|:-----|
+| 1 | 核心文档存在 | index.md 必须存在且 ≥10 行 | 检查文件存在性和行数 |
+| 2 | 必需文档完整 | architecture/overview.md, guides/development.md 等 | 逐一检查必需文档 |
+| 3 | 章节结构正确 | H1/H2 存在，表格格式正确 | 解析 markdown 结构 |
+| 4 | 导航链接有效 | index.md 中所有链接指向存在的文件 | 验证相对链接 |
+| 5 | 符号覆盖率 | ≥90% (警告) | 对比 symbols.pkg.json |
+| 6 | 索引完整性 | quick-lookup.json 包含所有文档 | 对比 .index/ 和文档 |
+
+### 关键检查项
+
+**index.md 专项检查**:
+1. 文件存在且内容非空
+2. 包含正确的项目名称 (H1)
+3. 技术栈表格存在且有数据
+4. 导航表格中的链接全部有效
+5. 生成时间戳存在
+
+**文档一致性检查**:
+1. PKG 文件中记录的模块 → 对应的 symbols/*.md 是否存在
+2. 检测到的 API → api/endpoints.md 是否包含
+3. 条件生成的文档 → 是否符合生成条件
+
+### 验证失败处理
+
+| 问题类型 | 严重性 | 处理方式 |
+|:---------|:-------|:---------|
+| index.md 不存在/为空 | 🔴 严重 | 报告错误，建议重新执行 Phase 4 |
+| 必需文档缺失 | 🔴 严重 | 列出缺失文档，建议补充生成 |
+| 链接失效 | 🟡 警告 | 列出失效链接，建议修复 |
+| 符号覆盖不足 | 🟡 警告 | 报告覆盖率，列出未覆盖符号 |
+| 章节结构异常 | 🟡 警告 | 报告异常文档，建议检查 |
+
+### Subagent Prompt 必须包含
+
+1. Wiki 目录路径: `.claude/repowiki/`
+2. 必须检查的核心文档列表
+3. 验证报告输出路径: `.claude/repowiki/.meta/validation-report.md`
+4. 验证项优先级: 核心文档 > 必需文档 > 链接 > 覆盖率
+5. 返回结构化验证结果给主进程
 
 ---
 
@@ -817,6 +854,7 @@ sequenceDiagram
 - Phase 3 信息收集 → **必须使用 `atlas:information-gatherer`**，禁止使用 Plan 或 atlas-executor
 - Phase 4 文档生成 → **必须使用 `atlas:atlas-executor`**，禁止使用 Plan 或 information-gatherer
 - Phase 5 AI索引生成 → **必须使用 `atlas:repo-context-indexer`**，禁止使用其他 subagent
+- Phase 6 验证 → **必须使用 `atlas:atlas-executor`**，全面检查生成的文档完整性
 - **🚨 混用 subagent 是严重错误，必须严格遵守上述分配！**
 
 **Todos 管理（最高优先级）**:
