@@ -9,12 +9,6 @@ argument-hint: [--force] [--lang zh|en] [--depth N] [--scope path] [--skip-symbo
 
 **参数**: $ARGUMENTS
 
-## 运行时上下文
-
-- Wiki 状态: !`test -d ".claude/repowiki" && echo "EXISTS" || echo "MISSING"`
-- 代码文件数: !`find . -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -o -name "*.py" -o -name "*.go" -o -name "*.java" -o -name "*.rs" \) ! -path "*/node_modules/*" ! -path "*/.git/*" ! -path "*/dist/*" ! -path "*/build/*" ! -path "*/__pycache__/*" ! -path "*/.venv/*" ! -path "*/venv/*" ! -path "*/.env/*" ! -path "*/env/*" ! -path "*/vendor/*" ! -path "*/.tox/*" 2>/dev/null | wc -l`
-- 最近变更: !`git diff --name-only HEAD~1 HEAD 2>/dev/null | head -20 || echo "NO_GIT_HISTORY"`
-
 ---
 
 ## 参数说明
@@ -71,6 +65,13 @@ argument-hint: [--force] [--lang zh|en] [--depth N] [--scope path] [--skip-symbo
 ---
 
 ## Phase 0: 环境检测
+
+### 检测项目 (由 agent 执行)
+
+1. **Wiki 状态**: 检查 `.claude/repowiki` 目录是否存在
+2. **代码文件数**: 统计项目中的代码文件数量 (ts/tsx/js/jsx/py/go/java/rs)
+   - 排除目录: node_modules, .git, dist, build, out, target, .next, .nuxt, .output, coverage, __pycache__, .venv, venv, .env, env, .tox, .mypy_cache, .pytest_cache, vendor, Pods, .gradle, .idea, .vscode, .claude
+3. **最近变更**: 获取最近一次提交的变更文件列表 (用于增量模式判断)
 
 ### 模式判定规则
 
