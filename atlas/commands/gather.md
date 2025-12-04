@@ -163,8 +163,25 @@ prompt: |
 
 ---
 
+## 项目知识库
+
+**优先从 `.claude/repowiki/` 获取项目信息**（如果存在）：
+
+| 文件 | 用途 |
+|:-----|:-----|
+| `.claude/repowiki/.meta/project.pkg.json` | 项目元数据、技术栈、依赖 |
+| `.claude/repowiki/.meta/modules.pkg.json` | 模块结构、依赖关系 |
+| `.claude/repowiki/.meta/api.pkg.json` | API 端点信息 |
+| `.claude/repowiki/.meta/symbols.pkg.json` | 符号索引 |
+| `.claude/repowiki/.index/quick-lookup.json` | 快速查询索引 |
+
+**使用方式**：在收集前先检查这些文件是否存在，如果存在则优先读取以减少重复分析。
+
+---
+
 ## 注意事项
 
 - `/gather` 只读分析，不修改代码
 - 结果写入 `docs/information/`，供后续复用
 - 所有输出包含完整文件路径和行号
+- 优先使用 `.claude/repowiki/` 中的现有信息

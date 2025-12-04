@@ -29,18 +29,20 @@ Phase 0 环境检测 → Phase 1 语义变更检测 → Phase 2 规划 → Phase
 
 ### Subagent 分配（必须严格遵守）
 
-| Phase | 功能 | Subagent | 说明 |
-|:------|:-----|:---------|:-----|
-| 0 | 环境检测 | 主进程 | 不需要 subagent |
-| 1 | 语义变更检测 | `atlas:repo-semantic-analyzer` | 检测语义级变更 |
-| 2 | 规划 | `Plan` | 必须生成详细 todos |
-| 3 | 信息收集 | `atlas:information-gatherer` | 读取 todos 执行 |
-| 4 | 文档生成 | `atlas:atlas-executor` | 读取 todos 执行 |
-| 5 | AI索引生成 | `atlas:repo-context-indexer` | 生成快速查询索引 |
-| 6 | 上下文优化 | 主进程 | 生成 wiki-context.json |
-| 7 | 验证 | `atlas:atlas-executor` | 全面检查所有生成内容 |
+| Phase | 功能 | Subagent | 并行 | 说明 |
+|:------|:-----|:---------|:-----|:-----|
+| 0 | 环境检测 | 主进程 | - | 不需要 subagent |
+| 1 | 语义变更检测 | `atlas:repo-semantic-analyzer` | - | 检测语义级变更 |
+| 2 | 规划 | `Plan` | - | 必须生成详细 todos |
+| 3 | 信息收集 | `atlas:information-gatherer` | 推荐 **4+1** | 推荐并行4个(project/modules/quality/api) + 串行1个(symbols) |
+| 4 | 文档生成 | `atlas:atlas-executor` | 推荐 **4个** | 推荐并行4个(home-arch/api/guides/symbols) |
+| 5 | AI索引生成 | `atlas:repo-context-indexer` | - | 生成快速查询索引 |
+| 6 | 上下文优化 | 主进程 | - | 生成 wiki-context.json |
+| 7 | 验证 | `atlas:atlas-executor` | - | 全面检查所有生成内容 |
 
 **🚨 严禁混用 subagent！Plan 只做规划，information-gatherer 只做信息收集，atlas-executor 负责文档生成和验证，repo-semantic-analyzer 只做变更检测，repo-context-indexer 只做索引生成！**
+
+**🚨 当 `--mode parallel` 时，Phase 3/4 必须并行执行！同时启动多个 subagent！**
 
 ### 数据流转
 
@@ -49,7 +51,7 @@ Phase 0 环境检测 → Phase 1 语义变更检测 → Phase 2 规划 → Phase
 | 0 | 项目目录、git 状态 | 环境报告 (mode, fileCount, changedFiles) | 内存传递给 Phase 1/2 |
 | 1 | Phase 0 环境报告、git diff | 变更影响分析 (.meta/semantic-changes.json) | 文件写入 + 传递给 Phase 2 |
 | 2 | Phase 0/1 报告 | 执行计划 JSON | 内存传递给 Phase 3 |
-| 3 | Phase 2 计划 | PKG 文件 (.meta/*.pkg.json) | 文件写入 |
+| 3 | Phase 2 计划 | PKG 文件 (project/modules/quality/api/symbols.pkg.json) | 文件写入 |
 | 4 | PKG 文件 | 文档文件 (*.md) | 文件写入 |
 | 5 | 文档文件、PKG 文件 | 索引文件 (.index/*.json) | 文件写入 |
 | 6 | 索引文件 | wiki-context.json | 文件写入 |
@@ -188,9 +190,17 @@ Phase 6 - 验证:
 
 ---
 
-## Phase 3: 信息收集
+## Phase 3: 信息收集（深度收集）
 
 **Subagent**: `atlas:information-gatherer` (必须使用 Task tool 的 subagent_type="atlas:information-gatherer")
+
+**🚨🚨🚨 核心原则：宁多勿少，宁慢勿错！🚨🚨🚨**
+
+**信息收集必须做到**:
+1. **深度优先** - 对每个模块/符号必须读取实际源代码
+2. **完整覆盖** - 不能遗漏任何公开的类、函数、接口、API
+3. **多次验证** - 对关键信息（特别是 API 端点）必须反复确认
+4. **源码为准** - 所有信息必须从源代码中提取，禁止推测
 
 **🚨 必须严格按照 Phase 2 生成的 todos 执行，每完成一个 todo 立即标记为 completed**
 
@@ -200,17 +210,63 @@ Phase 6 - 验证:
 - `.meta/project.pkg.json`
 - `.meta/modules.pkg.json`
 - `.meta/quality.pkg.json`
+- `.meta/api.pkg.json`
 - `.meta/symbols.pkg.json`
 
-### 并行策略
+### 信息收集强制要求
 
-| 模式 | 行为 |
-|:-----|:-----|
-| parallel | 推荐并行，受 --concurrency 限制 |
-| limited | 严格限制并发数为 N |
-| sequential | 串行执行 |
+**🚨 必须遵守的收集原则**:
 
-**依赖关系**: symbols 依赖 modules，其余无依赖
+1. **API 端点收集**:
+   - 必须扫描所有路由定义文件（controller、router 等）
+   - 必须读取装饰器/注解内容（`@Get()`, `@Post()`, `router.get()` 等）
+   - 必须提取完整的路由路径、HTTP 方法、处理函数
+   - **禁止根据函数名猜测路由**
+   - **禁止根据文件名猜测端点**
+
+2. **符号收集**:
+   - 必须使用 Serena MCP 的 `find_symbol` / `get_symbols_overview`
+   - 对每个类必须读取其方法列表
+   - 对每个函数必须提取实际参数签名
+   - **禁止根据命名约定猜测签名**
+
+3. **依赖收集**:
+   - 必须读取 `package.json` / `go.mod` / `requirements.txt` 等
+   - 必须分析实际的 import/require 语句
+   - **禁止假设存在某个依赖**
+
+4. **配置收集**:
+   - 必须读取 `.env.example` / 配置文件
+   - 必须提取实际使用的环境变量
+   - **禁止猜测配置项名称**
+
+### 并行收集策略
+
+**推荐并行启动多个 `atlas:information-gatherer` subagent 以提高效率。**
+
+**执行方式**: 使用 **Task tool 调用** 同时启动多个收集器。
+
+| 收集器 | Subagent | 依赖 | 可并行 |
+|:-------|:---------|:-----|:-------|
+| project | `atlas:information-gatherer` | 无 | ✅ |
+| modules | `atlas:information-gatherer` | 无 | ✅ |
+| quality | `atlas:information-gatherer` | 无 | ✅ |
+| api | `atlas:information-gatherer` | 无 | ✅ |
+| symbols | `atlas:information-gatherer` | modules | ❌（等待 modules 完成） |
+
+**并行执行分两轮**:
+1. **第一轮（可并行）**: project、modules、quality、api 四个收集器
+2. **第二轮（串行）**: 等待 modules 完成后，启动 symbols 收集器
+
+**并行模式**:
+
+| 模式 | 行为 | 并行要求 |
+|:-----|:-----|:---------|
+| parallel | 第一轮 4 个并行 + 第二轮 symbols | **必须并行** |
+| limited | 受 --concurrency 限制的并行数 | 推荐并行 |
+| sequential | 全部串行执行 | 串行执行 |
+
+**🚨 当 `--mode parallel` 时，必须并行启动多个收集器！**
 
 ### 收集器
 
@@ -241,6 +297,61 @@ Phase 6 - 验证:
 | 警告 | largeFunctions[], deepNesting[] | AST / 行数分析 |
 | 建议 | refactorings[].{priority, target, issue, suggestion} | 规则匹配 |
 
+#### api → .meta/api.pkg.json
+
+**🚨🚨🚨 API 端点收集强制规则 🚨🚨🚨**
+
+工具: Serena MCP 优先，降级 Grep
+
+| 分类 | 字段 |
+|:-----|:-----|
+| 端点 | endpoints[].{method, path, handler, controller, auth, middlewares[], params[], response, description} |
+| 路由组 | groups[].{prefix, controller, endpoints[]} |
+| 认证 | authStrategies[].{name, type, scope} |
+| 中间件 | globalMiddlewares[], routeMiddlewares[] |
+
+**必须执行的步骤**:
+1. **扫描路由文件** - 必须找到所有 controller/router 文件
+2. **读取装饰器** - 必须读取 `@Get()`, `@Post()`, `@Put()`, `@Delete()`, `@Patch()` 等
+3. **提取路由路径** - 从装饰器参数中提取，如 `@Get('/users/:id')`
+4. **确认处理函数** - 必须确认对应的处理方法名
+5. **检查认证装饰器** - 如 `@Auth()`, `@UseGuards()`, `@Public()` 等
+6. **提取路由前缀** - 从 `@Controller()` 或 router 定义中提取
+
+**Express/Koa 项目**:
+```javascript
+// 必须搜索这些模式
+router.get('/path', handler)
+router.post('/path', handler)
+app.get('/path', handler)
+app.use('/prefix', router)
+```
+
+**NestJS 项目**:
+```typescript
+// 必须搜索这些装饰器
+@Controller('prefix')
+@Get('path')
+@Post('path')
+@UseGuards(AuthGuard)
+```
+
+**Go 项目**:
+```go
+// 必须搜索这些模式
+r.GET("/path", handler)
+r.POST("/path", handler)
+r.Group("/prefix")
+http.HandleFunc("/path", handler)
+```
+
+**🚨 绝对禁止**:
+- 根据函数名猜测路由（如 `getUsers` → `/users`）
+- 根据文件名猜测端点（如 `user.controller.ts` → `/user`）
+- 假设存在标准 CRUD 路由
+- 编造任何未在代码中明确定义的端点
+- 推断路由参数类型（必须从装饰器/注解中提取）
+
 #### symbols (依赖 modules) → .meta/symbols.pkg.json
 
 工具: Serena MCP 优先，降级 Grep
@@ -251,7 +362,6 @@ Phase 6 - 验证:
 | 接口 | interfaces[].{name, module, extends, members[]} |
 | 函数 | functions[].{name, module, params[], returns, description} |
 | 类型 | types[].{name, kind, definition} |
-| API | endpoints[].{method, path, handler, auth, description} |
 
 采样: public > protected > private | 跳过 @internal / test / mock | 分批 50 个
 
@@ -264,7 +374,9 @@ Phase 6 - 验证:
 
 ## Phase 4: 文档生成
 
-**Subagent**: `atlas:atlas-executor` (必须使用 Task tool 的 subagent_type="atlas:atlas-executor")
+**推荐并行启动多个 `atlas:atlas-executor` subagent 以提高效率。**
+
+**执行方式**: 使用 **Task tool 调用** 同时启动多个 executor，每个 executor 负责一类文档。
 
 **🚨 必须严格按照 Phase 2 生成的 todos 执行，每完成一个 todo 立即标记为 completed**
 
@@ -272,26 +384,44 @@ Phase 6 - 验证:
 - `.meta/project.pkg.json`
 - `.meta/modules.pkg.json`
 - `.meta/quality.pkg.json`
+- `.meta/api.pkg.json`
 - `.meta/symbols.pkg.json`
 - Phase 2 生成的 todos（必须遵循）
 
 **输出** (写入文件): 各 *.md 文档
 
-### Executor
+### Executor 分配
 
-| Executor | 读取文件 | 输出文件 |
-|:---------|:---------|:---------|
-| home-arch | `.meta/project.pkg.json`, `.meta/modules.pkg.json` | index.md, architecture/*.md |
-| api | `.meta/symbols.pkg.json` | api/*.md |
-| guides | `.meta/project.pkg.json`, `.meta/quality.pkg.json` | guides/*.md, decisions/*.md, quality/*.md |
-| symbols | `.meta/symbols.pkg.json` | symbols/*.md |
+**推荐并行启动以下 executor：**
 
-依赖: 无相互依赖，遵循并行策略
+| Executor | Subagent | 读取文件 | 输出文件 |
+|:---------|:---------|:---------|:---------|
+| home-arch | `atlas:atlas-executor` | `.meta/project.pkg.json`, `.meta/modules.pkg.json` | index.md, architecture/*.md |
+| api | `atlas:atlas-executor` | `.meta/api.pkg.json` | api/*.md |
+| guides | `atlas:atlas-executor` | `.meta/project.pkg.json`, `.meta/quality.pkg.json` | guides/*.md, decisions/*.md, quality/*.md |
+| symbols | `atlas:atlas-executor` | `.meta/symbols.pkg.json` | symbols/*.md |
+
+**并行模式**:
+
+| 模式 | 行为 | 并行要求 |
+|:-----|:-----|:---------|
+| parallel | 4 个 executor 同时启动 | **必须并行** |
+| limited | 受 --concurrency 限制的并行数 | 推荐并行 |
+| sequential | 全部串行执行 | 串行执行 |
+
+**🚨 当 `--mode parallel` 时，必须并行启动多个 executor！**
+
+**执行要求**:
+1. 这 4 个 executor **无相互依赖**，推荐并行调用
+2. 每个 executor 独立读取自己需要的 PKG 文件
+3. 每个 executor 负责生成自己的文档集
 
 **Subagent Prompt 必须包含**:
 1. 要读取的 PKG 文件完整路径: `.claude/repowiki/.meta/{name}.pkg.json`
 2. 输出文件完整路径: `.claude/repowiki/{dir}/{name}.md`
 3. 参考【文档规范】中的示例格式
+4. **🚨 零臆想约束**: 所有内容必须100%来自 PKG 文件，禁止添加任何 PKG 中不存在的信息
+5. **验证要求**: 如果 PKG 中某项数据为空或不存在，对应文档章节应标注"未检测到"而非猜测内容
 
 ### 文件映射
 
@@ -867,11 +997,39 @@ sequenceDiagram
 
 ## 约束
 
+**🚨🚨🚨 零臆想原则（最高优先级）🚨🚨🚨**:
+
+**绝对禁止任何形式的臆想、猜测、推断！所有文档内容必须100%来自实际代码！**
+
+- **禁止臆想的内容**:
+  - API 端点（路径、方法、参数、返回值）
+  - 类名、函数名、变量名
+  - 参数签名、返回类型
+  - 模块结构、依赖关系
+  - 配置项、环境变量
+  - 任何代码相关的技术细节
+
+- **强制验证流程**:
+  1. **必须先读取源代码**才能写入文档
+  2. **每个符号**必须通过 Serena MCP 或 Grep 验证存在
+  3. **每个 API 端点**必须从路由定义文件中提取
+  4. **每个配置项**必须从配置文件中提取
+  5. **宁可不写，也不能猜测**
+
+- **信息来源要求**:
+  - 符号信息 → 必须来自 `find_symbol` / `get_symbols_overview`
+  - API 端点 → 必须来自路由文件的实际读取（如 `@Get()`, `router.get()` 等）
+  - 依赖关系 → 必须来自 `package.json` / `go.mod` / 实际 import 分析
+  - 配置项 → 必须来自 `.env.example` / 配置文件
+
+- **🚨 发现任何不确定的信息，必须返回源代码再次确认！**
+- **🚨 臆想是最严重的错误，宁愿文档不完整，也绝不允许包含任何猜测内容！**
+
 **Subagent 使用（最高优先级）**:
 - Phase 1 语义变更检测 → **必须使用 `atlas:repo-semantic-analyzer`**，仅在 INCREMENTAL 模式执行
 - Phase 2 规划 → **必须使用 `Plan`**，禁止使用其他 subagent
-- Phase 3 信息收集 → **必须使用 `atlas:information-gatherer`**，禁止使用 Plan 或 atlas-executor
-- Phase 4 文档生成 → **必须使用 `atlas:atlas-executor`**，禁止使用 Plan 或 information-gatherer
+- Phase 3 信息收集 → **推荐并行启动多个 `atlas:information-gatherer`**（`--mode parallel` 时必须并行），禁止使用 Plan 或 atlas-executor
+- Phase 4 文档生成 → **推荐并行启动多个 `atlas:atlas-executor`**（`--mode parallel` 时必须并行），禁止使用 Plan 或 information-gatherer
 - Phase 5 AI索引生成 → **必须使用 `atlas:repo-context-indexer`**，禁止使用其他 subagent
 - Phase 6 上下文优化 → **主进程执行**，生成 wiki-context.json
 - Phase 7 验证 → **必须使用 `atlas:atlas-executor`**，全面检查所有生成内容，不能有任何疏漏
@@ -889,7 +1047,7 @@ sequenceDiagram
 
 **验证**: 文档≥10行 | 符号覆盖≥90%(警告) | 链接100%有效 | Mermaid无错误
 
-**禁止**: 跳过验证 | 静默忽略失败 | 占位内容 | 硬编码信息
+**禁止**: 跳过验证 | 静默忽略失败 | 占位内容 | 硬编码信息 | **任何臆想内容**
 
 **错误处理**: 无 git→FULL_BUILD | >2000文件无scope→终止 | Serena不可用→降级Grep | 收集失败→跳过依赖任务 | Executor失败→继续其他
 

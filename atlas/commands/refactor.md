@@ -64,11 +64,25 @@ Phase 0 模式解析 → Phase 1 候选识别 → Phase 2 规划 → Phase 3 执
 
 ---
 
+## 项目知识库
+
+**优先从 `.claude/repowiki/` 获取项目信息**（如果存在）：
+
+| 文件 | 用途 |
+|:-----|:-----|
+| `.claude/repowiki/.meta/modules.pkg.json` | 模块结构（用于依赖分析） |
+| `.claude/repowiki/.meta/symbols.pkg.json` | 符号索引（加速候选识别） |
+| `.claude/repowiki/.meta/quality.pkg.json` | 质量分析（已识别的问题点） |
+
+**使用方式**：Phase 1 识别前先检查这些文件是否存在，可加速候选识别过程。
+
+---
+
 ## Phase 1: 候选识别
 
 **Subagent**: `atlas:information-gatherer`
 
-**输入**: 重构模式 + 范围
+**输入**: 重构模式 + 范围 + `.claude/repowiki/` 现有信息（如果存在）
 
 **输出**: `.claude/refactor/.meta/candidates.pkg.json`
 

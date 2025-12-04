@@ -68,11 +68,25 @@ Phase 0 范围确定 → Phase 1 代码分析 → Phase 2 并行审查 → Phase
 
 ---
 
+## 项目知识库
+
+**优先从 `.claude/repowiki/` 获取项目信息**（如果存在）：
+
+| 文件 | 用途 |
+|:-----|:-----|
+| `.claude/repowiki/.meta/modules.pkg.json` | 模块结构、依赖关系（用于架构审查） |
+| `.claude/repowiki/.meta/api.pkg.json` | API 端点信息（用于安全审查） |
+| `.claude/repowiki/.meta/symbols.pkg.json` | 符号索引（加速代码定位） |
+
+**使用方式**：Phase 1 分析前先检查这些文件是否存在，优先利用现有信息。
+
+---
+
 ## Phase 1: 代码分析
 
 **Subagent**: `atlas:information-gatherer`
 
-**输入**: Phase 0 的目标文件列表
+**输入**: Phase 0 的目标文件列表 + `.claude/repowiki/` 现有信息（如果存在）
 
 **输出**: `.claude/review/.meta/targets.pkg.json`
 

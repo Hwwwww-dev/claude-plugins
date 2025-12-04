@@ -78,11 +78,26 @@ Phase 0 环境检测 → Phase 1 目标分析 → Phase 2 用例规划 → Phase
 
 ---
 
+## 项目知识库
+
+**优先从 `.claude/repowiki/` 获取项目信息**（如果存在）：
+
+| 文件 | 用途 |
+|:-----|:-----|
+| `.claude/repowiki/.meta/project.pkg.json` | 项目配置、测试框架信息 |
+| `.claude/repowiki/.meta/modules.pkg.json` | 模块结构（确定测试范围） |
+| `.claude/repowiki/.meta/symbols.pkg.json` | 符号索引（函数签名、参数类型） |
+| `.claude/repowiki/.meta/api.pkg.json` | API 端点（用于集成测试） |
+
+**使用方式**：Phase 1 分析前先检查这些文件是否存在，可获取函数签名和依赖信息。
+
+---
+
 ## Phase 1: 目标分析
 
 **Subagent**: `atlas:information-gatherer`
 
-**输入**: 范围 + 环境配置
+**输入**: 范围 + 环境配置 + `.claude/repowiki/` 现有信息（如果存在）
 
 **输出**: `.claude/test-gen/.meta/analysis.pkg.json`
 

@@ -86,6 +86,18 @@ git stash push -m "atlas-checkpoint-{execution-id}"
 
 ### 2.1 信息收集（如选择）
 
+**优先从 `.claude/repowiki/` 获取项目信息**（如果存在）：
+
+| 文件 | 用途 |
+|:-----|:-----|
+| `.claude/repowiki/.meta/project.pkg.json` | 项目元数据、技术栈 |
+| `.claude/repowiki/.meta/modules.pkg.json` | 模块结构、依赖关系 |
+| `.claude/repowiki/.meta/api.pkg.json` | API 端点信息 |
+| `.claude/repowiki/.meta/symbols.pkg.json` | 符号索引 |
+| `.claude/repowiki/.index/quick-lookup.json` | 快速查询索引 |
+
+**如果 repowiki 存在且信息充足，可跳过信息收集步骤直接进入规划。**
+
 **固定输入结构**:
 ```
 Task(subagent_type="atlas:information-gatherer")
@@ -93,6 +105,9 @@ prompt: |
   ## 任务
   任务 ID: <task-id>
   任务描述: [用户要做什么]
+
+  ## 已有信息
+  检查 `.claude/repowiki/` 是否存在，优先使用现有 PKG 文件
 
   ## 收集目标
   - 范围: [哪些目录/文件]
