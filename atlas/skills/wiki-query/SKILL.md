@@ -1,225 +1,224 @@
 ---
 name: wiki-query
-description: 当用户询问"项目有哪些API"、"XXX类有哪些方法"、"模块依赖关系"等项目结构问题时，使用此 skill 从 .claude/repowiki 索引中精确检索，避免读取完整JSON。触发词：查询API、查找符号、模块依赖、项目结构、类方法、端点列表。
-version: 1.0.0
+description: 当用户询问"项目有哪些API"、"XXX类有哪些方法"、"查找XXX"、"模块依赖"等项目结构问题时，使用此 skill。优先级高于 Serena。支持模糊搜索，找不到时显示相似结果。
+version: 1.1.0
 color: blue
 ---
 
-# Wiki Query - 索引查询工具
+# Wiki Query - 项目索引查询
 
-从 `.claude/repowiki/` 索引中精确检索信息，只返回需要的数据。
+从 `.claude/repowiki/` 索引中查询项目信息。**优先级 > Serena**。
 
-## 使用场景
-
-**前提条件**：`.claude/repowiki/` 目录存在（已运行过 `/atlas:repo-wiki`）
-
-## 检查前置条件
-
-**首先检查 `.claude/repowiki/` 是否存在：**
+## 前置检查
 
 ```bash
-ls -la .claude/repowiki/.meta/ 2>/dev/null || echo "repowiki 不存在，请先运行 /atlas:repo-wiki"
+ls .claude/repowiki/.meta/*.pkg.json 2>/dev/null || echo "❌ RepoWiki 不存在，请先运行 /atlas:repo-wiki"
 ```
-
-如果不存在，提示用户先运行 `/atlas:repo-wiki` 生成索引。
 
 ---
 
-## 查询命令
+## 查询方式
 
-### 1. 项目概览
+### 方式一：使用查询脚本（推荐）
 
 ```bash
-# 快速获取项目基本信息
-python3 -c "
-import json
-with open('.claude/repowiki/.meta/project.pkg.json') as f:
-    d = json.load(f)
-    print(f\"项目: {d.get('name', 'unknown')}\")
-    print(f\"版本: {d.get('version', '-')}\")
-    print(f\"技术栈: {', '.join(d.get('techStack', {}).get('languages', []))}\")
-    print(f\"框架: {', '.join(d.get('techStack', {}).get('frameworks', []))}\")
-    print(f\"依赖数: {len(d.get('dependencies', {}).get('production', []))}\")
-"
+# 全局搜索（推荐首选）
+python3 scripts/query.py search <keyword>
+
+# 类查询（查看类的方法、继承关系）
+python3 scripts/query.py class <name>
+
+# API 查询（端点、控制器、认证信息）
+python3 scripts/query.py api <keyword>
+
+# 模块依赖（模块及其依赖关系）
+python3 scripts/query.py module <name>
+
+# 项目统计概览
+python3 scripts/query.py stats
 ```
 
-### 2. API 端点查询
+### 方式二：内联命令
 
-#### 按路径搜索
+#### 1. 全局搜索
+
 ```bash
 python3 -c "
 import json, sys
-keyword = '$QUERY'
-with open('.claude/repowiki/.meta/api.pkg.json') as f:
-    d = json.load(f)
-    results = [e for e in d.get('endpoints', []) if keyword.lower() in e.get('path', '').lower()]
-    print(f'找到 {len(results)} 个匹配端点:')
-    for e in results[:10]:
-        auth = '🔒' if e.get('auth') else '🔓'
-        print(f\"  {auth} {e['method']:6} {e['path']}\")
-        print(f\"     → {e.get('controller', '-')}.{e.get('handler', '-')}\")
-    if len(results) > 10:
-        print(f'  ... 还有 {len(results)-10} 个')
+q = '$QUERY'.lower()
+r = []
+
+# 搜索类
+try:
+    with open('.claude/repowiki/.meta/symbols.pkg.json') as f:
+        d = json.load(f)
+        for c in d.get('classes', []):
+            if q in c.get('name', '').lower():
+                r.append(('类', c['name'], c.get('path', '-'), len(c.get('methods', []))))
+except: pass
+
+# 搜索 API
+try:
+    with open('.claude/repowiki/.meta/api.pkg.json') as f:
+        d = json.load(f)
+        for e in d.get('endpoints', []):
+            if q in e.get('path', '').lower() or q in e.get('handler', '').lower() or q in e.get('controller', '').lower():
+                r.append(('API', f\"{e['method']} {e['path']}\", e.get('controller', '-'), 0))
+except: pass
+
+# 搜索模块
+try:
+    with open('.claude/repowiki/.meta/modules.pkg.json') as f:
+        d = json.load(f)
+        for m in d.get('modules', []):
+            if q in m.get('name', '').lower():
+                r.append(('模块', m['name'], m.get('path', '-'), 0))
+except: pass
+
+if r:
+    print(f'搜索 \"{q}\" 找到 {len(r)} 个结果:')
+    for t, n, p, c in r[:20]:
+        extra = f' ({c} methods)' if c > 0 else ''
+        print(f'  [{t}] {n}{extra}')
+        print(f'        @ {p}')
+else:
+    print(f'未找到 \"{q}\"，尝试显示相似项...')
+    try:
+        with open('.claude/repowiki/.meta/symbols.pkg.json') as f:
+            d = json.load(f)
+            classes = [c['name'] for c in d.get('classes', [])]
+            similar = [c for c in classes if any(w in c.lower() for w in q.split())]
+            if similar:
+                print('相似的类:')
+                for c in similar[:10]:
+                    print(f'  - {c}')
+    except: pass
 "
 ```
 
-#### 按 Controller 搜索
+#### 2. 类查询
+
 ```bash
 python3 -c "
 import json
-name = '$QUERY'
-with open('.claude/repowiki/.meta/api.pkg.json') as f:
-    d = json.load(f)
-    results = [e for e in d.get('endpoints', []) if name.lower() in e.get('controller', '').lower()]
-    print(f'Controller \"{name}\" 的端点 ({len(results)}个):')
-    for e in results:
-        auth = '🔒' if e.get('auth') else '🔓'
-        print(f\"  {auth} {e['method']:6} {e['path']}\")
-"
-```
-
-#### 按 HTTP 方法统计
-```bash
-python3 -c "
-import json
-from collections import Counter
-with open('.claude/repowiki/.meta/api.pkg.json') as f:
-    d = json.load(f)
-    methods = Counter(e['method'] for e in d.get('endpoints', []))
-    print('HTTP 方法分布:')
-    for m, c in sorted(methods.items()):
-        print(f'  {m:7} {c:3} 个')
-    print(f'总计: {sum(methods.values())} 个端点')
-"
-```
-
-### 3. 符号查询
-
-#### 按名称搜索符号
-```bash
-python3 -c "
-import json
-name = '$QUERY'
+q = '$QUERY'.lower()
 with open('.claude/repowiki/.meta/symbols.pkg.json') as f:
     d = json.load(f)
-    # 搜索类
-    classes = [c for c in d.get('classes', []) if name.lower() in c.get('name', '').lower()]
-    # 搜索函数
-    funcs = [f for f in d.get('functions', []) if name.lower() in f.get('name', '').lower()]
-    # 搜索接口
-    interfaces = [i for i in d.get('interfaces', []) if name.lower() in i.get('name', '').lower()]
+    matches = [c for c in d.get('classes', []) if q in c.get('name', '').lower()]
 
-    if classes:
-        print(f'类 ({len(classes)}个):')
-        for c in classes[:5]:
-            print(f\"  {c['name']} @ {c.get('path', '-')}\")
-    if funcs:
-        print(f'函数 ({len(funcs)}个):')
-        for f in funcs[:5]:
-            print(f\"  {f['name']}({', '.join(p.get('name','') for p in f.get('params', []))}) @ {f.get('module', '-')}\")
-    if interfaces:
-        print(f'接口 ({len(interfaces)}个):')
-        for i in interfaces[:5]:
-            print(f\"  {i['name']} @ {i.get('module', '-')}\")
-"
-```
-
-#### 获取类的详细信息
-```bash
-python3 -c "
-import json
-name = '$QUERY'
-with open('.claude/repowiki/.meta/symbols.pkg.json') as f:
-    d = json.load(f)
-    for c in d.get('classes', []):
-        if c.get('name', '').lower() == name.lower():
-            print(f\"类: {c['name']}\")
-            print(f\"路径: {c.get('path', '-')}\")
-            print(f\"模块: {c.get('module', '-')}\")
-            if c.get('extends'): print(f\"继承: {c['extends']}\")
-            if c.get('implements'): print(f\"实现: {', '.join(c['implements'])}\")
-            if c.get('methods'):
-                print(f\"方法 ({len(c['methods'])}个):\")
-                for m in c['methods'][:10]:
-                    vis = {'public':'🟢','private':'🔴','protected':'🟡'}.get(m.get('visibility',''),'⚪')
-                    print(f\"  {vis} {m.get('name', '-')}()\")
-            break
+    if len(matches) == 0:
+        print(f'未找到包含 \"{q}\" 的类')
+        all_classes = [c['name'] for c in d.get('classes', [])]
+        print(f'\\n项目中的类 ({len(all_classes)} 个):')
+        for c in all_classes[:15]:
+            print(f'  - {c}')
+    elif len(matches) == 1:
+        c = matches[0]
+        print(f'类: {c[\"name\"]}')
+        print(f'路径: {c.get(\"path\", \"-\")}')
+        if c.get('extends'): print(f'继承: {c[\"extends\"]}')
+        if c.get('implements'): print(f'实现: {c[\"implements\"]}')
+        if c.get('methods'):
+            print(f'方法 ({len(c[\"methods\"])} 个):')
+            for m in c['methods']:
+                v = {'public':'🟢','private':'🔴','protected':'🟡'}.get(m.get('visibility',''),'⚪')
+                print(f'  {v} {m.get(\"name\", \"-\")}()')
     else:
-        print(f'未找到类: {name}')
+        print(f'找到 {len(matches)} 个匹配类:')
+        for c in matches:
+            print(f'  - {c[\"name\"]} ({len(c.get(\"methods\",[]))} methods) @ {c.get(\"path\",\"-\")}')
 "
 ```
 
-### 4. 模块查询
+#### 3. API 查询
 
-#### 列出所有模块
 ```bash
 python3 -c "
 import json
-with open('.claude/repowiki/.meta/modules.pkg.json') as f:
+q = '$QUERY'.lower()
+with open('.claude/repowiki/.meta/api.pkg.json') as f:
     d = json.load(f)
-    modules = d.get('modules', [])
-    print(f'模块列表 ({len(modules)}个):')
-    for m in modules:
-        exports = len(m.get('exports', []))
-        print(f\"  {m.get('name', '-'):20} {m.get('path', '-'):30} ({exports} exports)\")
-"
-```
+    results = [e for e in d.get('endpoints', [])
+               if q in e.get('path', '').lower()
+               or q in e.get('controller', '').lower()
+               or q in e.get('handler', '').lower()]
 
-#### 查询模块依赖
-```bash
-python3 -c "
-import json
-name = '$QUERY'
-with open('.claude/repowiki/.meta/modules.pkg.json') as f:
-    d = json.load(f)
-    graph = d.get('graph', [])
-    deps = [g for g in graph if g.get('from', '').lower() == name.lower() or name.lower() in g.get('from', '').lower()]
-    if deps:
-        print(f'模块 \"{name}\" 的依赖:')
-        for dep in deps:
-            print(f\"  {dep.get('from', '-')} → {dep.get('to', '-')}\")
-    else:
-        print(f'未找到模块依赖: {name}')
-"
-```
-
-### 5. 快速查找
-
-#### 符号快速定位
-```bash
-python3 -c "
-import json
-keyword = '$QUERY'
-with open('.claude/repowiki/.index/quick-lookup.json') as f:
-    d = json.load(f)
-    results = {k:v for k,v in d.get('quickSearch', {}).items() if keyword.lower() in k.lower()}
     if results:
-        print(f'快速查找结果 ({len(results)}个):')
-        for k, v in list(results.items())[:10]:
-            print(f\"  {k}: {v.get('type', '-')} @ {v.get('file', v.get('doc', '-'))}\")
+        print(f'API 搜索 \"{q}\" ({len(results)} 个):')
+        for e in results[:15]:
+            auth = '🔒' if e.get('auth') else '🔓'
+            print(f'  {auth} {e[\"method\"]:6} {e[\"path\"]}')
+            print(f'       → {e.get(\"controller\",\"-\")}.{e.get(\"handler\",\"-\")}')
     else:
-        print(f'未找到: {keyword}')
+        print(f'未找到包含 \"{q}\" 的 API')
+        controllers = set(e.get('controller','') for e in d.get('endpoints',[]))
+        print(f'\\n可用的 Controller ({len(controllers)} 个):')
+        for c in sorted(controllers)[:10]:
+            print(f'  - {c}')
 "
 ```
 
-### 6. 质量统计
+#### 4. 模块依赖
 
 ```bash
 python3 -c "
 import json
-with open('.claude/repowiki/.meta/quality.pkg.json') as f:
+q = '$QUERY'.lower()
+with open('.claude/repowiki/.meta/modules.pkg.json') as f:
     d = json.load(f)
-    stats = d.get('stats', {})
-    print('代码统计:')
-    print(f\"  总文件数: {stats.get('totalFiles', '-')}\")
-    print(f\"  总行数: {stats.get('totalLines', '-')}\")
-    print(f\"  平均行数: {stats.get('avgLines', '-')}\")
+    modules = [m for m in d.get('modules', []) if q in m.get('name', '').lower()]
+    deps = [g for g in d.get('graph', []) if q in g.get('from', '').lower() or q in g.get('to', '').lower()]
 
-    warnings = d.get('warnings', {})
-    if warnings.get('largeFunctions'):
-        print(f\"\\n大函数警告 ({len(warnings['largeFunctions'])}个):\")
-        for w in warnings['largeFunctions'][:5]:
-            print(f\"  {w.get('name', '-')} @ {w.get('file', '-')} ({w.get('lines', '-')}行)\")
+    if modules:
+        print(f'匹配的模块 ({len(modules)} 个):')
+        for m in modules:
+            print(f'  {m.get(\"name\", \"-\")} @ {m.get(\"path\", \"-\")}')
+    if deps:
+        print(f'\\n相关依赖 ({len(deps)} 个):')
+        for g in deps[:15]:
+            print(f'  {g.get(\"from\", \"-\")} → {g.get(\"to\", \"-\")}')
+    if not modules and not deps:
+        print(f'未找到包含 \"{q}\" 的模块')
+        all_modules = [m['name'] for m in d.get('modules', [])]
+        print(f'\\n可用模块 ({len(all_modules)} 个):')
+        for m in all_modules[:10]:
+            print(f'  - {m}')
+"
+```
+
+#### 5. 统计概览
+
+```bash
+python3 -c "
+import json
+print('=== 项目统计 ===')
+
+try:
+    with open('.claude/repowiki/.meta/project.pkg.json') as f:
+        d = json.load(f)
+        print(f'项目: {d.get(\"name\", \"-\")}')
+        print(f'技术栈: {d.get(\"techStack\", {})}')
+except: pass
+
+try:
+    with open('.claude/repowiki/.meta/symbols.pkg.json') as f:
+        d = json.load(f)
+        print(f'类: {len(d.get(\"classes\", []))} 个')
+        print(f'函数: {len(d.get(\"functions\", []))} 个')
+        print(f'接口: {len(d.get(\"interfaces\", []))} 个')
+except: pass
+
+try:
+    with open('.claude/repowiki/.meta/api.pkg.json') as f:
+        d = json.load(f)
+        print(f'API 端点: {len(d.get(\"endpoints\", []))} 个')
+except: pass
+
+try:
+    with open('.claude/repowiki/.meta/modules.pkg.json') as f:
+        d = json.load(f)
+        print(f'模块: {len(d.get(\"modules\", []))} 个')
+except: pass
 "
 ```
 
@@ -227,59 +226,19 @@ with open('.claude/repowiki/.meta/quality.pkg.json') as f:
 
 ## 使用示例
 
-用户问: "项目有哪些 API 端点与用户相关?"
-
-```bash
-# 执行查询
-python3 -c "
-import json
-with open('.claude/repowiki/.meta/api.pkg.json') as f:
-    d = json.load(f)
-    results = [e for e in d.get('endpoints', []) if 'user' in e.get('path', '').lower()]
-    print(f'用户相关 API ({len(results)}个):')
-    for e in results:
-        auth = '🔒' if e.get('auth') else '🔓'
-        print(f\"  {auth} {e['method']:6} {e['path']}\")
-"
-```
-
-用户问: "UserService 类有哪些方法?"
-
-```bash
-python3 -c "
-import json
-with open('.claude/repowiki/.meta/symbols.pkg.json') as f:
-    d = json.load(f)
-    for c in d.get('classes', []):
-        if 'UserService' in c.get('name', ''):
-            print(f\"类: {c['name']}\")
-            for m in c.get('methods', []):
-                print(f\"  - {m.get('name', '-')}()\")
-            break
-"
-```
+| 用户问题 | 推荐命令 |
+|:---------|:---------|
+| "UserService 有哪些方法？" | `python3 scripts/query.py class UserService` |
+| "项目有哪些用户相关 API？" | `python3 scripts/query.py api user` |
+| "找一下 XXX 相关的类" | `python3 scripts/query.py search XXX` |
+| "order 模块依赖哪些？" | `python3 scripts/query.py module order` |
+| "项目有多少个类和 API？" | `python3 scripts/query.py stats` |
 
 ---
 
 ## 注意事项
 
-1. **所有查询都是只读的**，不会修改任何文件
-2. **按需查询**，只返回需要的数据，节省上下文
-3. **如果索引不存在**，提示用户先运行 `/atlas:repo-wiki`
-4. **查询结果有限制**，默认显示前 10 条，避免输出过多
-5. **替换 `$QUERY`** 为实际的查询关键词
-
----
-
-## 与其他命令配合
-
-```bash
-# 1. 先用 wiki-query 了解项目结构
-/skill wiki-query → 查询 UserService
-
-# 2. 找到文件后用 gather 深入分析
-/gather dependencies UserService
-
-# 3. 基于分析结果执行任务
-/orchestrate 重构 UserService
-```
+1. **优先使用全局搜索** - 不确定类型时先用 `search`
+2. **支持模糊匹配** - 输入部分名称即可
+3. **找不到时显示相似项** - 帮助定位正确名称
+4. **替换 `$QUERY`** - 内联命令中替换为实际查询关键词

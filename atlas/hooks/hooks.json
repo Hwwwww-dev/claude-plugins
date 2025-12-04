@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo \"[Serena] If not loaded, run 'mcp__serena__activate_project' to mount cwd. For new projects, run 'mcp__serena__onboarding' first to build indexes and memories.\""
+            "command": "test -d .claude/repowiki && echo '[RepoWiki] PRIORITY: Use wiki-query skill FIRST for project queries (API, classes, modules, dependencies). Only use Serena if wiki-query insufficient.' || echo '[Serena] No RepoWiki found. Run mcp__serena__activate_project to mount cwd, or run /atlas:repo-wiki to generate project index.'"
           }
         ]
       }
@@ -18,6 +18,10 @@
           {
             "type": "command",
             "command": "echo \"Keep responses concise, clear, and valuable. Follow 八荣八耻, Occam's Razor, Linus spirit. When uncertain, use AskUserQuestion to clarify before acting. Actively delegate to subagents [via Task tool] for complex tasks - they run in parallel and reduce main context consumption: atlas:information-gatherer for Project analysis, structure, dependencies; atlas:atlas-executor for General task execution, code modifications, file operations; atlas:code-reviewer for Code review, security/performance/style analysis. Skip delegation for: simple Q&A, single-file edits, explicit user request.\""
+          },
+          {
+            "type": "command",
+            "command": "test -d .claude/repowiki && echo '[RepoWiki Available] When user asks about class methods, API endpoints, module structure, or project info: Use wiki-query skill FIRST (priority > Serena). Faster and saves context.' || true"
           }
         ]
       }
