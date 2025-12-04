@@ -117,7 +117,41 @@ PKG 层级: [project | modules | symbols | quality]
 
 #### symbols 层级
 
-**工具**: Serena MCP 优先
+**工具**: Serena MCP **强制使用**，禁止猜测
+
+**🚨 零遗漏原则（最高优先级）🚨**:
+1. **必须使用 Serena MCP 完整扫描所有代码文件**
+2. **禁止根据文件名/目录猜测类名**
+3. **禁止采样或跳过任何 public/protected 符号**
+4. **每个类必须读取完整方法列表**
+5. **宁慢勿漏，宁多勿少**
+
+**分阶段收集策略**:
+```
+阶段1: 使用 Glob 找到所有代码文件（*.ts, *.tsx, *.java, *.py 等）
+阶段2: 对每个文件使用 get_symbols_overview 获取符号列表
+阶段3: 对每个类使用 find_symbol(depth=1) 获取完整方法列表
+阶段4: 分批写入 JSON，避免内存溢出
+```
+
+**必须执行的 Serena 工具调用**:
+```python
+# 1. 遍历所有代码文件
+for file in code_files:
+    # 2. 获取文件符号概览
+    overview = mcp__serena__get_symbols_overview(relative_path=file)
+
+    # 3. 对每个类深度查询方法
+    for cls in overview.classes:
+        details = mcp__serena__find_symbol(
+            name_path=cls.name,
+            relative_path=file,
+            depth=1,  # 包含方法
+            include_body=False  # 不需要代码体
+        )
+        # 4. 记录所有方法
+        all_methods = details.methods
+```
 
 **签名规范化算法**:
 ```
@@ -244,17 +278,35 @@ PKG 模式下，返回给主对话的摘要格式：
 🔜 下一阶段可读取此文件继续处理
 ```
 
-### PKG 采样策略
+### PKG 分批处理策略
 
-当符号数过多时（> 100），执行智能采样：
+**🚨 禁止采样！必须收集所有符号！**
 
-1. **优先级排序**: public > protected > private
-2. **跳过规则**:
-   - `@internal` 或 `@private` 标记
-   - test/mock/fixture 目录
-   - 自动生成代码（.generated.ts）
-3. **分批处理**: 每批 50 个符号
-4. **记录未处理**: 在 `skipped` 字段中记录
+为避免内存溢出，采用分批写入策略：
+
+1. **分批读取**: 每批处理 50 个文件
+2. **增量写入**: 每批完成后追加到 JSON
+3. **只过滤 private**: 仅跳过 private 符号
+4. **必须包含**:
+   - ✅ 所有 public 符号
+   - ✅ 所有 protected 符号
+   - ✅ test 文件中的符号（可能是 API 用例）
+   - ✅ 自动生成代码（可能被引用）
+
+**分批写入示例**:
+```python
+# 分批收集
+all_symbols = []
+for batch in batches(code_files, batch_size=50):
+    batch_symbols = collect_symbols(batch)
+    all_symbols.extend(batch_symbols)
+
+    # 每批写入临时文件，避免内存溢出
+    append_to_json(temp_file, batch_symbols)
+
+# 最终合并
+merge_json_files(temp_file, output_file)
+```
 
 ---
 

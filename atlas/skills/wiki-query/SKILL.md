@@ -1,13 +1,21 @@
 ---
 name: wiki-query
 description: 当用户询问"项目有哪些API"、"XXX类有哪些方法"、"查找XXX"、"模块依赖"等项目结构问题时，使用此 skill。优先级高于 Serena。支持模糊搜索，找不到时显示相似结果。
-version: 1.1.0
+version: 2.0.1
 color: blue
 ---
 
 # Wiki Query - 项目索引查询
 
+**`.claude/repowiki/`** 为项目级，在调用脚本时请正确使用路径！
+
 从 `.claude/repowiki/` 索引中查询项目信息。**优先级 > Serena**。
+
+## 核心原则
+
+1. **优先使用流式脚本** - `stream_query.py` 避免读取完整 JSON
+2. **相对路径调用** - 使用 `scripts/query.py`，Claude 自动处理 Skill 目录
+3. **跨项目支持** - 通过 `WIKI_TARGET_DIR` 环境变量查询其他项目
 
 ## 前置检查
 
@@ -15,11 +23,51 @@ color: blue
 ls .claude/repowiki/.meta/*.pkg.json 2>/dev/null || echo "❌ RepoWiki 不存在，请先运行 /atlas:repo-wiki"
 ```
 
+## 依赖安装
+
+流式查询需要 ijson 库：
+```bash
+pip install ijson
+```
+
+如果无法安装，可使用标准查询（会读取完整 JSON）。
+
+## 快速开始
+
+流式查询（推荐 - 避免读取完整 JSON）：
+```python
+# 查询类方法
+python3 scripts/stream_query.py class <ClassName>
+
+# 查询 API
+python3 scripts/stream_query.py api <keyword>
+```
+
+标准查询：
+```python
+# 全局搜索
+python3 scripts/query.py search <keyword>
+
+# 查询类
+python3 scripts/query.py class <ClassName>
+
+# 查询 API
+python3 scripts/query.py api <keyword>
+
+# 查询模块
+python3 scripts/query.py module <ModuleName>
+
+# 项目统计
+python3 scripts/query.py stats
+```
+
 ---
 
 ## 查询方式
 
-### 方式一：使用查询脚本（推荐）
+### 方式一：使用查询脚本（推荐 - 避免读取完整 JSON）
+
+**标准查询脚本**：
 
 ```bash
 # 全局搜索（推荐首选）
@@ -36,6 +84,31 @@ python3 scripts/query.py module <name>
 
 # 项目统计概览
 python3 scripts/query.py stats
+```
+
+**流式查询脚本**（推荐 - 避免读取完整 JSON，需要 ijson 库）：
+
+```bash
+# 安装依赖（仅首次）
+pip install ijson
+
+# 流式类查询（大文件友好）
+python3 scripts/stream_query.py class <name>
+
+# 流式 API 查询（大文件友好）
+python3 scripts/stream_query.py api <keyword>
+```
+
+### 跨项目查询
+
+如果你在一个项目（A）中，想查询另一个项目（B）的 RepoWiki：
+
+```bash
+# 设置环境变量指向目标项目
+export WIKI_TARGET_DIR="/path/to/project-B"
+
+# 然后正常调用查询脚本
+python3 scripts/query.py class UserService
 ```
 
 ### 方式二：内联命令
@@ -228,17 +301,56 @@ except: pass
 
 | 用户问题 | 推荐命令 |
 |:---------|:---------|
-| "UserService 有哪些方法？" | `python3 scripts/query.py class UserService` |
-| "项目有哪些用户相关 API？" | `python3 scripts/query.py api user` |
+| "XXX 类有哪些方法？" | `python3 scripts/stream_query.py class XXX` |
+| "项目有哪些 XXX 相关 API？" | `python3 scripts/stream_query.py api XXX` |
 | "找一下 XXX 相关的类" | `python3 scripts/query.py search XXX` |
-| "order 模块依赖哪些？" | `python3 scripts/query.py module order` |
+| "XXX 模块依赖哪些？" | `python3 scripts/query.py module XXX` |
 | "项目有多少个类和 API？" | `python3 scripts/query.py stats` |
+
+## 性能对比
+
+| 脚本 | JSON 读取方式 | 内存占用 | 适用场景 |
+|:-----|:-------------|:---------|:---------|
+| `query.py` | 完整读取 | 高 | 小型项目（<100 类） |
+| `stream_query.py` | 流式增量 | 低 | 大型项目（>=100 类） |
+
+**推荐策略**：
+- 优先使用 `stream_query.py`（需要 `pip install ijson`）
+- 如果无法安装 ijson，降级使用 `query.py`
 
 ---
 
 ## 注意事项
 
-1. **优先使用全局搜索** - 不确定类型时先用 `search`
-2. **支持模糊匹配** - 输入部分名称即可
+1. **优先使用流式查询** - `stream_query.py` 避免读取完整 JSON，内存占用低
+2. **支持模糊匹配** - 输入部分名称即可（如 `XXX` 可匹配 `XXXController`）
 3. **找不到时显示相似项** - 帮助定位正确名称
-4. **替换 `$QUERY`** - 内联命令中替换为实际查询关键词
+4. **跨项目查询** - 通过环境变量 `WIKI_TARGET_DIR` 查询其他项目的 RepoWiki
+5. **依赖说明** - 流式查询需要 `pip install ijson`，如无法安装则使用标准查询
+
+## 索引数据不完整的解决方案
+
+如果查询不到预期的类或 API：
+
+1. **检查 RepoWiki 是否最新**：
+   ```bash
+   ls -lh .claude/repowiki/.meta/symbols.pkg.json
+   ```
+
+2. **重新生成索引**（强制全量构建）：
+   ```bash
+   /atlas:repo-wiki --force
+   ```
+
+3. **使用 Serena MCP 直接查询**（作为降级方案）：
+   - Serena 直接分析源代码，不依赖索引
+   - 但 Serena 消耗更多 Token
+
+## 性能建议
+
+| 场景 | 推荐工具 | 理由 |
+|:-----|:---------|:-----|
+| 快速查询类/API | `stream_query.py` | 流式解析，内存占用低 |
+| 小型项目 | `query.py` | 简单直接，无需额外依赖 |
+| 大型项目（>100类） | `stream_query.py` | 避免 OOM，查询速度快 |
+| 索引不完整 | Serena MCP | 直接分析源码，100% 准确 |

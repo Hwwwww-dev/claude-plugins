@@ -354,7 +354,14 @@ http.HandleFunc("/path", handler)
 
 #### symbols (依赖 modules) → .meta/symbols.pkg.json
 
-工具: Serena MCP 优先，降级 Grep
+工具: Serena MCP **强制使用**，**禁止猜测**
+
+**🚨 零遗漏原则（最高优先级）🚨**:
+1. **必须使用 Serena MCP 完整扫描所有代码文件**
+2. **禁止根据文件名/目录猜测类名**
+3. **禁止采样或跳过任何 public/protected 符号**
+4. **每个类必须读取完整方法列表**（使用 `find_symbol(depth=1)`）
+5. **宁慢勿漏，宁多勿少**
 
 | 分类 | 字段 |
 |:-----|:-----|
@@ -363,12 +370,30 @@ http.HandleFunc("/path", handler)
 | 函数 | functions[].{name, module, params[], returns, description} |
 | 类型 | types[].{name, kind, definition} |
 
-采样: public > protected > private | 跳过 @internal / test / mock | 分批 50 个
+**分批处理策略**（避免内存溢出）:
+- 每批 50 个文件
+- 增量写入 JSON
+- **只过滤 private 符号**，其他全部保留
+- **禁止跳过 test/mock/generated 代码**
 
 **Subagent Prompt 必须包含**:
 1. 输出文件完整路径: `.claude/repowiki/.meta/{name}.pkg.json`
 2. PKG 结构参考上述字段定义
 3. 依赖的 PKG 文件路径 (symbols 需读取 `.claude/repowiki/.meta/modules.pkg.json`)
+4. **强制 Serena MCP 使用规范**:
+   ```
+   对于 symbols 收集，必须执行以下步骤：
+   a) 使用 Glob 找到所有代码文件（**/*.ts, **/*.tsx, **/*.java, **/*.py 等）
+   b) 对每个文件使用 mcp__serena__get_symbols_overview 获取符号列表
+   c) 对每个类使用 mcp__serena__find_symbol(depth=1) 获取完整方法列表
+   d) 分批写入 JSON，每批 50 个文件
+   e) 最终合并所有批次到 .meta/symbols.pkg.json
+   ```
+5. **验证要求**: 收集完成后，必须统计并报告：
+   - 扫描的文件数
+   - 收集的类数量
+   - 收集的方法总数
+   - 如果类数 < 预期，说明存在遗漏
 
 ---
 

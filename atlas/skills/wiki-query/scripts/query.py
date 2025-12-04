@@ -3,21 +3,36 @@
 """
 Wiki Query - 项目索引查询工具
 支持跨文件模糊搜索
+支持跨项目调用
 """
 
 import json
 import sys
+import os
 from pathlib import Path
 
 # 索引目录（相对于项目根目录）
 def find_wiki_dir():
-    """查找 RepoWiki 目录"""
-    # 尝试当前目录
+    """
+    查找 RepoWiki 目录
+    支持以下场景:
+    1. 当前目录是项目根目录
+    2. 当前目录是项目子目录
+    3. 从其他项目调用 (通过环境变量 WIKI_TARGET_DIR)
+    """
+    # 场景 3: 通过环境变量指定目标项目
+    if 'WIKI_TARGET_DIR' in os.environ:
+        target_dir = Path(os.environ['WIKI_TARGET_DIR'])
+        test_path = target_dir / ".claude/repowiki/.meta"
+        if test_path.exists():
+            return target_dir / ".claude/repowiki", test_path
+
+    # 场景 1: 当前目录
     test_path = Path(".claude/repowiki/.meta")
     if test_path.exists():
         return Path(".claude/repowiki"), test_path
 
-    # 向上查找项目根目录
+    # 场景 2: 向上查找项目根目录
     for parent in Path.cwd().parents:
         test_path = parent / ".claude/repowiki/.meta"
         if test_path.exists():
