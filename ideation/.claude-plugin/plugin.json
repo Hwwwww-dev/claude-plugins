@@ -1,9 +1,7 @@
 {
   "name": "ideation",
   "description": "多角色头脑风暴框架 - 通过苏格拉底式对话和13位专业专家辩论，深度探索问题本质，支持智能推荐与交互式选择。",
-  "version": "1.0.0",
-  "category": "orchestration",
-  "complexity": "advanced",
+  "version": "1.0.1",
   "author": {
     "name": "Hwwwww"
   },
@@ -29,21 +27,5 @@
     "collaboration",
     "decision-making",
     "requirements-discovery"
-  ],
-  "personas": [
-    "product-manager",
-    "market-analyst",
-    "legal-advisor",
-    "architect",
-    "ux-designer",
-    "frontend-engineer",
-    "backend-engineer",
-    "database-expert",
-    "devops-engineer",
-    "security-expert",
-    "performance-expert",
-    "tech-lead",
-    "data-analyst",
-    "debate-moderator"
   ]
 }

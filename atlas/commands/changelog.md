@@ -27,7 +27,7 @@ argument-hint: [--from tag|commit] [--to tag|commit] [--version X.Y.Z] [--format
 
 | 变更类型 | 版本变化 | 说明 |
 |----------|----------|------|
-| BREAKING CHANGE / `!` | Major (X.0.0) | 不兼容变更 |
+| BREAKING CHANGE / "!" | Major (X.0.0) | 不兼容变更 |
 | `feat:` | Minor (x.Y.0) | 新功能 |
 | `fix:` / `docs:` / `perf:` | Patch (x.y.Z) | 修复和优化 |
 
@@ -91,7 +91,7 @@ prompt: |
      - perf: 性能优化
      - test: 测试
      - chore: 构建/工具
-     - BREAKING: 破坏性变更（包含 `!` 或 `BREAKING CHANGE:` 的提交）
+     - BREAKING: 破坏性变更（包含 "!" 或 `BREAKING CHANGE:` 的提交）
   3. 统计信息（提交总数、文件变更数、贡献者）
 
   ## 输出

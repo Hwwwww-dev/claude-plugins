@@ -1040,7 +1040,7 @@ sequenceDiagram
 
 ## 最终报告格式
 
-**必须包含**: 执行概况(模式/语言/范围/深度) | 生成统计(文档数/总行数/符号覆盖率/耗时) | 验证结果(✅全部通过 / ⚠️X个警告 / ❌X个失败) | 文件列表(核心文档路径) | 下一步操作(`git add .claude/repowiki && git commit -m "docs: generate repo wiki"`)
+**必须包含**: 执行概况(模式/语言/范围/深度) | 生成统计(文档数/总行数/符号覆盖率/耗时) | 验证结果(✅全部通过 / ⚠️X个警告 / ❌X个失败) | 清理状态(已删除临时文件 / 保留供调试) | 文件列表(核心文档路径) | 下一步操作(`git add .claude/repowiki && git commit -m "docs: generate repo wiki"`)
 
 ---
 

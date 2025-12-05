@@ -1,15 +1,13 @@
 ---
-name: brainstorm
 description: 多角色头脑风暴 - 通过苏格拉底式对话和专家辩论深度探索问题
-category: orchestration
-complexity: advanced
-mcp-servers: [serena, context7]
-personas: [product-manager, market-analyst, legal-advisor, architect, ux-designer, frontend-engineer, backend-engineer, database-expert, devops-engineer, security-expert, performance-expert, tech-lead, data-analyst]
+argument-hint: <话题> [--group <预设组>] [--depth shallow|normal|deep] [--strategy product|tech|business]
 ---
 
 # /ideation:brainstorm - 多角色头脑风暴
 
 > **行为框架说明**：本文件定义了当用户输入 `/ideation:brainstorm` 时 Claude Code 的行为模式。通过组织多位专家从不同视角辩论，深度探索问题本质。
+
+用户输入: $ARGUMENTS
 
 ## 触发场景
 - 模糊的产品想法需要系统化探索
