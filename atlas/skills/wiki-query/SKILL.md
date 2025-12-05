@@ -14,8 +14,8 @@ color: blue
 ## 核心原则
 
 1. **优先使用流式脚本** - `stream_query.py` 避免读取完整 JSON
-2. **相对路径调用** - 使用 `scripts/query.py`，Claude 自动处理 Skill 目录
-3. **跨项目支持** - 通过 `WIKI_TARGET_DIR` 环境变量查询其他项目
+2. **必须设置环境变量** - 调用时必须 `WIKI_TARGET_DIR=$PWD` 指定项目路径
+3. **跨项目支持** - 修改 `WIKI_TARGET_DIR` 可查询其他项目
 
 ## 前置检查
 
@@ -34,31 +34,33 @@ pip install ijson
 
 ## 快速开始
 
+**🚨 必须设置 `WIKI_TARGET_DIR=$PWD` 环境变量！**
+
 流式查询（推荐 - 避免读取完整 JSON）：
-```python
+```bash
 # 查询类方法
-python3 scripts/stream_query.py class <ClassName>
+WIKI_TARGET_DIR=$PWD python3 scripts/stream_query.py class <ClassName>
 
 # 查询 API
-python3 scripts/stream_query.py api <keyword>
+WIKI_TARGET_DIR=$PWD python3 scripts/stream_query.py api <keyword>
 ```
 
 标准查询：
-```python
+```bash
 # 全局搜索
-python3 scripts/query.py search <keyword>
+WIKI_TARGET_DIR=$PWD python3 scripts/query.py search <keyword>
 
 # 查询类
-python3 scripts/query.py class <ClassName>
+WIKI_TARGET_DIR=$PWD python3 scripts/query.py class <ClassName>
 
 # 查询 API
-python3 scripts/query.py api <keyword>
+WIKI_TARGET_DIR=$PWD python3 scripts/query.py api <keyword>
 
 # 查询模块
-python3 scripts/query.py module <ModuleName>
+WIKI_TARGET_DIR=$PWD python3 scripts/query.py module <ModuleName>
 
 # 项目统计
-python3 scripts/query.py stats
+WIKI_TARGET_DIR=$PWD python3 scripts/query.py stats
 ```
 
 ---
@@ -67,23 +69,25 @@ python3 scripts/query.py stats
 
 ### 方式一：使用查询脚本（推荐 - 避免读取完整 JSON）
 
+**🚨 所有调用必须设置 `WIKI_TARGET_DIR=$PWD`！**
+
 **标准查询脚本**：
 
 ```bash
 # 全局搜索（推荐首选）
-python3 scripts/query.py search <keyword>
+WIKI_TARGET_DIR=$PWD python3 scripts/query.py search <keyword>
 
 # 类查询（查看类的方法、继承关系）
-python3 scripts/query.py class <name>
+WIKI_TARGET_DIR=$PWD python3 scripts/query.py class <name>
 
 # API 查询（端点、控制器、认证信息）
-python3 scripts/query.py api <keyword>
+WIKI_TARGET_DIR=$PWD python3 scripts/query.py api <keyword>
 
 # 模块依赖（模块及其依赖关系）
-python3 scripts/query.py module <name>
+WIKI_TARGET_DIR=$PWD python3 scripts/query.py module <name>
 
 # 项目统计概览
-python3 scripts/query.py stats
+WIKI_TARGET_DIR=$PWD python3 scripts/query.py stats
 ```
 
 **流式查询脚本**（推荐 - 避免读取完整 JSON，需要 ijson 库）：
@@ -93,22 +97,19 @@ python3 scripts/query.py stats
 pip install ijson
 
 # 流式类查询（大文件友好）
-python3 scripts/stream_query.py class <name>
+WIKI_TARGET_DIR=$PWD python3 scripts/stream_query.py class <name>
 
 # 流式 API 查询（大文件友好）
-python3 scripts/stream_query.py api <keyword>
+WIKI_TARGET_DIR=$PWD python3 scripts/stream_query.py api <keyword>
 ```
 
 ### 跨项目查询
 
-如果你在一个项目（A）中，想查询另一个项目（B）的 RepoWiki：
+查询另一个项目（B）的 RepoWiki：
 
 ```bash
-# 设置环境变量指向目标项目
-export WIKI_TARGET_DIR="/path/to/project-B"
-
-# 然后正常调用查询脚本
-python3 scripts/query.py class UserService
+# 设置 WIKI_TARGET_DIR 指向目标项目
+WIKI_TARGET_DIR="/path/to/project-B" python3 scripts/query.py class UserService
 ```
 
 ### 方式二：内联命令
@@ -301,11 +302,11 @@ except: pass
 
 | 用户问题 | 推荐命令 |
 |:---------|:---------|
-| "XXX 类有哪些方法？" | `python3 scripts/stream_query.py class XXX` |
-| "项目有哪些 XXX 相关 API？" | `python3 scripts/stream_query.py api XXX` |
-| "找一下 XXX 相关的类" | `python3 scripts/query.py search XXX` |
-| "XXX 模块依赖哪些？" | `python3 scripts/query.py module XXX` |
-| "项目有多少个类和 API？" | `python3 scripts/query.py stats` |
+| "XXX 类有哪些方法？" | `WIKI_TARGET_DIR=$PWD python3 scripts/stream_query.py class XXX` |
+| "项目有哪些 XXX 相关 API？" | `WIKI_TARGET_DIR=$PWD python3 scripts/stream_query.py api XXX` |
+| "找一下 XXX 相关的类" | `WIKI_TARGET_DIR=$PWD python3 scripts/query.py search XXX` |
+| "XXX 模块依赖哪些？" | `WIKI_TARGET_DIR=$PWD python3 scripts/query.py module XXX` |
+| "项目有多少个类和 API？" | `WIKI_TARGET_DIR=$PWD python3 scripts/query.py stats` |
 
 ## 性能对比
 
@@ -322,11 +323,12 @@ except: pass
 
 ## 注意事项
 
-1. **优先使用流式查询** - `stream_query.py` 避免读取完整 JSON，内存占用低
-2. **支持模糊匹配** - 输入部分名称即可（如 `XXX` 可匹配 `XXXController`）
-3. **找不到时显示相似项** - 帮助定位正确名称
-4. **跨项目查询** - 通过环境变量 `WIKI_TARGET_DIR` 查询其他项目的 RepoWiki
-5. **依赖说明** - 流式查询需要 `pip install ijson`，如无法安装则使用标准查询
+1. **🚨 必须设置环境变量** - 所有调用必须 `WIKI_TARGET_DIR=$PWD` 指定项目路径
+2. **优先使用流式查询** - `stream_query.py` 避免读取完整 JSON，内存占用低
+3. **支持模糊匹配** - 输入部分名称即可（如 `XXX` 可匹配 `XXXController`）
+4. **找不到时显示相似项** - 帮助定位正确名称
+5. **跨项目查询** - 修改 `WIKI_TARGET_DIR` 为目标项目路径
+6. **依赖说明** - 流式查询需要 `pip install ijson`，如无法安装则使用标准查询
 
 ## 索引数据不完整的解决方案
 

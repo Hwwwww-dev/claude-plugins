@@ -16,23 +16,23 @@ def find_wiki_dir():
     """
     查找 RepoWiki 目录
     支持以下场景:
-    1. 当前目录是项目根目录
-    2. 当前目录是项目子目录
-    3. 从其他项目调用 (通过环境变量 WIKI_TARGET_DIR)
+    1. 通过环境变量 WIKI_TARGET_DIR 指定项目目录（推荐，解决 skill 调用路径问题）
+    2. 当前目录是项目根目录
+    3. 当前目录是项目子目录（向上查找）
     """
-    # 场景 3: 通过环境变量指定目标项目
+    # 场景 1: 通过 WIKI_TARGET_DIR 环境变量指定（推荐）
     if 'WIKI_TARGET_DIR' in os.environ:
         target_dir = Path(os.environ['WIKI_TARGET_DIR'])
         test_path = target_dir / ".claude/repowiki/.meta"
         if test_path.exists():
             return target_dir / ".claude/repowiki", test_path
 
-    # 场景 1: 当前目录
+    # 场景 2: 当前目录
     test_path = Path(".claude/repowiki/.meta")
     if test_path.exists():
         return Path(".claude/repowiki"), test_path
 
-    # 场景 2: 向上查找项目根目录
+    # 场景 3: 向上查找项目根目录
     for parent in Path.cwd().parents:
         test_path = parent / ".claude/repowiki/.meta"
         if test_path.exists():

@@ -25,7 +25,7 @@ argument-hint: [--force] [--lang zh|en] [--depth N] [--scope path] [--skip-symbo
 
 ## 执行流程
 
-Phase 0 环境检测 → Phase 1 语义变更检测 → Phase 2 规划 → Phase 3 信息收集 → Phase 4 文档生成 → Phase 5 AI索引生成 → Phase 6 上下文优化 → Phase 7 验证
+Phase 0 环境检测 → Phase 1 语义变更检测 → Phase 2 规划 → Phase 3 信息收集 → Phase 4 文档生成 → Phase 5 AI索引生成 → Phase 6 上下文优化 → Phase 7 并行验证与自动修复
 
 ### Subagent 分配（必须严格遵守）
 
@@ -34,11 +34,13 @@ Phase 0 环境检测 → Phase 1 语义变更检测 → Phase 2 规划 → Phase
 | 0 | 环境检测 | 主进程 | - | 不需要 subagent |
 | 1 | 语义变更检测 | `atlas:repo-semantic-analyzer` | - | 检测语义级变更 |
 | 2 | 规划 | `Plan` | - | 必须生成详细 todos |
-| 3 | 信息收集 | `atlas:information-gatherer` | 推荐 **4+1** | 推荐并行4个(project/modules/quality/api) + 串行1个(symbols) |
+| 3 | 信息收集 | `atlas:information-gatherer` | 推荐 **4+1** | 推荐并行4个(project/modules/quality/api) + 串行1个(symbols)，可用 Python 脚本辅助 |
 | 4 | 文档生成 | `atlas:atlas-executor` | 推荐 **4个** | 推荐并行4个(home-arch/api/guides/symbols) |
 | 5 | AI索引生成 | `atlas:repo-context-indexer` | - | 生成快速查询索引 |
 | 6 | 上下文优化 | 主进程 | - | 生成 wiki-context.json |
-| 7 | 验证 | `atlas:atlas-executor` | - | 全面检查所有生成内容 |
+| 7.1 | 并行验证 | `atlas:information-gatherer` | **必须 4个** | 4 个验证器并行检查 |
+| 7.3 | 自动修复 | `atlas:atlas-executor` | 按需 | 修复 critical 问题（最多 2 轮）|
+| 7.4 | 清理 | 主进程 | - | 删除临时脚本和中间文件 |
 
 **🚨 严禁混用 subagent！Plan 只做规划，information-gatherer 只做信息收集，atlas-executor 负责文档生成和验证，repo-semantic-analyzer 只做变更检测，repo-context-indexer 只做索引生成！**
 
@@ -51,13 +53,19 @@ Phase 0 环境检测 → Phase 1 语义变更检测 → Phase 2 规划 → Phase
 | 0 | 项目目录、git 状态 | 环境报告 (mode, fileCount, changedFiles) | 内存传递给 Phase 1/2 |
 | 1 | Phase 0 环境报告、git diff | 变更影响分析 (.meta/semantic-changes.json) | 文件写入 + 传递给 Phase 2 |
 | 2 | Phase 0/1 报告 | 执行计划 JSON | 内存传递给 Phase 3 |
-| 3 | Phase 2 计划 | PKG 文件 (project/modules/quality/api/symbols.pkg.json) | 文件写入 |
+| 3 | Phase 2 计划 | PKG 文件 (project/modules/quality/api/symbols.pkg.json)，临时脚本 (.scripts/*.py) | 文件写入 |
 | 4 | PKG 文件 | 文档文件 (*.md) | 文件写入 |
 | 5 | 文档文件、PKG 文件 | 索引文件 (.index/*.json) | 文件写入 |
 | 6 | 索引文件 | wiki-context.json | 文件写入 |
-| 7 | 所有生成内容 | 验证报告 (.meta/validation-report.md) + 最终报告 | 文件写入 + 输出 |
+| 7.1 | 所有生成内容 | 验证结果 (.meta/v*.json) | 文件写入 |
+| 7.2 | 验证结果 | 问题收集 (.meta/validation-issues.json) | 文件写入 |
+| 7.3 | 问题收集 | 修复后的文件 | 文件写入 |
+| 7.4 | - | 清理 .scripts/, .tmp/, v*.json | 文件删除 |
+| 7.5 | 所有验证结果 | 验证报告 (.meta/validation-report.md) | 文件写入 |
 
-**关键约束**: Phase 3/4/5/6/7 必须从文件读取 PKG/索引，不依赖内存传递
+**关键约束**:
+- Phase 3/4/5/6/7 必须从文件读取 PKG/索引，不依赖内存传递
+- **临时文件必须在 Phase 7.4 清理**: `.scripts/`, `.tmp/`, `v*.json`, `validation-issues.json`
 
 ---
 
@@ -76,7 +84,7 @@ Phase 0 环境检测 → Phase 1 语义变更检测 → Phase 2 规划 → Phase
 ```
 
 **操作**:
-- 创建目录 `.claude/repowiki/{.meta,.index,architecture,api,guides,decisions,symbols,quality,features}`
+- 创建目录 `.claude/repowiki/{.meta,.index,.scripts,.tmp,architecture,api,guides,decisions,symbols,quality,features}`
 - 检测构建模式: FULL_BUILD (Wiki不存在/--force/配置变更) | INCREMENTAL (仅代码变更)
 - 判断规模: <100 全量 | 100-500 采样 | 500-2000 分片 | >2000 需 --scope
 
@@ -376,6 +384,119 @@ http.HandleFunc("/path", handler)
 - **只过滤 private 符号**，其他全部保留
 - **禁止跳过 test/mock/generated 代码**
 
+### Python 脚本辅助（可选）
+
+当 Serena MCP 不可用或需要处理特定框架时，可生成临时 Python 脚本辅助提取：
+
+**🚨 关键**: 脚本必须**根据项目实际使用的语言和框架动态生成**，不可使用固定模板！
+
+**脚本存放**: `.claude/repowiki/.scripts/` (临时目录，验证后删除)
+
+**适用场景**:
+| 场景 | 说明 |
+|:-----|:-----|
+| 大型项目 | >500 文件时提高效率 |
+| 特定框架 | FastAPI/Django/NestJS/Express/Spring 等路由提取 |
+| Serena 降级 | LSP 不可用时的备选 |
+| 多语言项目 | 需要同时分析多种语言 |
+
+**脚本生成原则**:
+1. **检测项目技术栈**: 分析 package.json / requirements.txt / go.mod / pom.xml 等
+2. **选择对应解析器**: Python AST / TypeScript Compiler API / Go AST 等
+3. **适配框架特性**: 根据框架的路由定义方式生成提取逻辑
+4. **输出 PKG 格式**: 脚本输出必须符合 `.meta/*.pkg.json` 的结构
+
+**脚本示例** (仅供参考，需根据项目实际情况生成):
+
+<details>
+<summary>Python 项目示例 (AST)</summary>
+
+```python
+#!/usr/bin/env python3
+"""符号提取脚本 - 自动生成，验证后删除"""
+import ast, json, sys
+
+def extract_symbols(file_path: str) -> dict:
+    with open(file_path, 'r', encoding='utf-8') as f:
+        tree = ast.parse(f.read())
+    symbols = {"classes": [], "functions": []}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef):
+            symbols["classes"].append({
+                "name": node.name, "line": node.lineno,
+                "methods": [m.name for m in node.body if isinstance(m, ast.FunctionDef)]
+            })
+        elif isinstance(node, ast.FunctionDef) and node.col_offset == 0:
+            symbols["functions"].append({"name": node.name, "line": node.lineno})
+    return symbols
+
+if __name__ == "__main__":
+    print(json.dumps(extract_symbols(sys.argv[1]), indent=2))
+```
+</details>
+
+<details>
+<summary>TypeScript/JavaScript 项目示例</summary>
+
+```python
+#!/usr/bin/env python3
+"""TypeScript 符号提取 - 使用正则"""
+import re, json, sys
+from pathlib import Path
+
+def extract_ts_symbols(file_path: str) -> dict:
+    content = Path(file_path).read_text()
+    symbols = {"classes": [], "functions": [], "interfaces": []}
+    for m in re.finditer(r'(?:export\s+)?class\s+(\w+)', content):
+        symbols["classes"].append({"name": m.group(1)})
+    for m in re.finditer(r'(?:export\s+)?(?:async\s+)?function\s+(\w+)', content):
+        symbols["functions"].append({"name": m.group(1)})
+    for m in re.finditer(r'(?:export\s+)?interface\s+(\w+)', content):
+        symbols["interfaces"].append({"name": m.group(1)})
+    return symbols
+
+if __name__ == "__main__":
+    print(json.dumps(extract_ts_symbols(sys.argv[1]), indent=2))
+```
+</details>
+
+<details>
+<summary>Go 项目示例</summary>
+
+```python
+#!/usr/bin/env python3
+"""Go 符号提取"""
+import re, json, sys
+from pathlib import Path
+
+def extract_go_symbols(file_path: str) -> dict:
+    content = Path(file_path).read_text()
+    symbols = {"structs": [], "functions": [], "interfaces": []}
+    for m in re.finditer(r'type\s+(\w+)\s+struct\s*{', content):
+        symbols["structs"].append({"name": m.group(1)})
+    for m in re.finditer(r'func\s+(?:\([^)]+\)\s+)?(\w+)\s*\(', content):
+        symbols["functions"].append({"name": m.group(1)})
+    for m in re.finditer(r'type\s+(\w+)\s+interface\s*{', content):
+        symbols["interfaces"].append({"name": m.group(1)})
+    return symbols
+
+if __name__ == "__main__":
+    print(json.dumps(extract_go_symbols(sys.argv[1]), indent=2))
+```
+</details>
+
+**框架特定脚本** (根据检测到的框架生成):
+| 框架 | 脚本名 | 提取内容 |
+|:-----|:-------|:---------|
+| FastAPI | `extract_fastapi.py` | @app.get/post 装饰器路由 |
+| Django | `extract_django.py` | urls.py 中的 path() 定义 |
+| NestJS | `extract_nestjs.py` | @Controller/@Get/@Post 装饰器 |
+| Express | `extract_express.py` | app.get/post/use 调用 |
+| Spring | `extract_spring.py` | @RequestMapping 注解 |
+| Gin | `extract_gin.py` | r.GET/POST 路由注册 |
+
+**🚨 重要**: 所有脚本必须在 Phase 7 验证完成后删除！
+
 **Subagent Prompt 必须包含**:
 1. 输出文件完整路径: `.claude/repowiki/.meta/{name}.pkg.json`
 2. PKG 结构参考上述字段定义
@@ -618,81 +739,170 @@ http.HandleFunc("/path", handler)
 
 ---
 
-## Phase 7: 验证（最终检查）
+## Phase 7: 并行验证与自动修复
 
-**Subagent**: `atlas:atlas-executor` (必须使用 Task tool 的 subagent_type="atlas:atlas-executor")
+**🚨 这是最后一个阶段，必须全面检查所有生成的内容，发现问题自动修复！**
 
-**🚨 这是最后一个阶段，必须全面检查所有生成的内容，不能有任何疏漏！**
+### 7.1 并行验证（启动多个验证器）
 
-**输入** (从文件读取):
-- 所有生成的 *.md 文档
-- `.meta/*.pkg.json` (PKG 文件)
-- `.index/*.json` (索引文件)
-- `.claude/wiki-context.json` (上下文配置)
-- Phase 2 生成的 todos（对照执行结果）
+**执行方式**: 主进程**并行**启动 4 个验证器，每个验证器负责不同维度
 
-**输出**:
-- `.meta/validation-report.md` (写入文件)
-- 验证结果摘要 + 最终报告 (返回给主进程)
+| 验证器 | Subagent | 验证范围 | 输出 |
+|:-------|:---------|:---------|:-----|
+| V1-文档 | `atlas:information-gatherer` | 核心文档完整性、章节结构、链接有效性 | `.meta/v1-docs.json` |
+| V2-PKG | `atlas:information-gatherer` | PKG 数据与源码一致性、符号覆盖率 | `.meta/v2-pkg.json` |
+| V3-索引 | `atlas:information-gatherer` | 索引完整性、符号映射、文档关系图 | `.meta/v3-index.json` |
+| V4-上下文 | `atlas:information-gatherer` | wiki-context.json 有效性、路径引用 | `.meta/v4-context.json` |
 
-### 验证项
+**🚨 必须使用单条消息并行启动 4 个 Task！不可串行执行！**
 
-| 层级 | 项目 | 标准 | 操作 |
-|:-----|:-----|:-----|:-----|
-| 1 | 核心文档存在 | index.md 必须存在且 ≥10 行 | 检查文件存在性和行数 |
-| 2 | 必需文档完整 | architecture/overview.md, guides/development.md 等 | 逐一检查必需文档 |
-| 3 | 章节结构正确 | H1/H2 存在，表格格式正确 | 解析 markdown 结构 |
-| 4 | 导航链接有效 | index.md 中所有链接指向存在的文件 | 验证相对链接 |
-| 5 | 符号覆盖率 | ≥90% (警告) | 对比 symbols.pkg.json |
-| 6 | 索引完整性 | quick-lookup.json 包含所有文档 | 对比 .index/ 和文档 |
-| 7 | 上下文配置有效 | wiki-context.json 格式正确且路径有效 | 验证 JSON 和路径 |
+#### V1-文档验证器
+```json
+{
+  "checks": [
+    {"id": "D1", "name": "index.md 存在", "severity": "critical"},
+    {"id": "D2", "name": "index.md ≥10 行", "severity": "critical"},
+    {"id": "D3", "name": "architecture/overview.md 存在", "severity": "critical"},
+    {"id": "D4", "name": "guides/development.md 存在", "severity": "critical"},
+    {"id": "D5", "name": "H1/H2 结构正确", "severity": "warning"},
+    {"id": "D6", "name": "导航链接有效", "severity": "warning"},
+    {"id": "D7", "name": "无 TODO/TBD 占位符", "severity": "warning"}
+  ]
+}
+```
 
-### 关键检查项
+#### V2-PKG验证器
+```json
+{
+  "checks": [
+    {"id": "P1", "name": "project.pkg.json 存在且有效", "severity": "critical"},
+    {"id": "P2", "name": "modules.pkg.json 与目录结构一致", "severity": "warning"},
+    {"id": "P3", "name": "symbols.pkg.json 符号覆盖率 ≥90%", "severity": "warning"},
+    {"id": "P4", "name": "api.pkg.json 端点与源码一致", "severity": "warning"},
+    {"id": "P5", "name": "PKG 中的模块 → symbols/*.md 存在", "severity": "warning"}
+  ]
+}
+```
 
-**index.md 专项检查**:
-1. 文件存在且内容非空
-2. 包含正确的项目名称 (H1)
-3. 技术栈表格存在且有数据
-4. 导航表格中的链接全部有效
-5. 生成时间戳存在
+#### V3-索引验证器
+```json
+{
+  "checks": [
+    {"id": "I1", "name": "quick-lookup.json 存在且格式正确", "severity": "critical"},
+    {"id": "I2", "name": "symbol-map.json 符号引用有效", "severity": "warning"},
+    {"id": "I3", "name": "doc-graph.json 节点对应实际文档", "severity": "warning"},
+    {"id": "I4", "name": "索引覆盖所有生成的文档", "severity": "warning"}
+  ]
+}
+```
 
-**文档一致性检查**:
-1. PKG 文件中记录的模块 → 对应的 symbols/*.md 是否存在
-2. 检测到的 API → api/endpoints.md 是否包含
-3. 条件生成的文档 → 是否符合生成条件
+#### V4-上下文验证器
+```json
+{
+  "checks": [
+    {"id": "C1", "name": "wiki-context.json 存在", "severity": "critical"},
+    {"id": "C2", "name": "entryPoints 路径有效", "severity": "critical"},
+    {"id": "C3", "name": "quickAccess 索引文件存在", "severity": "warning"},
+    {"id": "C4", "name": "metadata 统计准确", "severity": "info"}
+  ]
+}
+```
 
-**索引完整性检查**:
-1. .index/ 目录下所有 JSON 文件格式正确
-2. quick-lookup.json 中的符号引用有效
-3. symbol-map.json 中的文档链接存在
-4. doc-graph.json 中的节点对应实际文档
+### 7.2 问题收集与分类
 
-**上下文配置检查**:
-1. wiki-context.json 存在且格式正确
-2. entryPoints 中的文档路径有效
-3. quickAccess 中的索引文件存在
+**输入**: 4 个验证器的输出 JSON
 
-### 验证失败处理
+**输出**: `.meta/validation-issues.json`
 
-| 问题类型 | 严重性 | 处理方式 |
-|:---------|:-------|:---------|
-| index.md 不存在/为空 | 🔴 严重 | 报告错误，建议重新执行 Phase 4 |
-| 必需文档缺失 | 🔴 严重 | 列出缺失文档，建议补充生成 |
-| wiki-context.json 无效 | 🔴 严重 | 报告错误，建议重新执行 Phase 6 |
-| 链接失效 | 🟡 警告 | 列出失效链接，建议修复 |
-| 符号覆盖不足 | 🟡 警告 | 报告覆盖率，列出未覆盖符号 |
-| 章节结构异常 | 🟡 警告 | 报告异常文档，建议检查 |
-| 索引不完整 | 🟡 警告 | 列出缺失项，建议重新索引 |
+```json
+{
+  "timestamp": "2024-01-15T10:30:00Z",
+  "summary": {"critical": 2, "warning": 5, "info": 1, "passed": 12},
+  "issues": [
+    {"id": "D1", "severity": "critical", "message": "index.md 不存在", "fix": {"type": "regenerate", "phase": 4, "target": "index.md"}}
+  ],
+  "fixable": true,
+  "fixPlan": [{"phase": 4, "action": "重新生成 index.md", "targets": ["index.md"]}]
+}
+```
 
-### Subagent Prompt 必须包含
+### 7.3 自动修复循环（最多 2 轮）
 
-1. Wiki 目录路径: `.claude/repowiki/`
-2. 必须检查的核心文档列表
-3. 必须检查的索引文件列表: `.index/quick-lookup.json`, `.index/symbol-map.json`, `.index/doc-graph.json`
-4. 必须检查的上下文配置: `.claude/wiki-context.json`
-5. 验证报告输出路径: `.claude/repowiki/.meta/validation-report.md`
-6. 验证项优先级: 核心文档 > 必需文档 > 索引 > 上下文 > 链接 > 覆盖率
-7. 返回结构化验证结果 + 最终报告给主进程
+**条件**: 存在 `severity: critical` 的问题
+
+**流程**:
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     修复循环 (最多 2 轮)                      │
+├─────────────────────────────────────────────────────────────┤
+│  1. 分析 validation-issues.json                              │
+│  2. 按 Phase 分组可修复问题                                   │
+│  3. 并行启动 atlas:atlas-executor 执行修复                    │
+│     - Phase 3 问题 → 重新收集对应 PKG                         │
+│     - Phase 4 问题 → 重新生成对应文档                         │
+│     - Phase 5 问题 → 重新生成索引                             │
+│     - Phase 6 问题 → 重新生成 wiki-context.json               │
+│  4. 修复完成后，重新执行 7.1 并行验证                          │
+│  5. 如果仍有 critical 问题且 < 2 轮，返回步骤 1                │
+│  6. 如果 ≥ 2 轮仍有问题，标记为"需人工介入"                    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**修复 Subagent**: `atlas:atlas-executor`
+
+### 7.4 清理临时文件
+
+**🚨 验证通过后必须执行清理！**
+
+**清理目标**:
+| 目录/文件 | 说明 | 清理条件 |
+|:----------|:-----|:---------|
+| `.claude/repowiki/.scripts/` | 临时 Python 脚本 | 始终清理 |
+| `.claude/repowiki/.tmp/` | 中间产物 | 始终清理 |
+| `.meta/v1-docs.json` | V1 验证输出 | 验证通过后清理 |
+| `.meta/v2-pkg.json` | V2 验证输出 | 验证通过后清理 |
+| `.meta/v3-index.json` | V3 验证输出 | 验证通过后清理 |
+| `.meta/v4-context.json` | V4 验证输出 | 验证通过后清理 |
+| `.meta/validation-issues.json` | 问题收集 | 合并到 report 后清理 |
+
+**清理命令**:
+```bash
+rm -rf .claude/repowiki/.scripts/
+rm -rf .claude/repowiki/.tmp/
+rm -f .claude/repowiki/.meta/v*.json
+rm -f .claude/repowiki/.meta/validation-issues.json
+```
+
+**🚨 警告**: 如果验证失败且需要人工介入，保留临时文件供调试！
+
+### 7.5 生成最终报告
+
+**输出**: `.meta/validation-report.md`
+
+```markdown
+# 验证报告
+
+## 执行概况
+| 项目 | 值 |
+|:-----|:---|
+| 验证轮次 | 1 |
+| 修复轮次 | 0 |
+| 最终状态 | ✅ 通过 |
+
+## 验证结果
+| 验证器 | 通过 | 警告 | 失败 |
+|:-------|:-----|:-----|:-----|
+| V1-文档 | 7 | 0 | 0 |
+| V2-PKG | 4 | 1 | 0 |
+| V3-索引 | 4 | 0 | 0 |
+| V4-上下文 | 4 | 0 | 0 |
+
+## 临时文件清理
+✅ 已清理 .scripts/, .tmp/, 验证中间文件
+
+---
+*验证于 2024-01-15T10:35:00Z*
+```
 
 ---
 
@@ -710,6 +920,73 @@ http.HandleFunc("/path", handler)
 | 条件 | symbols/*.md | --skip-symbols 未指定 |
 | 条件 | quality/complexity.md | 检测到复杂度问题 |
 | 开放 | features/*.md | 自动检测或 --features |
+
+---
+
+## 文档命名规范
+
+**🚨 除 features/ 和 symbols/ 外，所有文档文件名严格固定，禁止自定义！**
+
+### 固定命名（必须严格遵守）
+
+**文档文件**:
+| 目录 | 文件名 | 说明 |
+|:-----|:-------|:-----|
+| `/` | `index.md` | 项目首页，必须 |
+| `architecture/` | `overview.md` | 架构总览，必须 |
+| `architecture/` | `structure.md` | 目录结构，必须 |
+| `architecture/` | `dependencies.md` | 依赖分析 |
+| `architecture/` | `modules.md` | 模块列表 |
+| `architecture/` | `module-graph.md` | 模块依赖图 |
+| `architecture/` | `layers.md` | 分层架构 |
+| `architecture/` | `patterns.md` | 设计模式 |
+| `api/` | `endpoints.md` | API 端点列表 |
+| `api/` | `types.md` | 类型定义 |
+| `guides/` | `development.md` | 开发指南，必须 |
+| `guides/` | `build.md` | 构建指南 |
+| `decisions/` | `adr-log.md` | 架构决策记录 |
+| `quality/` | `complexity.md` | 复杂度分析 |
+
+**PKG 数据文件** (`.meta/`):
+| 文件名 | 说明 | Phase |
+|:-------|:-----|:------|
+| `project.pkg.json` | 项目元数据 | 3 |
+| `modules.pkg.json` | 模块结构 | 3 |
+| `quality.pkg.json` | 代码质量 | 3 |
+| `api.pkg.json` | API 端点信息 | 3 |
+| `symbols.pkg.json` | 符号信息 | 3 |
+| `semantic-changes.json` | 语义变更（增量模式）| 1 |
+| `validation-report.md` | 验证报告 | 7.5 |
+| `validation-issues.json` | 验证问题（临时）| 7.2 |
+| `v1-docs.json` | V1 验证结果（临时）| 7.1 |
+| `v2-pkg.json` | V2 验证结果（临时）| 7.1 |
+| `v3-index.json` | V3 验证结果（临时）| 7.1 |
+| `v4-context.json` | V4 验证结果（临时）| 7.1 |
+
+**索引文件** (`.index/`):
+| 文件名 | 说明 | Phase |
+|:-------|:-----|:------|
+| `quick-lookup.json` | 快速查询索引 | 5 |
+| `symbol-map.json` | 符号映射表 | 5 |
+| `doc-graph.json` | 文档关系图 | 5 |
+
+**上下文配置** (`.claude/`):
+| 文件名 | 说明 | Phase |
+|:-------|:-----|:------|
+| `wiki-context.json` | Wiki 上下文配置 | 6 |
+
+### 动态命名（按项目内容生成）
+
+| 目录 | 命名规则 | 示例 |
+|:-----|:---------|:-----|
+| `symbols/` | `index.md` + `{module-name}-module.md` | `user-module.md`, `order-module.md` |
+| `features/` | `{feature-name}.md` | `authentication.md`, `payment.md` |
+
+### 命名约束
+
+1. **symbols/**: 必须有 `index.md`，模块文档以 `-module.md` 结尾
+2. **features/**: 文件名使用 kebab-case，与功能名对应
+3. **禁止**: 自创文件名、中文文件名、空格、大写字母
 
 ---
 
@@ -1057,7 +1334,9 @@ sequenceDiagram
 - Phase 4 文档生成 → **推荐并行启动多个 `atlas:atlas-executor`**（`--mode parallel` 时必须并行），禁止使用 Plan 或 information-gatherer
 - Phase 5 AI索引生成 → **必须使用 `atlas:repo-context-indexer`**，禁止使用其他 subagent
 - Phase 6 上下文优化 → **主进程执行**，生成 wiki-context.json
-- Phase 7 验证 → **必须使用 `atlas:atlas-executor`**，全面检查所有生成内容，不能有任何疏漏
+- Phase 7.1 并行验证 → **必须并行启动 4 个 `atlas:information-gatherer`**（V1-文档/V2-PKG/V3-索引/V4-上下文）
+- Phase 7.3 自动修复 → **使用 `atlas:atlas-executor`**，修复 critical 问题，最多 2 轮
+- Phase 7.4 清理 → **主进程执行**，删除 .scripts/、.tmp/、v*.json 等临时文件
 - **🚨 混用 subagent 是严重错误，必须严格遵守上述分配！**
 
 **Todos 管理（最高优先级）**:
@@ -1070,11 +1349,15 @@ sequenceDiagram
 
 **格式**: 必需章节不可省略 | 表格列数一致 | Mermaid 语法正确 | 相对路径链接
 
-**验证**: 文档≥10行 | 符号覆盖≥90%(警告) | 链接100%有效 | Mermaid无错误
+**命名**: 严格遵守文档命名规范 | .meta/*.pkg.json 固定 | .index/*.json 固定 | features/symbols 动态命名
 
-**禁止**: 跳过验证 | 静默忽略失败 | 占位内容 | 硬编码信息 | **任何臆想内容**
+**验证**: 文档≥10行 | 符号覆盖≥90%(警告) | 链接100%有效 | Mermaid无错误 | **必须 4 个验证器并行**
 
-**错误处理**: 无 git→FULL_BUILD | >2000文件无scope→终止 | Serena不可用→降级Grep | 收集失败→跳过依赖任务 | Executor失败→继续其他
+**清理**: 验证通过后**必须删除** .scripts/ .tmp/ v*.json validation-issues.json | 验证失败需人工介入时保留临时文件
+
+**禁止**: 跳过验证 | 静默忽略失败 | 占位内容 | 硬编码信息 | **任何臆想内容** | **自定义文件名**
+
+**错误处理**: 无 git→FULL_BUILD | >2000文件无scope→终止 | Serena不可用→降级Grep | 收集失败→跳过依赖任务 | Executor失败→继续其他 | critical问题→自动修复(最多2轮)
 
 ---
 
