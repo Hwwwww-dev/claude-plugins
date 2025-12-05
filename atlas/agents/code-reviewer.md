@@ -1,6 +1,7 @@
 ---
 name: code-reviewer
 description: 专业代码审查代理。执行单一维度的代码审查（安全/性能/风格/架构），输出结构化问题报告。支持并行多实例。
+model: inherit
 color: blue
 ---
 

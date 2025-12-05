@@ -1,130 +1,62 @@
 ---
 name: wiki-query
 description: 当用户询问"项目有哪些API"、"XXX类有哪些方法"、"查找XXX"、"模块依赖"等项目结构问题时，使用此 skill。优先级高于 Serena。支持模糊搜索，找不到时显示相似结果。
-version: 2.0.2
+version: 2.1.0
 color: blue
 ---
 
 # Wiki Query - 项目索引查询
 
-从 `.claude/repowiki/` 索引中查询项目信息。**优先级 > Serena**。
+从 `.claude/repowiki/` 索引查询项目信息。**优先级 > Serena**。
 
-## 🚨 脚本路径规则（必读）
+## 脚本路径
 
-本 skill 的脚本位于 **SKILL.md 同级目录**下的 `scripts/` 子目录。
-
-**`{SKILL_DIR}` 的值**：插件通常安装在 `$HOME/.claude/plugins/marketplaces/` 下：
-```
-{SKILL_DIR} = $HOME/.claude/plugins/marketplaces/claude-code-marketplace/atlas/skills/wiki-query
-```
-
-**🚨 禁止错误**：
-- ❌ 不要假设插件在当前项目的 `.claude/plugins/` 目录
-- ❌ 不要使用相对路径 `scripts/xxx.py`（这会相对于 $PWD）
-- ✅ 使用 `{SKILL_DIR}/scripts/xxx.py`，其中 `{SKILL_DIR}` 基于 `$HOME` 构建
-
-## 核心原则
-
-1. **优先使用流式脚本** - `stream_query.py` 避免读取完整 JSON
-2. **必须设置环境变量** - 调用时必须 `WIKI_TARGET_DIR=$PWD` 指定项目路径
-3. **跨项目支持** - 修改 `WIKI_TARGET_DIR` 可查询其他项目
-
-## 前置检查
+使用 `${CLAUDE_PLUGIN_ROOT}` 环境变量（Claude Code 自动设置）：
 
 ```bash
-ls .claude/repowiki/.meta/*.pkg.json 2>/dev/null || echo "❌ RepoWiki 不存在，请先运行 /atlas:repo-wiki"
+# 脚本位置
+${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/query.py        # 标准查询
+${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/stream_query.py # 流式查询（推荐）
 ```
 
-## 依赖安装
+**备选**：相对路径 `scripts/query.py`（依赖 Claude 自动解析 base path）
 
-流式查询需要 ijson 库：
+## 前置条件
+
 ```bash
+# 检查索引是否存在
+ls .claude/repowiki/.meta/*.pkg.json 2>/dev/null || echo "❌ 请先运行 /atlas:repo-wiki"
+
+# 流式查询需要 ijson（可选）
 pip install ijson
 ```
 
-如果无法安装，可使用标准查询（会读取完整 JSON）。
+## 快速查询
 
-## 快速开始
-
-流式查询（推荐 - 避免读取完整 JSON）：
-```bash
-# 查询类方法
-WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/stream_query.py class <ClassName>
-
-# 查询 API
-WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/stream_query.py api <keyword>
-```
-
-标准查询：
-```bash
-# 全局搜索
-WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/query.py search <keyword>
-
-# 查询类
-WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/query.py class <ClassName>
-
-# 查询 API
-WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/query.py api <keyword>
-
-# 查询模块
-WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/query.py module <ModuleName>
-
-# 项目统计
-WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/query.py stats
-```
-
----
-
-## 查询方式
-
-### 方式一：使用查询脚本（推荐 - 避免读取完整 JSON）
-
-**🚨 所有调用必须设置 `WIKI_TARGET_DIR=$PWD`！**
-
-**标准查询脚本**：
+**所有调用必须设置 `WIKI_TARGET_DIR=$PWD`**
 
 ```bash
-# 全局搜索（推荐首选）
-WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/query.py search <keyword>
+# 流式查询（推荐，大文件友好）
+WIKI_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/stream_query.py" class <ClassName>
+WIKI_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/stream_query.py" api <keyword>
 
-# 类查询（查看类的方法、继承关系）
-WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/query.py class <name>
+# 标准查询
+WIKI_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/query.py" search <keyword>  # 全局搜索
+WIKI_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/query.py" class <name>     # 类查询
+WIKI_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/query.py" api <keyword>    # API 查询
+WIKI_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/query.py" module <name>    # 模块依赖
+WIKI_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/query.py" stats            # 项目统计
 
-# API 查询（端点、控制器、认证信息）
-WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/query.py api <keyword>
-
-# 模块依赖（模块及其依赖关系）
-WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/query.py module <name>
-
-# 项目统计概览
-WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/query.py stats
+# 跨项目查询
+WIKI_TARGET_DIR="/path/to/other-project" python3 "${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/query.py" class UserService
 ```
 
-**流式查询脚本**（推荐 - 避免读取完整 JSON，需要 ijson 库）：
+## 内联命令（备用）
 
-```bash
-# 安装依赖（仅首次）
-pip install ijson
+当脚本不可用时，可使用内联 Python：
 
-# 流式类查询（大文件友好）
-WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/stream_query.py class <name>
-
-# 流式 API 查询（大文件友好）
-WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/stream_query.py api <keyword>
-```
-
-### 跨项目查询
-
-查询另一个项目（B）的 RepoWiki：
-
-```bash
-# 设置 WIKI_TARGET_DIR 指向目标项目
-WIKI_TARGET_DIR="/path/to/project-B" python3 {SKILL_DIR}/scripts/query.py class UserService
-```
-
-### 方式二：内联命令
-
-#### 1. 全局搜索
+<details>
+<summary>全局搜索</summary>
 
 ```bash
 python3 -c "
@@ -166,21 +98,13 @@ if r:
         print(f'  [{t}] {n}{extra}')
         print(f'        @ {p}')
 else:
-    print(f'未找到 \"{q}\"，尝试显示相似项...')
-    try:
-        with open('.claude/repowiki/.meta/symbols.pkg.json') as f:
-            d = json.load(f)
-            classes = [c['name'] for c in d.get('classes', [])]
-            similar = [c for c in classes if any(w in c.lower() for w in q.split())]
-            if similar:
-                print('相似的类:')
-                for c in similar[:10]:
-                    print(f'  - {c}')
-    except: pass
+    print(f'未找到 \"{q}\"')
 "
 ```
+</details>
 
-#### 2. 类查询
+<details>
+<summary>类查询</summary>
 
 ```bash
 python3 -c "
@@ -213,8 +137,10 @@ with open('.claude/repowiki/.meta/symbols.pkg.json') as f:
             print(f'  - {c[\"name\"]} ({len(c.get(\"methods\",[]))} methods) @ {c.get(\"path\",\"-\")}')
 "
 ```
+</details>
 
-#### 3. API 查询
+<details>
+<summary>API 查询</summary>
 
 ```bash
 python3 -c "
@@ -235,14 +161,12 @@ with open('.claude/repowiki/.meta/api.pkg.json') as f:
             print(f'       → {e.get(\"controller\",\"-\")}.{e.get(\"handler\",\"-\")}')
     else:
         print(f'未找到包含 \"{q}\" 的 API')
-        controllers = set(e.get('controller','') for e in d.get('endpoints',[]))
-        print(f'\\n可用的 Controller ({len(controllers)} 个):')
-        for c in sorted(controllers)[:10]:
-            print(f'  - {c}')
 "
 ```
+</details>
 
-#### 4. 模块依赖
+<details>
+<summary>模块依赖</summary>
 
 ```bash
 python3 -c "
@@ -261,28 +185,17 @@ with open('.claude/repowiki/.meta/modules.pkg.json') as f:
         print(f'\\n相关依赖 ({len(deps)} 个):')
         for g in deps[:15]:
             print(f'  {g.get(\"from\", \"-\")} → {g.get(\"to\", \"-\")}')
-    if not modules and not deps:
-        print(f'未找到包含 \"{q}\" 的模块')
-        all_modules = [m['name'] for m in d.get('modules', [])]
-        print(f'\\n可用模块 ({len(all_modules)} 个):')
-        for m in all_modules[:10]:
-            print(f'  - {m}')
 "
 ```
+</details>
 
-#### 5. 统计概览
+<details>
+<summary>统计概览</summary>
 
 ```bash
 python3 -c "
 import json
 print('=== 项目统计 ===')
-
-try:
-    with open('.claude/repowiki/.meta/project.pkg.json') as f:
-        d = json.load(f)
-        print(f'项目: {d.get(\"name\", \"-\")}')
-        print(f'技术栈: {d.get(\"techStack\", {})}')
-except: pass
 
 try:
     with open('.claude/repowiki/.meta/symbols.pkg.json') as f:
@@ -305,64 +218,12 @@ try:
 except: pass
 "
 ```
-
----
-
-## 使用示例
-
-| 用户问题 | 推荐命令 |
-|:---------|:---------|
-| "XXX 类有哪些方法？" | `WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/stream_query.py class XXX` |
-| "项目有哪些 XXX 相关 API？" | `WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/stream_query.py api XXX` |
-| "找一下 XXX 相关的类" | `WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/query.py search XXX` |
-| "XXX 模块依赖哪些？" | `WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/query.py module XXX` |
-| "项目有多少个类和 API？" | `WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/query.py stats` |
-
-## 性能对比
-
-| 脚本 | JSON 读取方式 | 内存占用 | 适用场景 |
-|:-----|:-------------|:---------|:---------|
-| `query.py` | 完整读取 | 高 | 小型项目（<100 类） |
-| `stream_query.py` | 流式增量 | 低 | 大型项目（>=100 类） |
-
-**推荐策略**：
-- 优先使用 `stream_query.py`（需要 `pip install ijson`）
-- 如果无法安装 ijson，降级使用 `query.py`
-
----
+</details>
 
 ## 注意事项
 
-1. **🚨 必须设置环境变量** - 所有调用必须 `WIKI_TARGET_DIR=$PWD` 指定项目路径
-2. **优先使用流式查询** - `stream_query.py` 避免读取完整 JSON，内存占用低
-3. **支持模糊匹配** - 输入部分名称即可（如 `XXX` 可匹配 `XXXController`）
-4. **找不到时显示相似项** - 帮助定位正确名称
-5. **跨项目查询** - 修改 `WIKI_TARGET_DIR` 为目标项目路径
-6. **依赖说明** - 流式查询需要 `pip install ijson`，如无法安装则使用标准查询
-
-## 索引数据不完整的解决方案
-
-如果查询不到预期的类或 API：
-
-1. **检查 RepoWiki 是否最新**：
-   ```bash
-   ls -lh .claude/repowiki/.meta/symbols.pkg.json
-   ```
-
-2. **重新生成索引**（强制全量构建）：
-   ```bash
-   /atlas:repo-wiki --force
-   ```
-
-3. **使用 Serena MCP 直接查询**（作为降级方案）：
-   - Serena 直接分析源代码，不依赖索引
-   - 但 Serena 消耗更多 Token
-
-## 性能建议
-
-| 场景 | 推荐工具 | 理由 |
-|:-----|:---------|:-----|
-| 快速查询类/API | `stream_query.py` | 流式解析，内存占用低 |
-| 小型项目 | `query.py` | 简单直接，无需额外依赖 |
-| 大型项目（>100类） | `stream_query.py` | 避免 OOM，查询速度快 |
-| 索引不完整 | Serena MCP | 直接分析源码，100% 准确 |
+- **支持模糊匹配** - 输入部分名称即可（如 `User` 匹配 `UserService`）
+- **找不到时显示相似项** - 帮助定位正确名称
+- **流式查询更优** - `stream_query.py` 内存占用低，适合大型项目
+- **索引过期？** - 运行 `/atlas:repo-wiki --force` 重建
+- **降级方案** - 索引不完整时使用 Serena MCP 直接查询源码
