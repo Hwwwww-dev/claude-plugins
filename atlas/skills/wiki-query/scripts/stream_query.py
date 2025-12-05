@@ -66,12 +66,28 @@ def stream_search_classes(query, limit=20):
     results = []
     try:
         with open(pkg_file, 'rb') as f:
-            # 使用 ijson 增量解析 classes 数组
+            # 先尝试扁平结构: {"classes": [...]}
             parser = ijson.items(f, 'classes.item')
             for cls in parser:
                 name = cls.get('name', '')
                 if fuzzy_match(query, name):
                     results.append(cls)
+                    if len(results) >= limit:
+                        break
+
+        # 如果扁平结构没找到，尝试嵌套结构: {"modules": {"name": {"classes": [...]}}}
+        if not results:
+            with open(pkg_file, 'rb') as f:
+                # 使用 kvitems 遍历 modules dict
+                for module_name, module_data in ijson.kvitems(f, 'modules'):
+                    if isinstance(module_data, dict):
+                        classes = module_data.get('classes', [])
+                        for cls in classes:
+                            name = cls.get('name', '')
+                            if fuzzy_match(query, name):
+                                results.append(cls)
+                                if len(results) >= limit:
+                                    break
                     if len(results) >= limit:
                         break
     except Exception as e:

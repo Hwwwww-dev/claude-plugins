@@ -1,15 +1,27 @@
 ---
 name: wiki-query
 description: 当用户询问"项目有哪些API"、"XXX类有哪些方法"、"查找XXX"、"模块依赖"等项目结构问题时，使用此 skill。优先级高于 Serena。支持模糊搜索，找不到时显示相似结果。
-version: 2.0.1
+version: 2.0.2
 color: blue
 ---
 
 # Wiki Query - 项目索引查询
 
-**`.claude/repowiki/`** 为项目级，在调用脚本时请正确使用路径！
-
 从 `.claude/repowiki/` 索引中查询项目信息。**优先级 > Serena**。
+
+## 🚨 脚本路径规则（必读）
+
+本 skill 的脚本位于 **SKILL.md 同级目录**下的 `scripts/` 子目录。
+
+**`{SKILL_DIR}` 的值**：插件通常安装在 `$HOME/.claude/plugins/marketplaces/` 下：
+```
+{SKILL_DIR} = $HOME/.claude/plugins/marketplaces/claude-code-marketplace/atlas/skills/wiki-query
+```
+
+**🚨 禁止错误**：
+- ❌ 不要假设插件在当前项目的 `.claude/plugins/` 目录
+- ❌ 不要使用相对路径 `scripts/xxx.py`（这会相对于 $PWD）
+- ✅ 使用 `{SKILL_DIR}/scripts/xxx.py`，其中 `{SKILL_DIR}` 基于 `$HOME` 构建
 
 ## 核心原则
 
@@ -34,33 +46,31 @@ pip install ijson
 
 ## 快速开始
 
-**🚨 必须设置 `WIKI_TARGET_DIR=$PWD` 环境变量！**
-
 流式查询（推荐 - 避免读取完整 JSON）：
 ```bash
 # 查询类方法
-WIKI_TARGET_DIR=$PWD python3 scripts/stream_query.py class <ClassName>
+WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/stream_query.py class <ClassName>
 
 # 查询 API
-WIKI_TARGET_DIR=$PWD python3 scripts/stream_query.py api <keyword>
+WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/stream_query.py api <keyword>
 ```
 
 标准查询：
 ```bash
 # 全局搜索
-WIKI_TARGET_DIR=$PWD python3 scripts/query.py search <keyword>
+WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/query.py search <keyword>
 
 # 查询类
-WIKI_TARGET_DIR=$PWD python3 scripts/query.py class <ClassName>
+WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/query.py class <ClassName>
 
 # 查询 API
-WIKI_TARGET_DIR=$PWD python3 scripts/query.py api <keyword>
+WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/query.py api <keyword>
 
 # 查询模块
-WIKI_TARGET_DIR=$PWD python3 scripts/query.py module <ModuleName>
+WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/query.py module <ModuleName>
 
 # 项目统计
-WIKI_TARGET_DIR=$PWD python3 scripts/query.py stats
+WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/query.py stats
 ```
 
 ---
@@ -75,19 +85,19 @@ WIKI_TARGET_DIR=$PWD python3 scripts/query.py stats
 
 ```bash
 # 全局搜索（推荐首选）
-WIKI_TARGET_DIR=$PWD python3 scripts/query.py search <keyword>
+WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/query.py search <keyword>
 
 # 类查询（查看类的方法、继承关系）
-WIKI_TARGET_DIR=$PWD python3 scripts/query.py class <name>
+WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/query.py class <name>
 
 # API 查询（端点、控制器、认证信息）
-WIKI_TARGET_DIR=$PWD python3 scripts/query.py api <keyword>
+WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/query.py api <keyword>
 
 # 模块依赖（模块及其依赖关系）
-WIKI_TARGET_DIR=$PWD python3 scripts/query.py module <name>
+WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/query.py module <name>
 
 # 项目统计概览
-WIKI_TARGET_DIR=$PWD python3 scripts/query.py stats
+WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/query.py stats
 ```
 
 **流式查询脚本**（推荐 - 避免读取完整 JSON，需要 ijson 库）：
@@ -97,10 +107,10 @@ WIKI_TARGET_DIR=$PWD python3 scripts/query.py stats
 pip install ijson
 
 # 流式类查询（大文件友好）
-WIKI_TARGET_DIR=$PWD python3 scripts/stream_query.py class <name>
+WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/stream_query.py class <name>
 
 # 流式 API 查询（大文件友好）
-WIKI_TARGET_DIR=$PWD python3 scripts/stream_query.py api <keyword>
+WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/stream_query.py api <keyword>
 ```
 
 ### 跨项目查询
@@ -109,7 +119,7 @@ WIKI_TARGET_DIR=$PWD python3 scripts/stream_query.py api <keyword>
 
 ```bash
 # 设置 WIKI_TARGET_DIR 指向目标项目
-WIKI_TARGET_DIR="/path/to/project-B" python3 scripts/query.py class UserService
+WIKI_TARGET_DIR="/path/to/project-B" python3 {SKILL_DIR}/scripts/query.py class UserService
 ```
 
 ### 方式二：内联命令
@@ -302,11 +312,11 @@ except: pass
 
 | 用户问题 | 推荐命令 |
 |:---------|:---------|
-| "XXX 类有哪些方法？" | `WIKI_TARGET_DIR=$PWD python3 scripts/stream_query.py class XXX` |
-| "项目有哪些 XXX 相关 API？" | `WIKI_TARGET_DIR=$PWD python3 scripts/stream_query.py api XXX` |
-| "找一下 XXX 相关的类" | `WIKI_TARGET_DIR=$PWD python3 scripts/query.py search XXX` |
-| "XXX 模块依赖哪些？" | `WIKI_TARGET_DIR=$PWD python3 scripts/query.py module XXX` |
-| "项目有多少个类和 API？" | `WIKI_TARGET_DIR=$PWD python3 scripts/query.py stats` |
+| "XXX 类有哪些方法？" | `WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/stream_query.py class XXX` |
+| "项目有哪些 XXX 相关 API？" | `WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/stream_query.py api XXX` |
+| "找一下 XXX 相关的类" | `WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/query.py search XXX` |
+| "XXX 模块依赖哪些？" | `WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/query.py module XXX` |
+| "项目有多少个类和 API？" | `WIKI_TARGET_DIR=$PWD python3 {SKILL_DIR}/scripts/query.py stats` |
 
 ## 性能对比
 

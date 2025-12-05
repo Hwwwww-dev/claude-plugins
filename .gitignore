@@ -1,14 +1,1 @@
-.claude/repowiki/.index/doc-graph.json
-.claude/repowiki/.index/INDEX_REPORT.md
-.claude/repowiki/.index/quick-lookup.json
-.claude/repowiki/.index/README.md
-.claude/repowiki/.index/symbol-map.json
-.claude/repowiki/.meta/API_SUMMARY.md
-.claude/repowiki/.meta/api.pkg.json
-.claude/repowiki/.meta/EXTRACTION_REPORT.txt
-.claude/repowiki/.meta/modules.pkg.json
-.claude/repowiki/.meta/project.pkg.json
-.claude/repowiki/.meta/quality.pkg.json
-.claude/repowiki/.meta/query_api.py
-.claude/repowiki/.meta/symbols.pkg.json
-.claude/repowiki/.meta/validation-report.md
+.claude/
