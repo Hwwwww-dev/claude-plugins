@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Community marketplace for Claude Code plugins",
-    "version": "2.8.0"
+    "version": "2.9.0"
   },
   "plugins": [
     {
@@ -41,6 +41,27 @@
         "git-tools",
         "security-scan",
         "vulnerability-detection"
+      ],
+      "category": "productivity"
+    },
+    {
+      "name": "ideation",
+      "source": "./ideation",
+      "description": "多角色头脑风暴框架。13位专业专家从不同视角辩论，支持智能推荐与交互式选择，深度探索问题本质。",
+      "version": "1.0.0",
+      "author": {
+        "name": "Hwwwww"
+      },
+      "homepage": "https://github.com/Hwwwww-dev/claude-plugins",
+      "repository": "https://github.com/Hwwwww-dev/claude-plugins.git",
+      "license": "MIT",
+      "keywords": [
+        "brainstorm",
+        "multi-agent",
+        "debate",
+        "expert-panel",
+        "collaboration",
+        "decision-making"
       ],
       "category": "productivity"
     }
