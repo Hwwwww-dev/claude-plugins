@@ -19,16 +19,39 @@ A powerful task coordination and parallel execution framework for Claude Code.
 - 🚀 **Concurrent Execution**: Runs multiple tasks simultaneously for significant speed improvements
 - 🧩 **Flexible Orchestration**: Supports parallel, sequential, and mixed execution strategies
 - 📊 **Result Aggregation**: Automatically collects and organizes all subtask execution results
-- 🔍 **Intelligent Information Gathering**: Auto-analyze project structure, dependencies, code patterns (v1.3.0 new)
+- 🔍 **Intelligent Information Gathering**: Auto-analyze project structure, dependencies, code patterns
+- 🔧 **Code Quality Tools**: Code review, intelligent refactoring, test generation
+- 📦 **Dependency Management**: Security scanning, version analysis, conflict detection
+- 📝 **Documentation Generation**: Auto-generate repo wiki, changelog, health reports
 
 **Use Cases**:
-- Batch file operations
-- Project-wide refactoring
-- Large-scale code modifications
-- Multi-step dependency tasks
-- Project structure analysis and code exploration (new)
+- Batch file operations and project-wide refactoring
+- Code review and quality assurance
+- Test generation and coverage improvement
+- Dependency security audit and updates
+- Project health monitoring
+- Changelog and documentation generation
 
 **Documentation**: See [atlas/](./atlas/) directory
+
+### 🧠 Ideation - Multi-Role Brainstorming Framework
+
+A multi-expert brainstorming framework that explores problems through Socratic dialogue and expert debates.
+
+**Features**:
+- 🎭 **13 Professional Experts**: Product Manager, Architect, UX Designer, Security Expert, etc.
+- 💬 **Socratic Dialogue**: Uncover hidden assumptions through questioning
+- ⚔️ **Expert Debates**: Multi-perspective discussions with constructive conflicts
+- 🎯 **Preset Expert Groups**: product, tech, quality, business, all
+- 📋 **Structured Output**: Consensus, disagreements, and actionable recommendations
+
+**Use Cases**:
+- Vague product ideas requiring systematic exploration
+- Technical solutions needing multi-angle evaluation
+- Major decisions requiring comprehensive risk assessment
+- Complex problems needing cross-domain expert collision
+
+**Documentation**: See [ideation/](./ideation/) directory
 
 ## Installation
 
@@ -38,8 +61,9 @@ A powerful task coordination and parallel execution framework for Claude Code.
 # 1. Add marketplace
 /plugin marketplace add Hwwwww-dev/claude-plugins
 
-# 2. Install Atlas plugin
+# 2. Install plugins
 /plugin install atlas@claude-code-marketplace
+/plugin install ideation@claude-code-marketplace
 
 # 3. Restart Claude Code
 ```
@@ -50,59 +74,100 @@ A powerful task coordination and parallel execution framework for Claude Code.
 # Add local marketplace
 /plugin marketplace add ./claude-code-marketplace
 
-# Install plugin locally
+# Install plugins locally
 /plugin install atlas@claude-code-marketplace
+/plugin install ideation@claude-code-marketplace
 ```
 
 ## Usage
 
 ### Atlas Plugin
 
-#### Task Orchestration (/orchestrate)
+Atlas provides 9 commands, 7 specialized agents, and 3 query skills:
+
+#### Commands
+
+| Command | Description |
+|---------|-------------|
+| `/atlas:orchestrate` | Task coordination and parallel execution |
+| `/atlas:gather` | Intelligent information gathering |
+| `/atlas:review` | Multi-dimensional code review |
+| `/atlas:refactor` | Intelligent code refactoring |
+| `/atlas:test-gen` | Automated test generation |
+| `/atlas:deps` | Dependency management and security |
+| `/atlas:health` | Project health diagnostics |
+| `/atlas:changelog` | Auto-generate changelog |
+| `/atlas:repo-wiki` | Repository documentation generation |
+
+#### Example Usage
 
 ```bash
-# Basic usage
-/orchestrate Add TypeScript types to all React components
+# Task orchestration
+/atlas:orchestrate Add TypeScript types to all React components --parallel
 
-# Force parallel execution
-/orchestrate Refactor all class components --parallel
+# Code review
+/atlas:review --scope src/ --type security,performance
 
-# Preview mode
-/orchestrate Add error boundaries to all components --dry-run
+# Intelligent refactoring
+/atlas:refactor extract-method --scope src/utils --dry-run
 
-# Limit concurrency
-/orchestrate Optimize all APIs --max-agents 3
+# Test generation
+/atlas:test-gen --scope src/services --framework jest --coverage-target 80
+
+# Dependency management
+/atlas:deps --type security --fix
+
+# Project health check
+/atlas:health --export html
+
+# Generate changelog
+/atlas:changelog --from v1.0.0 --version 2.0.0
+
+# Generate repo wiki
+/atlas:repo-wiki --lang en --depth 3
 ```
 
-Or use natural language (automatically triggers):
-```
-"Help me add props validation to all components"
-"Batch rename all API functions"
-"Refactor the entire authentication module"
-```
+#### Skills (Quick Query)
 
-#### Information Gathering (/gather) - v1.3.0 new
+| Skill | Description | Example |
+|-------|-------------|---------|
+| `dep-query` | Dependency version, vulnerability, usage | "axios version", "outdated deps" |
+| `git-query` | Commit history, contributors, changes | "recent commits", "who modified auth" |
+| `wiki-query` | Project structure, API, module info | "what APIs exist", "find UserService" |
 
 ```bash
-# Analyze project structure
-/gather project-structure --cache project-map
-
-# Analyze dependencies
-/gather dependencies UserAPI
-
-# Search code patterns
-/gather code-patterns "useState" --focus src/components
-
-# Assess modification impact
-/gather impact AuthService
+# Invoke skills
+/skill atlas:dep-query
+/skill atlas:git-query
+/skill atlas:wiki-query
 ```
 
-Information gathering also supports auto-triggering:
+### Ideation Plugin
+
+#### Multi-Role Brainstorming (/ideation:brainstorm)
+
+```bash
+# Product exploration
+/ideation:brainstorm "Add social features to e-commerce platform" --group product --depth normal
+
+# Technical solution
+/ideation:brainstorm "Design high-concurrency flash sale system" --group tech --depth deep
+
+# Business decision
+/ideation:brainstorm "Should we enter overseas market" --group business
+
+# Comprehensive evaluation (all 13 experts)
+/ideation:brainstorm "Should we adopt microservice architecture" --group all --depth deep
 ```
-"Analyze this project structure"
-"Where is UserAPI called?"
-"Find all code using the old API"
-```
+
+**Available Expert Groups**:
+| Group | Experts | Use Case |
+|-------|---------|----------|
+| product | Product Manager, UX Designer, Market Analyst | Product requirements, user experience |
+| tech | Architect, Frontend, Backend, DB, DevOps | Technical solutions, architecture design |
+| quality | Security, Performance, Tech Lead | Quality assurance, security review |
+| business | PM, Market Analyst, Legal, Data Analyst | Business feasibility, compliance |
+| all | All 13 experts | Complex decisions, full evaluation |
 
 ## Plugin Structure
 
@@ -110,22 +175,40 @@ Information gathering also supports auto-triggering:
 claude-code-marketplace/
 ├── .claude-plugin/
 │   └── marketplace.json            # Marketplace configuration
-├── atlas/                           # Atlas plugin (v1.3.0)
+├── atlas/                           # Atlas plugin (v2.9.1)
 │   ├── .claude-plugin/
 │   │   └── plugin.json             # Plugin metadata
-│   ├── agents/                     # Specialized agents
+│   ├── agents/                     # Specialized agents (7)
 │   │   ├── atlas-executor.md       # Task executor
-│   │   └── information-gatherer.md # Information gatherer (new)
-│   ├── commands/
-│   │   ├── orchestrate.md          # /orchestrate command (formerly /atlas)
-│   │   └── gather.md               # /gather command (new)
+│   │   ├── code-reviewer.md        # Code review expert
+│   │   ├── commit-analyzer.md      # Commit analysis
+│   │   ├── dependency-analyzer.md  # Dependency analysis
+│   │   ├── information-gatherer.md # Information gatherer
+│   │   ├── repo-context-indexer.md # Repository context indexer
+│   │   └── repo-semantic-analyzer.md # Semantic analyzer
+│   ├── commands/                   # Commands (9)
+│   │   ├── orchestrate.md          # Task orchestration
+│   │   ├── gather.md               # Information gathering
+│   │   ├── review.md               # Code review
+│   │   ├── refactor.md             # Intelligent refactoring
+│   │   ├── test-gen.md             # Test generation
+│   │   ├── deps.md                 # Dependency management
+│   │   ├── health.md               # Health diagnostics
+│   │   ├── changelog.md            # Changelog generation
+│   │   └── repo-wiki.md            # Repo documentation
 │   ├── hooks/
-│   │   └── hooks.json              # Hooks configuration (including auto-trigger rules)
-│   ├── skills/                     # Intelligent workflows
-│   │   ├── task-orchestrator/SKILL.md  # Task orchestration (formerly atlas)
-│   │   ├── implement/SKILL.md          # Feature implementation
-│   │   └── gather/SKILL.md             # Information gathering workflow (new)
-│   └── examples/                   # Optional examples
+│   │   └── hooks.json              # Hooks configuration
+│   └── skills/                     # Query skills (3)
+│       ├── dep-query/SKILL.md      # Dependency query
+│       ├── git-query/SKILL.md      # Git query
+│       └── wiki-query/SKILL.md     # Wiki query
+├── ideation/                        # Ideation plugin (v1.0.1)
+│   ├── .claude-plugin/
+│   │   └── plugin.json             # Plugin metadata
+│   ├── agents/
+│   │   └── debate-moderator.md     # Debate moderator agent
+│   └── commands/
+│       └── brainstorm.md           # /ideation:brainstorm command
 ├── docs/                            # Reference documentation
 ├── README.md                        # This file (English)
 └── README_zh.md                     # Chinese documentation

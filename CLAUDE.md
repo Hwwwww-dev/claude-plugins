@@ -4,7 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-这是一个 Claude Code 插件市场仓库,包含 Atlas 任务协调框架插件。Atlas 是一个强大的任务分解和并发执行框架,通过智能协调器和执行器实现项目级批量操作。v1.3.0 新增智能信息收集系统,支持项目分析、依赖梳理、代码探索。
+这是一个 Claude Code 插件市场仓库,包含多个专业插件:
+
+- **Atlas**: 任务协调框架插件,通过智能协调器和执行器实现项目级批量操作,支持项目分析、依赖梳理、代码探索
+- **Ideation**: 多角色头脑风暴框架,通过苏格拉底式对话和专家辩论深度探索问题本质
 
 ## 项目架构
 
@@ -14,21 +17,55 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 claude-code-marketplace/
 ├── .claude-plugin/
 │   └── marketplace.json          # 市场配置,定义插件列表和元数据
-├── atlas/                         # Atlas 插件目录
+├── atlas/                         # Atlas 任务协调框架插件
 │   ├── .claude-plugin/
 │   │   └── plugin.json           # 插件元数据(名称、版本、描述等)
-│   ├── agents/                   # 专业化 agents
+│   ├── agents/                   # 专业化 agents (7个)
 │   │   ├── atlas-executor.md     # 任务执行器: 执行具体的子任务
-│   │   └── information-gatherer.md  # 信息收集器: 收集和分析项目信息
-│   ├── commands/
-│   │   ├── orchestrate.md        # /orchestrate 命令定义
-│   │   └── gather.md             # /gather 命令定义
+│   │   ├── code-reviewer.md      # 代码审查: 多维度代码质量分析
+│   │   ├── commit-analyzer.md    # 提交分析: Git 提交历史分析
+│   │   ├── dependency-analyzer.md # 依赖分析: 依赖关系与安全检查
+│   │   ├── information-gatherer.md # 信息收集: 收集和分析项目信息
+│   │   ├── repo-context-indexer.md # 仓库索引: 项目上下文建立
+│   │   └── repo-semantic-analyzer.md # 语义分析: 代码语义理解
+│   ├── commands/                 # 斜杠命令 (9个)
+│   │   ├── orchestrate.md        # /orchestrate 任务协调
+│   │   ├── gather.md             # /gather 信息收集
+│   │   ├── review.md             # /review 代码审查
+│   │   ├── refactor.md           # /refactor 智能重构
+│   │   ├── test-gen.md           # /test-gen 测试生成
+│   │   ├── deps.md               # /deps 依赖管理
+│   │   ├── health.md             # /health 健康检查
+│   │   ├── changelog.md          # /changelog 变更日志
+│   │   └── repo-wiki.md          # /repo-wiki 仓库文档生成
 │   ├── hooks/                    # Hooks 配置
 │   │   └── hooks.json            # PreToolUse hooks: 防止嵌套调用
+│   └── skills/                   # 查询 skills (3个)
+│       ├── dep-query/SKILL.md    # 依赖查询: 版本、漏洞、使用位置
+│       ├── git-query/SKILL.md    # Git 查询: 提交、贡献者、分支
+│       └── wiki-query/SKILL.md   # Wiki 查询: 项目结构、API、模块
+├── ideation/                      # Ideation 多角色头脑风暴插件
+│   ├── .claude-plugin/
+│   │   └── plugin.json           # 插件元数据
+│   ├── agents/                   # 专家角色 agents (14个)
+│   │   ├── debate-moderator.md   # 辩论主持人: 协调专家讨论
+│   │   ├── product-manager.md    # 产品经理: 需求与用户价值
+│   │   ├── architect.md          # 架构师: 系统设计与技术选型
+│   │   ├── tech-lead.md          # 技术负责人: 工程实践与团队协调
+│   │   ├── frontend-engineer.md  # 前端工程师: UI/UX 实现
+│   │   ├── backend-engineer.md   # 后端工程师: 服务端逻辑
+│   │   ├── database-expert.md    # 数据库专家: 数据建模与优化
+│   │   ├── devops-engineer.md    # DevOps 工程师: 部署与运维
+│   │   ├── security-expert.md    # 安全专家: 安全评估与防护
+│   │   ├── performance-expert.md # 性能专家: 性能优化
+│   │   ├── ux-designer.md        # UX 设计师: 用户体验
+│   │   ├── data-analyst.md       # 数据分析师: 数据驱动决策
+│   │   ├── legal-advisor.md      # 法务顾问: 合规与隐私
+│   │   └── market-analyst.md     # 市场分析师: 市场与竞争
+│   ├── commands/
+│   │   └── brainstorm.md         # /brainstorm 命令定义
 │   └── skills/
-│       ├── task-orchestrator/SKILL.md  # 任务协调 skill
-│       ├── implement/SKILL.md          # 功能实现工作流 skill
-│       └── gather/SKILL.md             # 信息收集工作流 skill
+│       └── brainstorm/SKILL.md   # 头脑风暴工作流 skill
 ├── docs/                         # Claude Code 插件系统参考文档
 └── README.md / README_zh.md      # 项目说明文档
 ```
@@ -50,6 +87,15 @@ claude-code-marketplace/
 4. 根据计划并发启动多个 atlas-executor agents
 5. 各执行器独立完成子任务
 6. 收集和汇总所有执行结果
+
+### Ideation 工作流程
+
+1. 用户通过 `/brainstorm <话题>` 触发多角色头脑风暴
+2. 主持人(debate-moderator)分析话题,智能推荐相关专家组合
+3. 用户确认或自定义专家阵容
+4. 苏格拉底式对话阶段: 通过提问引导深入思考
+5. 专家辩论阶段: 各领域专家从不同角度分析和讨论
+6. 主持人总结共识、分歧和行动建议
 
 ## 版本管理指南
 
@@ -74,9 +120,13 @@ claude-code-marketplace/
 
 2. **插件元数据** (每个插件独立版本)
    ```bash
+   # Atlas 插件
    # 文件: atlas/.claude-plugin/plugin.json
-   # 位置: 第 4 行
-   "version": "1.0.0"  # 修改此处
+   "version": "x.y.z"  # 修改此处
+
+   # Ideation 插件
+   # 文件: ideation/.claude-plugin/plugin.json
+   "version": "x.y.z"  # 修改此处
    ```
 
 3. **市场配置中的插件版本**
@@ -141,8 +191,9 @@ git push origin main --tags
 发布新版本前务必检查:
 
 - [ ] marketplace.json 中的 metadata.version 已更新
-- [ ] marketplace.json 中对应插件的 version 已更新
+- [ ] marketplace.json 中各插件的 version 已更新
 - [ ] atlas/.claude-plugin/plugin.json 中的 version 已更新
+- [ ] ideation/.claude-plugin/plugin.json 中的 version 已更新
 - [ ] 相关 agents 的 version frontmatter 已更新 (如有变更)
 - [ ] 相关 skills 的 version frontmatter 已更新 (如有变更)
 - [ ] README.md 和 README_zh.md 已更新 (如有文档变更)
