@@ -60,45 +60,12 @@ prompt: |
 
 ## 收集模式详情
 
-### project-structure
-
-```
-## 收集内容
-- 文件和目录统计
-- 模块组织结构
-- 关键文件清单
-- 核心符号列表
-```
-
-### dependencies
-
-```
-## 收集内容
-- 符号定位信息
-- 所有引用位置 (文件:行号)
-- 调用上下文
-- 修改影响评估
-```
-
-### code-patterns
-
-```
-## 收集内容
-- 匹配统计
-- 详细清单 (文件:行号)
-- 模式分析
-- 使用建议
-```
-
-### impact
-
-```
-## 收集内容
-- 直接引用点
-- 间接影响范围
-- 风险评估
-- 修改建议
-```
+| 模式 | 收集内容 |
+|:-----|:---------|
+| **project-structure** | 文件统计、模块结构、关键文件清单、核心符号列表 |
+| **dependencies** | 符号定位、引用位置(文件:行号)、调用上下文、影响评估 |
+| **code-patterns** | 匹配统计、详细清单(文件:行号)、模式分析、使用建议 |
+| **impact** | 直接引用点、间接影响范围、风险评估、修改建议 |
 
 ---
 
@@ -125,40 +92,28 @@ prompt: |
 
 ## 示例
 
-### 项目结构
-```
-/gather project-structure
-/gather project-structure --deep
+### 基础用法
+```bash
+/gather project-structure              # 项目结构分析
+/gather dependencies UserAPI           # 依赖分析
+/gather code-patterns "useState"       # 模式搜索
+/gather impact AuthService             # 影响分析
 ```
 
-### 依赖分析
-```
-/gather dependencies UserAPI
+### 高级选项
+```bash
 /gather dependencies LoginComponent --deep
-```
-
-### 代码模式
-```
-/gather code-patterns "useState"
 /gather code-patterns "import.*react" --focus src/components
-```
-
-### 影响分析
-```
-/gather impact UserAPI
-/gather impact AuthService
 ```
 
 ---
 
 ## 与 /orchestrate 配合
 
-```
-1. /gather dependencies UserAPI
-   → 分析 UserAPI 的所有引用点
-
-2. /orchestrate 更新所有 UserAPI 调用
-   → 基于收集结果批量执行
+```bash
+# 工作流示例
+/gather dependencies UserAPI           # 1. 分析引用点
+/orchestrate 更新所有 UserAPI 调用    # 2. 基于收集结果批量执行
 ```
 
 ---

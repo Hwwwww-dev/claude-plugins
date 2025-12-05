@@ -49,32 +49,7 @@ Phase 0 环境检测 → Phase 1 目标分析 → Phase 2 用例规划 → Phase
 
 ## Phase 0: 环境检测
 
-**输入**: 命令参数
-
-**输出**: 环境配置
-
-**检测内容**:
-1. 测试框架类型
-2. 测试文件命名约定
-3. 测试目录结构
-4. Mock 库（jest-mock, sinon, unittest.mock 等）
-5. 现有覆盖率（如果有报告）
-
-**配置示例**:
-```json
-{
-  "framework": "jest",
-  "language": "typescript",
-  "testDir": "__tests__",
-  "testPattern": "*.test.ts",
-  "mockLibrary": "jest-mock",
-  "currentCoverage": {
-    "lines": 65,
-    "branches": 58,
-    "functions": 70
-  }
-}
-```
+**检测内容**: 测试框架类型、命名约定、目录结构、Mock 库、现有覆盖率
 
 ---
 
@@ -97,55 +72,31 @@ Phase 0 环境检测 → Phase 1 目标分析 → Phase 2 用例规划 → Phase
 
 **Subagent**: `atlas:information-gatherer`
 
-**输入**: 范围 + 环境配置 + `.claude/repowiki/` 现有信息（如果存在）
-
-**输出**: `.claude/test-gen/.meta/analysis.pkg.json`
-
-**分析内容**:
-1. 公开函数/方法的签名
-2. 参数类型和边界值
-3. 分支路径（if/switch/try-catch）
-4. 依赖项（需要 mock 的服务）
-5. 现有测试覆盖情况
+**分析内容**: 函数签名、参数类型、分支路径、依赖项、现有测试覆盖
 
 **PKG 结构**:
 ```json
 {
-  "timestamp": "2024-01-15T10:30:00Z",
   "targets": [
     {
       "file": "src/user/user.service.ts",
       "symbol": "UserService",
-      "type": "class",
       "methods": [
         {
           "name": "create",
           "signature": "create(data: CreateUserDto): Promise<User>",
-          "params": [
-            {
-              "name": "data",
-              "type": "CreateUserDto",
-              "required": true,
-              "validations": ["@IsEmail() email", "@MinLength(8) password"]
-            }
-          ],
-          "returns": "Promise<User>",
           "branches": [
-            {"condition": "email already exists", "outcome": "throw ConflictException"},
-            {"condition": "validation fails", "outcome": "throw BadRequestException"},
-            {"condition": "success", "outcome": "return User"}
+            {"condition": "email exists", "outcome": "throw ConflictException"},
+            {"condition": "validation fails", "outcome": "throw BadRequestException"}
           ],
           "dependencies": ["PrismaService", "HashService"],
-          "hasExistingTest": false,
-          "complexity": 5
+          "hasExistingTest": false
         }
-      ],
-      "existingTestFile": null
+      ]
     }
   ],
   "summary": {
     "totalTargets": 15,
-    "withTests": 8,
     "withoutTests": 7,
     "estimatedNewTests": 25
   }
@@ -158,39 +109,16 @@ Phase 0 环境检测 → Phase 1 目标分析 → Phase 2 用例规划 → Phase
 
 **Subagent**: `Plan`
 
-**输入**: `.claude/test-gen/.meta/analysis.pkg.json`
-
-**输出**: 测试用例规划 + TodoWrite todos
-
-**规划原则**:
-1. 每个公开方法至少 1 个正常路径测试
-2. 每个参数的边界值测试
-3. 每个异常路径的错误处理测试
-4. 依赖项的 mock 设置
+**规划原则**: 正常路径 + 边界值 + 异常处理 + Mock 设置
 
 **用例规划示例**:
 ```markdown
-## 测试用例规划
-
 ### UserService.create
-
-#### 正常路径
 - [ ] 应该成功创建用户并返回 User 对象
-- [ ] 应该正确哈希密码
-
-#### 边界值
-- [ ] email 为空字符串时应该抛出 BadRequestException
-- [ ] password 长度为 7（边界-1）时应该抛出 BadRequestException
-- [ ] password 长度为 8（边界）时应该成功
-
-#### 异常路径
+- [ ] email 为空时应该抛出 BadRequestException
+- [ ] password 长度 < 8 时应该抛出 BadRequestException
 - [ ] email 已存在时应该抛出 ConflictException
-- [ ] 数据库错误时应该抛出 InternalServerException
-
-#### Mock 设置
-- PrismaService.user.create
-- PrismaService.user.findUnique
-- HashService.hash
+- Mock: PrismaService.user.{create,findUnique}, HashService.hash
 ```
 
 ---
@@ -199,14 +127,7 @@ Phase 0 环境检测 → Phase 1 目标分析 → Phase 2 用例规划 → Phase
 
 **Subagent**: `atlas:atlas-executor` (并行多个)
 
-**输入**: 用例规划 + 环境配置
-
-**输出**: 测试文件
-
-**生成策略**:
-1. 按文件分组，每个源文件对应一个测试文件
-2. 并行生成各测试文件
-3. 遵循项目现有的测试风格
+**生成策略**: 按文件分组并行生成，遵循项目现有测试风格
 
 **文件命名规则**:
 | 框架 | 源文件 | 测试文件 |
@@ -215,155 +136,17 @@ Phase 0 环境检测 → Phase 1 目标分析 → Phase 2 用例规划 → Phase
 | Pytest | src/user_service.py | tests/test_user_service.py |
 | Go | src/user/service.go | src/user/service_test.go |
 
-**生成模板（Jest/TypeScript）**:
-```typescript
-import { Test, TestingModule } from '@nestjs/testing';
-import { UserService } from './user.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { HashService } from '../hash/hash.service';
-import { ConflictException, BadRequestException } from '@nestjs/common';
-
-describe('UserService', () => {
-  let service: UserService;
-  let prismaService: jest.Mocked<PrismaService>;
-  let hashService: jest.Mocked<HashService>;
-
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        UserService,
-        {
-          provide: PrismaService,
-          useValue: {
-            user: {
-              create: jest.fn(),
-              findUnique: jest.fn(),
-            },
-          },
-        },
-        {
-          provide: HashService,
-          useValue: {
-            hash: jest.fn(),
-          },
-        },
-      ],
-    }).compile();
-
-    service = module.get<UserService>(UserService);
-    prismaService = module.get(PrismaService);
-    hashService = module.get(HashService);
-  });
-
-  describe('create', () => {
-    const validData = {
-      email: 'test@example.com',
-      password: 'password123',
-    };
-
-    it('should create user successfully', async () => {
-      // Arrange
-      const hashedPassword = 'hashed_password';
-      const expectedUser = { id: '1', email: validData.email };
-
-      hashService.hash.mockResolvedValue(hashedPassword);
-      prismaService.user.findUnique.mockResolvedValue(null);
-      prismaService.user.create.mockResolvedValue(expectedUser);
-
-      // Act
-      const result = await service.create(validData);
-
-      // Assert
-      expect(result).toEqual(expectedUser);
-      expect(hashService.hash).toHaveBeenCalledWith(validData.password);
-      expect(prismaService.user.create).toHaveBeenCalledWith({
-        data: { email: validData.email, password: hashedPassword },
-      });
-    });
-
-    it('should throw ConflictException when email exists', async () => {
-      // Arrange
-      prismaService.user.findUnique.mockResolvedValue({ id: '1' });
-
-      // Act & Assert
-      await expect(service.create(validData)).rejects.toThrow(ConflictException);
-    });
-
-    it('should throw BadRequestException when password too short', async () => {
-      // Arrange
-      const invalidData = { ...validData, password: '1234567' };
-
-      // Act & Assert
-      await expect(service.create(invalidData)).rejects.toThrow(BadRequestException);
-    });
-  });
-});
-```
-
-**生成模板（Pytest/Python）**:
-```python
-import pytest
-from unittest.mock import Mock, patch
-from src.user_service import UserService
-from src.exceptions import ConflictError, ValidationError
-
-class TestUserService:
-    @pytest.fixture
-    def mock_db(self):
-        return Mock()
-
-    @pytest.fixture
-    def mock_hash_service(self):
-        return Mock()
-
-    @pytest.fixture
-    def service(self, mock_db, mock_hash_service):
-        return UserService(db=mock_db, hash_service=mock_hash_service)
-
-    class TestCreate:
-        def test_should_create_user_successfully(self, service, mock_db, mock_hash_service):
-            # Arrange
-            data = {"email": "test@example.com", "password": "password123"}
-            mock_hash_service.hash.return_value = "hashed_password"
-            mock_db.find_user_by_email.return_value = None
-            expected_user = {"id": "1", "email": data["email"]}
-            mock_db.create_user.return_value = expected_user
-
-            # Act
-            result = service.create(data)
-
-            # Assert
-            assert result == expected_user
-            mock_hash_service.hash.assert_called_once_with(data["password"])
-
-        def test_should_raise_conflict_when_email_exists(self, service, mock_db):
-            # Arrange
-            data = {"email": "existing@example.com", "password": "password123"}
-            mock_db.find_user_by_email.return_value = {"id": "1"}
-
-            # Act & Assert
-            with pytest.raises(ConflictError):
-                service.create(data)
-
-        def test_should_raise_validation_error_when_password_too_short(self, service):
-            # Arrange
-            data = {"email": "test@example.com", "password": "1234567"}
-
-            # Act & Assert
-            with pytest.raises(ValidationError):
-                service.create(data)
-```
+**测试结构要求**:
+- Arrange-Act-Assert 三段式
+- 描述性测试命名（should/when/then）
+- 合理 Mock 设置（不过度 mock）
+- 覆盖关键边界值
 
 ---
 
 ## Phase 4: 验证
 
-**执行者**: 主进程
-
-**操作**:
-1. 运行生成的测试
-2. 收集覆盖率报告
-3. 对比目标覆盖率
+**操作**: 运行测试 → 收集覆盖率 → 对比目标
 
 **验证命令**:
 | 框架 | 命令 |
@@ -373,10 +156,8 @@ class TestUserService:
 | Pytest | `pytest --cov=src <生成的测试>` |
 | Go | `go test -cover ./...` |
 
-**验证报告**:
+**报告示例**:
 ```markdown
-## 测试验证
-
 ### 执行结果
 - ✅ 测试通过: 25/25
 - ⏱️ 执行时间: 3.2s
@@ -386,16 +167,9 @@ class TestUserService:
 |:-----|:-----|:-----|:-----|
 | 行覆盖 | 65% | 82% | +17% |
 | 分支覆盖 | 58% | 75% | +17% |
-| 函数覆盖 | 70% | 88% | +18% |
 
 ### 目标达成
-- 目标: 80%
-- 当前: 82%
-- ✅ 已达成
-
-### 未覆盖代码
-- src/order/order.service.ts:45-60 (边缘情况)
-- src/auth/auth.guard.ts:30-35 (异常处理)
+- 目标: 80% | 当前: 82% | ✅ 已达成
 ```
 
 ---

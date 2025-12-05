@@ -13,30 +13,9 @@ argument-hint: <任务描述> [--parallel|--sequential] [--dry-run] [--no-gather
 
 ## 第一步：确认执行选项
 
-**如果用户未在命令中指定选项，使用 AskUserQuestion 询问：**
+**如果用户未指定选项，询问**: 执行策略(auto/parallel/sequential) | 执行模式(execute/dry-run) | 是否收集信息(yes/no) | 失败处理(auto-rollback/manual)
 
-```
-问题1: 执行策略
-- auto (推荐): 由 Plan agent 智能决定
-- parallel: 强制并行
-- sequential: 强制串行
-
-问题2: 执行模式
-- execute (默认): 正常执行
-- dry-run: 只生成计划，不执行
-
-问题3: 是否先收集信息
-- yes (推荐): 先调用 information-gatherer
-- no: 直接规划执行
-
-问题4: 失败处理
-- auto-rollback: 失败时自动回滚
-- manual: 失败时询问处理方式（默认）
-```
-
-**如果用户已指定选项（如 `--parallel --dry-run`），跳过询问。**
-
-**如果用户指定 `--resume <id>`，跳到断点续传流程。**
+**如果用户已指定选项或使用 `--resume <id>`，跳过询问。**
 
 ---
 
@@ -86,17 +65,14 @@ git stash push -m "atlas-checkpoint-{execution-id}"
 
 ### 2.1 信息收集（如选择）
 
-**优先从 `.claude/repowiki/` 获取项目信息**（如果存在）：
+**优先从 `.claude/repowiki/` 获取项目信息**（如存在）:
+- `project.pkg.json`: 项目元数据、技术栈
+- `modules.pkg.json`: 模块结构、依赖关系
+- `api.pkg.json`: API 端点
+- `symbols.pkg.json`: 符号索引
+- `quick-lookup.json`: 快速查询
 
-| 文件 | 用途 |
-|:-----|:-----|
-| `.claude/repowiki/.meta/project.pkg.json` | 项目元数据、技术栈 |
-| `.claude/repowiki/.meta/modules.pkg.json` | 模块结构、依赖关系 |
-| `.claude/repowiki/.meta/api.pkg.json` | API 端点信息 |
-| `.claude/repowiki/.meta/symbols.pkg.json` | 符号索引 |
-| `.claude/repowiki/.index/quick-lookup.json` | 快速查询索引 |
-
-**如果 repowiki 存在且信息充足，可跳过信息收集步骤直接进入规划。**
+**如 repowiki 信息充足，可跳过信息收集直接规划。**
 
 **固定输入结构**:
 ```
@@ -288,24 +264,22 @@ git stash drop "atlas-checkpoint-{execution-id}"
 
 ## 执行示例
 
-### 示例 1: 并行执行（带检查点）
+### 示例: 并行执行（完整流程）
 
 ```
 用户: /orchestrate 给所有 React 组件添加 TypeScript 类型
 
-0. 创建检查点:
+0. 创建检查点 + 状态文件:
    git stash push -m "atlas-checkpoint-add-types-20240115"
-   写入状态文件到 .claude/orchestrate/.state/add-types-20240115.json
+   写入: .claude/orchestrate/.state/add-types-20240115.json
 
 1. information-gatherer:
-   任务 ID: add-types-20240115
    收集目标: 所有 React 组件位置和现有类型情况
    → docs/information/add-types-20240115.md
 
 2. Plan agent:
-   任务: 添加类型
    上下文: docs/information/add-types-20240115.md
-   → 返回: 3组并行, 策略: parallel
+   → 返回: 3组并行任务, 策略: parallel
    更新状态文件（记录 3 个子任务）
 
 3. 同时发起 3 个 executor (同一条消息):
@@ -314,48 +288,16 @@ git stash drop "atlas-checkpoint-{execution-id}"
    - #3: shared 组件, 文件: [Button.tsx, Input.tsx]
    每个完成后更新状态文件
 
-4. 聚合结果并报告
-   清理检查点
+4. 聚合结果并报告，清理检查点
 ```
 
-### 示例 2: 失败回滚
+### 失败场景
 
-```
-用户: /orchestrate 重构 API 层 --auto-rollback
+**auto-rollback 模式**: 子任务失败 → 自动 `git stash pop` → 输出失败原因和建议
 
-1. 创建检查点
-2. 执行子任务 #1 ✅
-3. 执行子任务 #2 ❌ 失败
+**manual 模式**: 提供选项（回滚/跳过/重试/终止），等待用户选择
 
-自动回滚:
-git stash pop
-清理状态文件
-
-输出:
-⚠️ 子任务 #2 失败，已自动回滚所有修改
-修改的文件已恢复到执行前状态
-建议: 检查 api/order.ts:45 的类型错误后重试
-```
-
-### 示例 3: 断点续传
-
-```
-用户: /orchestrate --resume add-types-20240115
-
-读取状态:
-- 子任务 #1: 完成
-- 子任务 #2: 失败
-- 子任务 #3: 待执行
-
-用户选择: 跳过失败
-
-继续执行:
-- 执行子任务 #3 ✅
-
-最终报告:
-- 完成: 2/3
-- 跳过: 1 (子任务 #2)
-```
+**断点续传**: `/orchestrate --resume <id>` → 读取状态 → 显示进度 → 继续执行
 
 ---
 

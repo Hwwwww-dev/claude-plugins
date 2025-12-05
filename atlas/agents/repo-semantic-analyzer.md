@@ -64,27 +64,22 @@ type BuildDecision =
 
 #### 1. 签名变更检测（SIGNATURE_CHANGED）
 
-**触发条件**:
-- 函数/方法参数数量变化
-- 参数类型变化
-- 返回值类型变化
-- 可见性变化（public ↔ private）
+**触发条件**: 函数参数/返回值/可见性变化。
 
 **检测方法**:
 ```typescript
-// 1. 优先使用 Serena MCP
+// 1. 使用 Serena 获取符号
 const newSymbol = await mcp__serena__find_symbol({
   name_path_pattern: "UserService/create",
   relative_path: "src/user.ts",
   include_body: false
 });
 
-// 2. 提取签名并规范化
+// 2. 提取并规范化签名
 const newSig = normalizeSignature(newSymbol);
 const oldSig = oldPkg.modules["user"].classes
   .find(c => c.name === "UserService")
-  .methods.find(m => m.name === "create")
-  .signature;
+  .methods.find(m => m.name === "create").signature;
 
 // 3. 对比签名哈希
 if (sha256(newSig) !== sha256(oldSig)) {
@@ -99,19 +94,12 @@ if (sha256(newSig) !== sha256(oldSig)) {
 
 #### 2. 定义变更检测（DEFINITION_CHANGED）
 
-**触发条件**:
-- 类的继承关系变化（extends 变更）
-- 接口实现变化（implements 变更）
-- 泛型定义变化
-- 类/接口结构调整
+**触发条件**: 类继承/接口实现/泛型定义变化。
 
 **检测方法**:
 ```typescript
-// 检查类定义
-const oldClass = oldPkg.modules["user"].classes
-  .find(c => c.name === "UserService");
-const newClass = newPkg.modules["user"].classes
-  .find(c => c.name === "UserService");
+const oldClass = oldPkg.modules["user"].classes.find(c => c.name === "UserService");
+const newClass = newPkg.modules["user"].classes.find(c => c.name === "UserService");
 
 if (
   oldClass.extends !== newClass.extends ||
@@ -131,21 +119,16 @@ if (
 
 #### 3. 新增符号检测（NEW_SYMBOL）
 
-**触发条件**:
-- 新增导出的类/函数/接口/类型
-- 类中新增公开方法/属性
+**触发条件**: 新增导出的类/函数/接口/类型，或类中新增公开方法/属性。
 
 **检测方法**:
 ```typescript
-// 使用 Serena 获取文件符号
 const symbols = await mcp__serena__get_symbols_overview({
   relative_path: "src/user.ts"
 });
 
-// 对比旧 PKG
 for (const symbol of symbols) {
-  const exists = oldPkg.modules["user"].classes
-    .some(c => c.name === symbol.name);
+  const exists = oldPkg.modules["user"].classes.some(c => c.name === symbol.name);
 
   if (!exists && symbol.visibility === "public") {
     changes.push({
@@ -160,13 +143,10 @@ for (const symbol of symbols) {
 
 #### 4. 删除符号检测（DELETED_SYMBOL）
 
-**触发条件**:
-- 删除导出的类/函数/接口
-- 类中删除公开方法/属性
+**触发条件**: 删除导出的类/函数/接口，或类中删除公开方法/属性。
 
 **检测方法**:
 ```typescript
-// 反向检查：旧 PKG 中的符号是否还存在
 for (const oldSymbol of oldPkg.modules["user"].classes) {
   const stillExists = newSymbols.some(s => s.name === oldSymbol.name);
 
@@ -182,18 +162,12 @@ for (const oldSymbol of oldPkg.modules["user"].classes) {
 
 #### 5. 仅格式变更检测（FORMAT_ONLY）
 
-**触发条件**:
-- 仅注释变更
-- 仅变量名变更
-- 仅代码格式变更
-- 无符号级变更
+**触发条件**: 仅注释/变量名/代码格式变更，无符号级变更。
 
 **检测方法**:
 ```typescript
-// 1. 先尝试语义检测
 const semanticChanges = await detectSemanticChanges(file);
 
-// 2. 如果无语义变更，但文件确实改动了
 if (semanticChanges.length === 0 && fileModified) {
   changes.push({
     type: "FORMAT_ONLY",
@@ -231,15 +205,12 @@ const refs = await mcp__serena__find_referencing_symbols({
 });
 ```
 
-**优点**:
-- 精准：基于 LSP，不会误匹配注释或字符串
-- 快速：索引化查询
-- 结构化：返回标准符号结构
+**优点**: 精准（基于 LSP）、快速（索引化）、结构化输出。
 
 ### 优先级 2: Grep（降级方案）
 
 ```typescript
-// 仅在以下场景使用
+// ⚠️ 仅在以下场景使用：
 // 1. LSP 索引失败
 // 2. 动态语言的动态属性
 // 3. Serena 不支持的文件类型
@@ -252,179 +223,20 @@ const matches = await Grep({
 });
 ```
 
-**使用限制**:
-- ⚠️ 不要用于精确签名对比
-- ⚠️ 仅用于快速检测文件是否包含导出符号
-- ⚠️ 需要结合 Read 工具验证结果
+**限制**: 不用于精确签名对比，仅快速检测导出符号存在性，需结合 Read 验证。
 
 ---
 
 ## 执行流程
 
-### Phase 1: 环境准备
-
-```typescript
-1. 检查旧 PKG 是否存在
-   ├─ 存在 → COMPARE 模式
-   └─ 不存在 → DETECT 模式
-
-2. 验证 Serena MCP 可用性
-   ├─ 可用 → 使用 Serena
-   └─ 不可用 → 降级到 Grep
-
-3. 读取旧 PKG 内容（如果存在）
-   const oldPkg = JSON.parse(await Read({
-     file_path: oldPkgPath
-   }));
-```
-
-### Phase 2: 变更扫描
-
-```typescript
-for (const file of changedFiles) {
-  // 1. 获取新的符号结构
-  const newSymbols = await mcp__serena__get_symbols_overview({
-    relative_path: file
-  });
-
-  // 2. 提取模块信息
-  const moduleName = extractModuleName(file);
-  const oldModule = oldPkg.modules[moduleName] || null;
-
-  // 3. 对比符号
-  const fileChanges = compareSymbols(oldModule, newSymbols);
-
-  // 4. 分类变更
-  semanticChanges.push(...fileChanges);
-}
-```
-
-### Phase 3: 签名对比
-
-```typescript
-function compareSymbols(oldModule, newSymbols) {
-  const changes = [];
-
-  for (const newSym of newSymbols) {
-    const oldSym = findMatchingSymbol(oldModule, newSym);
-
-    if (!oldSym) {
-      changes.push({ type: "NEW_SYMBOL", symbol: newSym });
-    } else if (hasSignatureChanged(oldSym, newSym)) {
-      changes.push({
-        type: "SIGNATURE_CHANGED",
-        symbol: newSym.name,
-        old: oldSym.signature,
-        new: newSym.signature
-      });
-    } else if (hasDefinitionChanged(oldSym, newSym)) {
-      changes.push({
-        type: "DEFINITION_CHANGED",
-        symbol: newSym.name,
-        changes: diffDefinition(oldSym, newSym)
-      });
-    }
-  }
-
-  // 检查删除的符号
-  for (const oldSym of oldModule?.classes || []) {
-    if (!newSymbols.some(s => s.name === oldSym.name)) {
-      changes.push({ type: "DELETED_SYMBOL", symbol: oldSym.name });
-    }
-  }
-
-  return changes;
-}
-```
-
-### Phase 4: 变更积分计算
-
-```typescript
-function calculateChangeScore(semanticChanges, totalSymbols) {
-  let score = 0;
-
-  for (const change of semanticChanges) {
-    switch (change.type) {
-      case "SIGNATURE_CHANGED":
-        score += 10;  // 高影响
-        break;
-      case "DEFINITION_CHANGED":
-        score += 5;   // 中影响
-        break;
-      case "NEW_SYMBOL":
-        score += 3;   // 低影响
-        break;
-      case "DELETED_SYMBOL":
-        score += 8;   // 中高影响
-        break;
-      case "FORMAT_ONLY":
-        score += 0;   // 无影响
-        break;
-    }
-  }
-
-  const changeRatio = (score / (totalSymbols * 10)) * 100;
-
-  // 决策
-  if (changeRatio < 20) return "INCREMENTAL";
-  if (changeRatio < 50) return "SMART_REBUILD";
-  return "FULL_BUILD";
-}
-```
-
-### Phase 5: 影响范围分析
-
-```typescript
-async function calculateImpact(semanticChanges) {
-  const affectedDocs = new Set();
-
-  for (const change of semanticChanges) {
-    if (change.type === "SIGNATURE_CHANGED" ||
-        change.type === "DEFINITION_CHANGED") {
-
-      // 查找引用该符号的地方
-      const refs = await mcp__serena__find_referencing_symbols({
-        name_path: change.symbol,
-        relative_path: change.file
-      });
-
-      // 映射到文档路径
-      for (const ref of refs) {
-        const docPath = mapSourceToDoc(ref.file);
-        affectedDocs.add(docPath);
-      }
-    }
-  }
-
-  return Array.from(affectedDocs);
-}
-```
-
-### Phase 6: 生成报告
-
-```typescript
-const report = {
-  changeType: calculateChangeScore(semanticChanges, totalSymbols),
-  changeScore: score,
-  semanticChanges: semanticChanges.map(c => ({
-    file: c.file,
-    symbol: c.symbol,
-    type: c.type,
-    old: c.old || null,
-    new: c.new || null,
-    impact: calculateImpact([c])
-  })),
-  affectedDocs: calculateImpact(semanticChanges),
-  recommendation: generateRecommendation(semanticChanges),
-  stats: {
-    totalChanges: semanticChanges.length,
-    signatureChanges: semanticChanges.filter(c => c.type === "SIGNATURE_CHANGED").length,
-    newSymbols: semanticChanges.filter(c => c.type === "NEW_SYMBOL").length,
-    deletedSymbols: semanticChanges.filter(c => c.type === "DELETED_SYMBOL").length,
-    formatOnly: semanticChanges.filter(c => c.type === "FORMAT_ONLY").length
-  }
-};
-```
+| Phase | 操作 | 关键点 |
+|:------|:-----|:------|
+| 1. 环境准备 | 检查旧 PKG / 验证 Serena MCP | 自动选择 COMPARE/DETECT 模式 |
+| 2. 变更扫描 | 遍历变更文件，获取符号概览 | 并发处理多文件 |
+| 3. 签名对比 | 对比新旧符号签名 | 使用 `compareSymbols()` |
+| 4. 积分计算 | 计算变更分数和比率 | 决定 INCREMENTAL/REBUILD |
+| 5. 影响分析 | 使用 Serena 查找引用 | 映射到受影响文档 |
+| 6. 生成报告 | 输出结构化 JSON | 见**输出格式**章节 |
 
 ---
 
@@ -558,124 +370,30 @@ cancel(orderId: string): Promise<void>
 ### 与 Information Gatherer 的协作
 
 ```
-Semantic Analyzer
-  ↓ [输出变更报告]
-Plan Agent
-  ↓ [决定构建策略]
-Information Gatherer
-  ↓ [收集变更符号的信息]
-Executor
-  ↓ [更新文档和 PKG]
+Semantic Analyzer → 变更报告 → Plan Agent → 构建策略 →
+Information Gatherer → 符号信息收集 → Executor → 更新文档和 PKG
 ```
 
 ---
 
 ## 错误处理
 
-### 1. 旧 PKG 不存在
-
-```typescript
-if (!fs.existsSync(oldPkgPath)) {
-  return {
-    changeType: "FULL_BUILD",
-    reason: "No previous PKG found, full build required",
-    semanticChanges: [],
-    recommendation: "执行完整构建，生成初始 Wiki"
-  };
-}
-```
-
-### 2. Serena MCP 不可用
-
-```typescript
-try {
-  await mcp__serena__get_symbols_overview({ relative_path: "test.ts" });
-} catch (error) {
-  console.warn("Serena MCP unavailable, falling back to Grep");
-  useFallbackMode = true;
-}
-```
-
-### 3. 符号解析失败
-
-```typescript
-try {
-  const symbol = await mcp__serena__find_symbol({
-    name_path_pattern: symbolName,
-    relative_path: file
-  });
-} catch (error) {
-  changes.push({
-    type: "UNKNOWN",
-    symbol: symbolName,
-    error: error.message,
-    recommendation: "Manual verification required"
-  });
-}
-```
-
-### 4. 签名格式不一致
-
-```typescript
-function normalizeSignature(sig: string): string {
-  // 移除多余空格
-  sig = sig.replace(/\s+/g, ' ').trim();
-
-  // 统一泛型格式
-  sig = sig.replace(/< /g, '<').replace(/ >/g, '>');
-
-  // 统一可选参数格式
-  sig = sig.replace(/\?\s*:/g, '?:');
-
-  return sig;
-}
-```
+| 场景 | 处理策略 |
+|:-----|:---------|
+| 旧 PKG 不存在 | 返回 `FULL_BUILD` + "No previous PKG found" |
+| Serena MCP 不可用 | 降级到 Grep 模式，设置 `useFallbackMode = true` |
+| 符号解析失败 | 标记为 `UNKNOWN` + `error.message` + "Manual verification required" |
+| 签名格式不一致 | 使用 `normalizeSignature()` 统一格式（去空格、统一泛型/可选参数格式）|
 
 ---
 
 ## 性能优化
 
-### 1. 并发扫描
-
-```typescript
-// 并行处理多个文件
-const changePromises = changedFiles.map(file =>
-  detectFileChanges(file, oldPkg)
-);
-
-const results = await Promise.all(changePromises);
-const allChanges = results.flat();
-```
-
-### 2. 缓存策略
-
-```typescript
-// 缓存文件的签名哈希
-const hashCache = new Map();
-
-function getCachedHash(file: string, content: string): string {
-  const cacheKey = `${file}:${fs.statSync(file).mtimeMs}`;
-  if (hashCache.has(cacheKey)) {
-    return hashCache.get(cacheKey);
-  }
-  const hash = sha256(content);
-  hashCache.set(cacheKey, hash);
-  return hash;
-}
-```
-
-### 3. 早停策略
-
-```typescript
-// 如果变更积分已超过阈值，提前结束
-if (changeScore > FULL_BUILD_THRESHOLD) {
-  return {
-    changeType: "FULL_BUILD",
-    changeScore,
-    recommendation: "变更过大，建议完全重建"
-  };
-}
-```
+| 策略 | 实现 |
+|:-----|:-----|
+| 并发扫描 | 使用 `Promise.all(changedFiles.map(file => detectFileChanges(file)))` |
+| 缓存哈希 | 缓存 `文件:mtime` → `签名哈希` 映射，避免重复计算 |
+| 早停策略 | 变更积分超过阈值时提前返回 `FULL_BUILD` |
 
 ---
 
@@ -784,33 +502,28 @@ class UserService extends EnhancedBaseService implements Loggable
 
 ## 工具调用示例
 
-### 完整流程
+**完整流程演示**:
 
 ```typescript
-// 1. 环境准备
-const oldPkg = JSON.parse(await Read({
-  file_path: ".claude/repowiki/.meta/symbols.pkg.json"
-}));
+// 1. 读取旧 PKG
+const oldPkg = JSON.parse(await Read({ file_path: ".claude/repowiki/.meta/symbols.pkg.json" }));
 
-// 2. 获取变更文件
+// 2. 扫描变更文件
 const changedFiles = ["src/user.ts", "src/order.ts"];
 
-// 3. 对每个文件执行语义扫描
 for (const file of changedFiles) {
-  // 3.1 获取符号概览
+  // 3. 获取符号概览
   const overview = await mcp__serena__get_symbols_overview({
     relative_path: file,
     max_answer_chars: 10000
   });
 
-  // 3.2 对比签名
+  // 4. 对比签名
   const moduleName = path.basename(file, path.extname(file));
   const oldModule = oldPkg.modules[moduleName];
-
-  // 3.3 检测变更
   const changes = compareSymbols(oldModule, overview.symbols);
 
-  // 3.4 计算影响
+  // 5. 计算影响
   for (const change of changes) {
     if (change.type === "SIGNATURE_CHANGED") {
       const refs = await mcp__serena__find_referencing_symbols({
@@ -824,7 +537,7 @@ for (const file of changedFiles) {
   semanticChanges.push(...changes);
 }
 
-// 4. 生成报告
+// 6. 生成报告
 const report = {
   changeType: calculateChangeScore(semanticChanges, totalSymbols),
   changeScore: score,
@@ -833,7 +546,6 @@ const report = {
   recommendation: generateRecommendation(semanticChanges)
 };
 
-// 5. 输出 JSON
 console.log(JSON.stringify(report, null, 2));
 ```
 

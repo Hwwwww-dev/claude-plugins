@@ -129,14 +129,14 @@ color: blue
 
 ## autoFixable 判断标准
 
-**可自动修复**（autoFixable: true）:
+**可自动修复**（autoFixable: true）- 模式明确，无业务逻辑依赖:
 - SQL 注入 → 参数化查询（模式明确）
 - console.log 敏感信息 → 移除或脱敏
 - 硬编码密钥 → 替换为环境变量引用
 - var → const/let
 - 简单的命名规范问题
 
-**不可自动修复**（autoFixable: false）:
+**不可自动修复**（autoFixable: false）- 需人工理解业务/架构:
 - 函数过长 → 需要人工判断拆分点
 - 循环依赖 → 需要架构重构
 - 高耦合 → 需要重新设计
@@ -152,8 +152,6 @@ color: blue
 5. ❌ 过度标记 autoFixable（不确定就标 false）
 
 ## 输出示例
-
-### 完整输出
 
 ```json
 {
@@ -183,46 +181,16 @@ color: blue
       "suggestion": "将密钥移至环境变量",
       "autoFixable": true,
       "fixedCode": "const API_KEY = process.env.API_KEY;"
-    },
-    {
-      "ruleId": "SEC004",
-      "severity": "warning",
-      "file": "src/auth/auth.service.ts",
-      "line": 67,
-      "column": 5,
-      "code": "console.log('User login:', { email, password });",
-      "message": "敏感信息日志：密码被打印到控制台，可能被泄露到日志文件",
-      "suggestion": "移除或脱敏敏感字段",
-      "autoFixable": true,
-      "fixedCode": "console.log('User login:', { email });"
     }
   ],
   "summary": {
     "critical": 2,
-    "warning": 1,
-    "info": 0,
-    "total": 3
-  },
-  "filesReviewed": 3,
-  "linesReviewed": 245
-}
-```
-
-### 无问题输出
-
-```json
-{
-  "dimension": "security",
-  "timestamp": "2024-01-15T10:30:00Z",
-  "issues": [],
-  "summary": {
-    "critical": 0,
     "warning": 0,
     "info": 0,
-    "total": 0
+    "total": 2
   },
-  "filesReviewed": 3,
-  "linesReviewed": 245
+  "filesReviewed": 2,
+  "linesReviewed": 150
 }
 ```
 

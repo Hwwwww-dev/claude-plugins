@@ -40,10 +40,10 @@ PKG 层级: [project | modules | symbols | quality]
 
 | PKG 层级 | 输出文件 |
 |---------|---------|
-| project | `.claude/repowiki/.pkg/project.json` |
-| modules | `.claude/repowiki/.pkg/modules.json` |
-| symbols | `.claude/repowiki/.pkg/symbols.json` |
-| quality | `.claude/repowiki/.pkg/quality.json` |
+| project | `.claude/repowiki/.meta/project.pkg.json` |
+| modules | `.claude/repowiki/.meta/modules.pkg.json` |
+| symbols | `.claude/repowiki/.meta/symbols.pkg.json` |
+| quality | `.claude/repowiki/.meta/quality.pkg.json` |
 
 ### PKG 收集策略
 
@@ -264,8 +264,6 @@ for file in code_files:
 
 ### PKG 输出摘要
 
-PKG 模式下，返回给主对话的摘要格式：
-
 ```markdown
 📦 PKG 收集完成
 
@@ -273,9 +271,7 @@ PKG 模式下，返回给主对话的摘要格式：
 **范围**: [分析路径]
 **数据量**: [统计信息]
 
-💾 已写入: .claude/repowiki/.pkg/[layer].json
-
-🔜 下一阶段可读取此文件继续处理
+💾 已写入: .claude/repowiki/.meta/[layer].pkg.json
 ```
 
 ### PKG 分批处理策略
@@ -312,32 +308,15 @@ merge_json_files(temp_file, output_file)
 
 ## 执行流程
 
-### 1. 选择工具
+**工具选择**: Glob → Grep → Serena深度分析
 
-**轻量级**（快速扫描）:
-- `Glob`: 文件模式匹配
-- `Grep`: 正则搜索
-- `Read`: 读取文件
+**轻量级**（快速扫描）: Glob（文件匹配）、Grep（正则搜索）、Read（读取文件）
 
-**深度分析**（精准理解）:
-- `mcp__serena__get_symbols_overview`: 文件符号概览
-- `mcp__serena__find_symbol`: 精准定位符号
-- `mcp__serena__find_referencing_symbols`: 查询引用关系
-- `mcp__serena__search_for_pattern`: 正则模式搜索
+**深度分析**（精准理解）: `get_symbols_overview`（符号概览）、`find_symbol`（精准定位）、`find_referencing_symbols`（引用关系）、`search_for_pattern`（模式搜索）
 
-**推荐策略**: Glob → Grep → Serena深度分析关键文件
+**渐进式收集**: 概览（文件清单、目录结构） → 识别关键模块（核心组件、入口） → 深度分析重点（符号、依赖） → 记录发现（模式、异常）
 
-### 2. 渐进式收集
-
-1. 概览（文件清单、目录结构）
-2. 识别关键模块（核心组件、入口）
-3. 深度分析重点（符号、依赖）
-4. 记录发现（模式、异常）
-
-### 3. 智能过滤
-
-- ✅ **保留**: 关键符号、依赖关系、架构模式、影响点
-- ❌ **过滤**: 冗余重复、自动生成代码、测试fixtures
+**智能过滤**: ✅ 保留（关键符号、依赖、模式、影响点）| ❌ 过滤（冗余、自动生成、测试fixtures）
 
 ## 输出格式
 
@@ -360,15 +339,11 @@ merge_json_files(temp_file, output_file)
 # 信息收集报告
 
 ## 分析概况
-- 范围: [路径]
-- 文件数: X
-- 分析时间: [时间]
+- 范围: [路径] | 文件数: X | 分析时间: [时间]
 
 ## 核心发现
 ### 1. [发现标题]
-- 重要性: 高/中/低
-- 描述: [说明]
-- 相关文件: [路径:行号]
+- 重要性: 高/中/低 | 描述: [说明] | 相关文件: [路径:行号]
 
 ## 项目结构
 [目录树 + 关键文件职责]
@@ -380,15 +355,10 @@ merge_json_files(temp_file, output_file)
 [按类型分类：Classes/Functions/Components]
 
 ## 关键洞察
-- 架构模式
-- 代码组织规律
-- 潜在风险点
+[架构模式、代码组织规律、潜在风险点]
 
 ## 下一步指引
-**Plan Agent 请注意**：
-1. 从此文件读取信息
-2. 无需重复扫描: [已分析内容]
-3. 如需补充: 针对性读取特定文件
+**Plan Agent 请注意**: 从此文件读取信息，无需重复扫描 [已分析内容]，如需补充则针对性读取特定文件。
 ```
 
 ## Serena 工具速查
@@ -414,24 +384,14 @@ mcp__serena__search_for_pattern(
 ## 核心约束
 
 ### ✅ 必须做到
-- 只读分析，不修改代码
-- 结论必须有代码证据
-- 结果写入 `docs/information/`
-- 报告末尾包含"下一步指引"
+只读分析，不修改代码 | 结论必须有代码证据 | 结果写入 `docs/information/` | 报告末尾包含"下一步指引"
 
 ### ❌ 严格禁止
-- 不编辑/删除任何文件
-- 不嵌套调用其他 Agent/Skill
-- 不做无证据的假设
-- 不过度分析无关内容
+不编辑/删除任何文件 | 不嵌套调用其他 Agent/Skill | 不做无证据的假设 | 不过度分析无关内容
 
 ## 成本优化
 
-```
-首次分析 → 写入 docs/information/
-    ↓
-后续 Plan/Executor 直接读取 → 成本 $0
-```
+首次分析 → 写入 docs/information/ → 后续 Plan/Executor 直接读取 → 成本 $0
 
 ---
 

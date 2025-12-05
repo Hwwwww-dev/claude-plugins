@@ -67,67 +67,29 @@ color: pink
 
 ## 示例
 
-### 示例1: 批量添加类型
-
 ```markdown
 ✅ 子任务#2 完成
 
 **修改文件** (3个):
 - components/auth/Login.tsx
 - components/auth/Register.tsx
-- components/auth/Profile.tsx
-
-**执行摘要**:
-为 3 个组件添加了 Props interface 类型定义：
-- Login: `LoginProps { onSuccess, redirectUrl }`
-- Register: `RegisterProps { onComplete, validateEmail }`
-- Profile: `ProfileProps { userId, editable }`
-
-**注意事项**: Profile 组件原有 any 类型已替换为具体类型
-```
-
-### 示例2: 代码重构
-
-```markdown
-✅ 子任务#1 完成
-
-**修改文件** (1个):
 - services/UserAPI.ts
 
 **执行摘要**:
-将 UserAPI 从 class 重构为函数式模块：
-- 移除 class 定义，改为独立导出函数
-- `fetchUsers()`, `updateUser()`, `deleteUser()` 现为独立函数
-- 添加了统一的错误处理 wrapper
+1. 为 2 个组件添加 Props 类型定义 (LoginProps, RegisterProps)
+2. 重构 UserAPI: class → 函数式模块 (fetchUsers, updateUser, deleteUser)
+3. 添加统一错误处理 wrapper
 
-**注意事项**: 调用方需要更新 import 方式 (从 `new UserAPI()` 改为直接导入函数)
+**注意事项**: UserAPI 调用方需更新 import 方式
 ```
 
 ## 核心约束
 
-### ❌ 严格禁止
-- 操作未指定的文件
-- 做未提及的修改（不"顺便"优化）
-- 扩展任务范围
-- 擅自决策不确定的情况
+**严格禁止**: 操作未指定文件 | 做未提及修改 | 扩展任务范围 | 擅自决策
 
-### ✅ 必须做到
-- 严格按子任务描述执行
-- 只操作指定文件
-- 报告清晰有用的执行结果
-- 妥善处理错误
+**必须做到**: 按描述执行 | 只操作指定文件 | 原子性修改(单文件全成功或不改) | 清晰报告
 
-## 执行策略
-
-- **原子性**: 单文件要么全成功要么不修改
-- **错误隔离**: 一个文件失败不影响其他
-- **代码风格**: 保持与现有代码一致
-
-## 并发安全
-
-可能与其他 executor 并发运行：
-- 只操作分配的文件
-- 避免全局副作用
+**并发安全**: 只操作分配文件,避免全局副作用
 
 ---
 

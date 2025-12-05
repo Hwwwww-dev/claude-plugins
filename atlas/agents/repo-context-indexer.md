@@ -341,77 +341,23 @@ color: green
 
 ## 执行流程
 
-### Phase 1: 初始化和验证
-```markdown
-**输入验证**:
-- 检查 .meta/ 目录是否存在
-- 检查必需的 PKG 文件（project, modules, symbols）
-- 验证输出目录 .index/ 存在，不存在则创建
+### Phase 1: 初始化
+- 检查 `.meta/` 目录和必需 PKG 文件（project, modules, symbols）
+- 创建输出目录 `.index/`，加载配置（语言、压缩选项、大小限制）
 
-**配置加载**:
-- 读取项目配置（语言、压缩选项）
-- 设置性能目标（文件大小限制）
-```
-
-### Phase 2: 数据提取和归一化
-```markdown
-**符号提取**（从 symbols.pkg.json）:
-- 遍历所有模块
-- 提取 public 和 exported 符号
-- 记录符号元数据（type, file, line, methods, properties）
-- 生成文档链接（docLink）
-
-**端点提取**（从 symbols.pkg.json 的 apiEndpoints）:
-- 提取所有 HTTP 端点
-- 规范化 method 和 path
-- 生成唯一 ID（method-path）
-- 记录认证和参数信息
-
-**文件关系提取**（从 modules.pkg.json + symbols.pkg.json）:
-- 构建导入导出映射
-- 计算文件被引用关系（importedBy）
-- 检测模块依赖关系
-- 检测循环依赖
-```
+### Phase 2: 数据提取
+- **符号**: 遍历模块 → 提取 public/exported → 记录元数据 → 生成 docLink
+- **端点**: 提取 HTTP 端点 → 规范化 method/path → 生成唯一 ID
+- **文件关系**: 构建导入映射 → 计算 importedBy → 检测循环依赖
 
 ### Phase 3: 索引生成
-```markdown
-**生成 symbols-quick-ref.json**:
-1. 构建 symbols 对象（按符号名索引）
-2. 构建 index.byType（按类型分类）
-3. 构建 index.byModule（按模块分类）
-4. 构建 index.byVisibility（按可见性分类）
-5. 压缩：移除冗余字段，简化方法和属性列表
-
-**生成 endpoints-quick-ref.json**:
-1. 构建 endpoints 数组（按 method-path 排序）
-2. 构建 index.byMethod（按 HTTP 方法分类）
-3. 构建 index.byAuth（按认证要求分类）
-4. 构建 index.byResource（按资源类型分类）
-5. 压缩：使用简短 ID，参数只保留类型名
-
-**生成 file-map.json**:
-1. 构建 files 对象（按文件路径索引）
-2. 构建 dependencies.modules（模块依赖图）
-3. 检测并记录 dependencies.cycles
-4. 压缩：使用相对路径，移除内部实现细节
-```
+- **symbols-quick-ref.json**: 构建 symbols 对象 + 三层索引（byType/byModule/byVisibility）
+- **endpoints-quick-ref.json**: 构建 endpoints 数组 + 分类索引（byMethod/byAuth/byResource）
+- **file-map.json**: 构建 files 对象 + 模块依赖图 + 循环检测
 
 ### Phase 4: 优化和验证
-```markdown
-**文件大小优化**:
-- 检查每个文件是否超过目标大小
-- 如果超过，执行二次压缩：
-  - 移除示例和注释
-  - 缩短字段名
-  - 限制数组长度
-  - 移除低频符号
-
-**内容验证**:
-- 验证所有 docLink 有效
-- 验证所有引用的符号存在
-- 验证 JSON 格式正确
-- 验证索引完整性（byType, byModule 等）
+- 检查大小是否超标 → 二次压缩（移除示例、缩短字段、限制数组、移除低频符号）
+- 验证 docLink 有效性、符号引用、JSON 格式、索引完整性
 
 **生成统计报告**:
 ```json
@@ -437,73 +383,25 @@ color: green
   "compressionRatio": 0.88
 }
 ```
-```
 
-### Phase 5: 生成说明文档
-```markdown
-**生成 README.md**:
-- 添加文件说明表格（包含实际大小）
-- 添加使用场景示例
-- 添加三层查询架构说明
-- 添加更新机制说明
-- 添加性能指标
-```
+### Phase 5: 生成 README.md
+- 文件说明表格（实际大小）+ 使用场景示例 + 三层查询架构 + 更新机制 + 性能指标
 
 ---
 
 ## 性能优化策略
 
-### 1. 符号筛选
-```markdown
-**只保留重要符号**:
-- public 类、接口、函数
-- exported 类型和常量
-- 文档化的私有 API（有 @public JSDoc）
+### 符号筛选
+- **保留**: public 类/接口/函数、exported 类型/常量、有 @public JSDoc 的私有 API
+- **跳过**: private/internal 符号、测试文件、自动生成类型、临时变量
 
-**跳过的符号**:
-- private 和 internal 符号（除非有 @public）
-- 测试文件中的符号
-- 自动生成的类型（如 Prisma Client）
-- 临时变量和辅助函数
-```
+### 数据压缩
+- **字段简化**: 方法/属性只保留名称，参数只保留类型名
+- **链接策略**: 使用相对路径 + 锚点，不内联内容
+- **索引优化**: 符号名作 key，分类索引用数组
 
-### 2. 数据压缩
-```markdown
-**字段简化**:
-- 方法：只保留名称（不保留签名）
-- 属性：只保留名称（不保留类型）
-- 参数：只保留类型名（不保留详细定义）
-
-**链接策略**:
-- 使用相对路径文档链接
-- 使用锚点直接跳转到符号定义
-- 不内联完整文档内容
-
-**索引优化**:
-- 使用符号名作为 key（避免重复存储）
-- 分类索引使用数组而非对象（减少 key 字符串）
-```
-
-### 3. 增量更新支持
-```markdown
-**变更检测**:
-- 对比旧索引的符号列表
-- 只更新变更的符号
-- 保留未变更符号的索引
-
-**合并策略**:
-```json
-{
-  "mergeMode": "smart",
-  "strategy": {
-    "newSymbols": "add",
-    "deletedSymbols": "remove",
-    "changedSymbols": "update",
-    "unchangedSymbols": "preserve"
-  }
-}
-```
-```
+### 增量更新
+- 对比旧索引 → 只更新变更符号 → 智能合并（add/remove/update/preserve）
 
 ---
 
@@ -602,34 +500,6 @@ Context Indexer 可以：
 **输入依赖**：
 - 必须等待 Phase 2（information-gatherer）完成
 - 必须等待所有 .meta/*.pkg.json 生成完毕
-
----
-
-## 扩展点
-
-### 1. 自定义索引
-```markdown
-允许添加自定义索引结构：
-- byComplexity（按复杂度分类）
-- byTestCoverage（按测试覆盖率分类）
-- byAuthor（按作者分类）
-```
-
-### 2. 多语言支持
-```markdown
-根据 language 参数生成不同语言的 README：
-- zh: 中文说明
-- en: 英文说明
-- ja: 日文说明
-```
-
-### 3. 增量更新模式
-```markdown
-支持 --incremental 参数：
-- 对比旧索引
-- 只更新变更的符号
-- 合并到现有索引
-```
 
 ---
 

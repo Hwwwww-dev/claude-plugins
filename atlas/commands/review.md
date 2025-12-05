@@ -88,30 +88,7 @@ Phase 0 范围确定 → Phase 1 代码分析 → Phase 2 并行审查 → Phase
 
 **输入**: Phase 0 的目标文件列表 + `.claude/repowiki/` 现有信息（如果存在）
 
-**输出**: `.claude/review/.meta/targets.pkg.json`
-
-**PKG 结构**:
-```json
-{
-  "timestamp": "2024-01-15T10:30:00Z",
-  "scope": "git diff",
-  "files": [
-    {
-      "path": "src/user.service.ts",
-      "language": "typescript",
-      "lines": 150,
-      "symbols": ["UserService", "createUser", "validateUser"],
-      "imports": ["@nestjs/common", "prisma"],
-      "exports": ["UserService"]
-    }
-  ],
-  "summary": {
-    "totalFiles": 5,
-    "totalLines": 420,
-    "languages": {"typescript": 4, "javascript": 1}
-  }
-}
-```
+**输出**: `.claude/review/.meta/targets.pkg.json`（包含文件路径、语言、行数、符号、导入导出、统计信息）
 
 ---
 
@@ -140,82 +117,60 @@ Phase 0 范围确定 → Phase 1 代码分析 → Phase 2 并行审查 → Phase
 
 #### Security（安全）
 
-| 规则 ID | 检查项 | 严重性 | 示例 |
-|:--------|:-------|:-------|:-----|
-| SEC001 | SQL 注入 | 🔴 critical | 字符串拼接 SQL |
-| SEC002 | XSS 漏洞 | 🔴 critical | 未转义用户输入 |
-| SEC003 | 硬编码密钥 | 🔴 critical | API key 写死在代码 |
-| SEC004 | 敏感信息日志 | 🟠 warning | 打印密码/token |
-| SEC005 | 不安全的随机数 | 🟡 info | 使用 Math.random() 做安全用途 |
-| SEC006 | eval/Function 使用 | 🟠 warning | 动态执行代码 |
-| SEC007 | 路径遍历 | 🔴 critical | 未验证文件路径 |
-| SEC008 | CORS 配置 | 🟠 warning | 允许所有来源 |
+| 规则 ID | 检查项 | 严重性 |
+|:--------|:-------|:-------|
+| SEC001 | SQL 注入 | 🔴 critical |
+| SEC002 | XSS 漏洞 | 🔴 critical |
+| SEC003 | 硬编码密钥 | 🔴 critical |
+| SEC004 | 敏感信息日志 | 🟠 warning |
+| SEC005 | 不安全的随机数 | 🟡 info |
+| SEC006 | eval/Function 使用 | 🟠 warning |
+| SEC007 | 路径遍历 | 🔴 critical |
+| SEC008 | CORS 配置 | 🟠 warning |
 
 #### Performance（性能）
 
-| 规则 ID | 检查项 | 严重性 | 示例 |
-|:--------|:-------|:-------|:-----|
-| PERF001 | N+1 查询 | 🟠 warning | 循环内 DB 查询 |
-| PERF002 | 未优化循环 | 🟡 info | 嵌套循环可优化 |
-| PERF003 | 内存泄漏风险 | 🟠 warning | 未清理事件监听 |
-| PERF004 | 不必要的重渲染 | 🟡 info | React 组件无 memo |
-| PERF005 | 同步阻塞 | 🟠 warning | 同步读写大文件 |
-| PERF006 | 正则回溯 | 🟠 warning | 可能导致 ReDoS |
-| PERF007 | 大对象拷贝 | 🟡 info | 深拷贝大数组/对象 |
+| 规则 ID | 检查项 | 严重性 |
+|:--------|:-------|:-------|
+| PERF001 | N+1 查询 | 🟠 warning |
+| PERF002 | 未优化循环 | 🟡 info |
+| PERF003 | 内存泄漏风险 | 🟠 warning |
+| PERF004 | 不必要的重渲染 | 🟡 info |
+| PERF005 | 同步阻塞 | 🟠 warning |
+| PERF006 | 正则回溯 | 🟠 warning |
+| PERF007 | 大对象拷贝 | 🟡 info |
 
 #### Style（风格）
 
-| 规则 ID | 检查项 | 严重性 | 示例 |
-|:--------|:-------|:-------|:-----|
-| STYLE001 | 函数过长 | 🟠 warning | >50 行 |
-| STYLE002 | 嵌套过深 | 🟠 warning | >4 层 |
-| STYLE003 | 命名不规范 | 🟡 info | 不符合项目约定 |
-| STYLE004 | 魔法数字 | 🟡 info | 硬编码数字无说明 |
-| STYLE005 | 重复代码 | 🟠 warning | 相似度 >80% |
-| STYLE006 | TODO/FIXME | 🟡 info | 未处理的标记 |
-| STYLE007 | 无用代码 | 🟡 info | 注释掉的代码块 |
-| STYLE008 | 参数过多 | 🟡 info | 函数参数 >5 个 |
+| 规则 ID | 检查项 | 严重性 |
+|:--------|:-------|:-------|
+| STYLE001 | 函数过长 | 🟠 warning |
+| STYLE002 | 嵌套过深 | 🟠 warning |
+| STYLE003 | 命名不规范 | 🟡 info |
+| STYLE004 | 魔法数字 | 🟡 info |
+| STYLE005 | 重复代码 | 🟠 warning |
+| STYLE006 | TODO/FIXME | 🟡 info |
+| STYLE007 | 无用代码 | 🟡 info |
+| STYLE008 | 参数过多 | 🟡 info |
 
 #### Architecture（架构）
 
-| 规则 ID | 检查项 | 严重性 | 示例 |
-|:--------|:-------|:-------|:-----|
-| ARCH001 | 循环依赖 | 🟠 warning | A→B→C→A |
-| ARCH002 | 分层违规 | 🟠 warning | Controller 直接访问 DB |
-| ARCH003 | 模块边界 | 🟡 info | 跨模块直接导入内部实现 |
-| ARCH004 | 耦合度高 | 🟡 info | 单文件依赖过多外部模块 |
-| ARCH005 | 缺少抽象 | 🟡 info | 重复的 if-else 结构 |
-| ARCH006 | 单例滥用 | 🟡 info | 全局状态过多 |
+| 规则 ID | 检查项 | 严重性 |
+|:--------|:-------|:-------|
+| ARCH001 | 循环依赖 | 🟠 warning |
+| ARCH002 | 分层违规 | 🟠 warning |
+| ARCH003 | 模块边界 | 🟡 info |
+| ARCH004 | 耦合度高 | 🟡 info |
+| ARCH005 | 缺少抽象 | 🟡 info |
+| ARCH006 | 单例滥用 | 🟡 info |
 
 ### 输出格式
 
-每个 code-reviewer 实例输出：
-```json
-{
-  "dimension": "security",
-  "timestamp": "2024-01-15T10:30:00Z",
-  "issues": [
-    {
-      "ruleId": "SEC001",
-      "severity": "critical",
-      "file": "src/user.service.ts",
-      "line": 45,
-      "column": 12,
-      "code": "db.query(`SELECT * FROM users WHERE id = ${id}`)",
-      "message": "SQL 注入风险：用户输入直接拼接到 SQL 语句",
-      "suggestion": "使用参数化查询: db.query('SELECT * FROM users WHERE id = ?', [id])",
-      "autoFixable": true,
-      "fixedCode": "db.query('SELECT * FROM users WHERE id = ?', [id])"
-    }
-  ],
-  "summary": {
-    "critical": 1,
-    "warning": 3,
-    "info": 5,
-    "total": 9
-  }
-}
-```
+每个 code-reviewer 实例输出 JSON，包含：
+- `dimension`: 审查维度
+- `timestamp`: 时间戳
+- `issues[]`: 问题列表（ruleId, severity, file, line, column, code, message, suggestion, autoFixable, fixedCode）
+- `summary`: 统计信息（critical, warning, info, total）
 
 ---
 
@@ -227,68 +182,12 @@ Phase 0 范围确定 → Phase 1 代码分析 → Phase 2 并行审查 → Phase
 
 **输出**: `.claude/review/report-{date}.md`
 
-**报告格式**:
-```markdown
-# 代码审查报告
-
-> 生成于 2024-01-15 10:30:00
-
-## 概览
-
-| 指标 | 值 |
-|:-----|:---|
-| 审查范围 | git diff (5 files) |
-| 审查类型 | all |
-| 总问题数 | 15 |
-| 严重问题 | 2 |
-| 警告 | 8 |
-| 提示 | 5 |
-
-## 问题分布
-
-| 维度 | 🔴 严重 | 🟠 警告 | 🟡 提示 |
-|:-----|:--------|:--------|:--------|
-| Security | 1 | 2 | 1 |
-| Performance | 0 | 3 | 2 |
-| Style | 0 | 2 | 2 |
-| Architecture | 1 | 1 | 0 |
-
-## 严重问题（需立即修复）
-
-### [SEC001] SQL 注入风险
-- **文件**: src/user.service.ts:45
-- **代码**: `db.query(\`SELECT * FROM users WHERE id = ${id}\`)`
-- **建议**: 使用参数化查询
-- **可自动修复**: ✅
-
-### [ARCH001] 循环依赖
-- **文件**: src/order/order.service.ts
-- **问题**: order → user → order 形成循环
-- **建议**: 提取共享逻辑到 common 模块
-- **可自动修复**: ❌
-
-## 警告问题
-
-[列出所有警告级别问题...]
-
-## 提示问题
-
-[列出所有提示级别问题...]
-
-## 修复建议
-
-### 自动修复
-以下问题可通过 `--fix` 参数自动修复：
-- SEC001: SQL 注入 (1 处)
-- STYLE001: 函数过长 (需要手动拆分)
-
-### 手动修复
-以下问题需要手动处理：
-- ARCH001: 循环依赖 - 建议重构模块结构
-
----
-*使用 `/atlas:review --fix` 自动修复可修复的问题*
-```
+**报告包含**:
+- 概览（审查范围、类型、总问题数、严重问题、警告、提示）
+- 问题分布（按维度和严重性）
+- 严重问题详情（文件、代码、建议、是否可自动修复）
+- 警告和提示问题列表
+- 修复建议（自动修复和手动修复分组）
 
 ---
 
@@ -313,26 +212,7 @@ Phase 0 范围确定 → Phase 1 代码分析 → Phase 2 并行审查 → Phase
 - 不引入新问题
 - 修复后验证语法正确性
 
-**修复报告**:
-```markdown
-## 自动修复完成
-
-### 修复统计
-| 指标 | 值 |
-|:-----|:---|
-| 已修复 | 5 |
-| 跳过 | 3 |
-| 失败 | 0 |
-
-### 修复详情
-1. ✅ src/user.service.ts:45 - SEC001 SQL 注入已修复
-2. ✅ src/order.service.ts:23 - SEC004 敏感信息日志已修复
-3. ⏭️ src/auth.service.ts:67 - STYLE001 函数过长（需手动拆分）
-
-### 后续建议
-1. 运行测试确保修复正确: `npm test`
-2. 检查跳过的问题，考虑手动修复
-```
+**修复报告**包含：修复统计、修复详情、后续建议
 
 ---
 
@@ -387,35 +267,4 @@ Phase 0 范围确定 → Phase 1 代码分析 → Phase 2 并行审查 → Phase
 
 # 只看严重问题
 /atlas:review --severity critical
-```
-
-### 输出示例
-
-**无问题**:
-```
-✅ 代码审查完成
-
-审查范围: git diff (3 files)
-审查类型: all
-
-🎉 恭喜！未发现任何问题
-```
-
-**有问题**:
-```
-⚠️ 代码审查完成
-
-审查范围: src/services (12 files)
-审查类型: all
-
-发现 15 个问题:
-- 🔴 严重: 2
-- 🟠 警告: 8
-- 🟡 提示: 5
-
-详细报告: .claude/review/report-20240115.md
-
-建议:
-1. 立即修复 2 个严重问题
-2. 使用 `/atlas:review --fix` 自动修复 5 个可修复问题
 ```

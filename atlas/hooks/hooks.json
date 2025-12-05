@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "test -d .claude/repowiki && echo '[RepoWiki] PRIORITY: Use wiki-query skill FIRST for project queries (API, classes, modules, dependencies). Only use Serena if wiki-query insufficient.' || echo '[Serena] No RepoWiki found. Run mcp__serena__activate_project to mount cwd, or run /atlas:repo-wiki to generate project index.'"
+            "command": "test -d .claude/repowiki && echo '[RepoWiki] PRIORITY: Use wiki-query skill FIRST for project queries (API, classes, modules, dependencies). Only use Serena if wiki-query insufficient.' || echo '[Serena] No RepoWiki found. Run /atlas:repo-wiki to generate project index.'"
           }
         ]
       }
@@ -21,7 +21,7 @@
           },
           {
             "type": "command",
-            "command": "test -d .claude/repowiki && echo '[RepoWiki Available] When user asks about class methods, API endpoints, module structure, or project info: Use wiki-query skill FIRST (priority > Serena). Faster and saves context.' || true"
+            "command": "test -f .claude/wiki-context.json && echo '[RepoWiki Available] For project queries: 1) Read .claude/wiki-context.json to understand wiki structure 2) Use wiki-query skill for quick lookups (classes/APIs/modules) 3) Priority > Serena/Grep.' || true"
           }
         ]
       }
