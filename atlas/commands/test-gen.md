@@ -1,80 +1,80 @@
 ---
-description: 测试生成命令。分析代码逻辑，自动生成单元测试和集成测试，支持多种测试框架。
+description: Test generation command. Analyzes code logic and automatically generates unit tests and integration tests, supports multiple test frameworks.
 argument-hint: [--scope path] [--framework jest|vitest|pytest|go] [--type unit|integration] [--coverage-target N]
 ---
 
-# 测试生成命令
+# Test Generation Command
 
-分析代码逻辑和边界条件，自动生成高质量的测试用例。
+Analyzes code logic and boundary conditions, automatically generates high-quality test cases.
 
-## 参数
+## Parameters
 
-| 参数 | 说明 | 默认值 |
-|:-----|:-----|:-------|
-| `--scope` | 生成范围 | . (全项目) |
-| `--framework` | 测试框架 | 自动检测 |
-| `--type` | 测试类型 | unit |
-| `--coverage-target` | 目标覆盖率 | 80 |
+| Parameter | Description | Default |
+|:----------|:------------|:--------|
+| `--scope` | Generation scope | . (entire project) |
+| `--framework` | Test framework | Auto-detect |
+| `--type` | Test type | unit |
+| `--coverage-target` | Target coverage | 80 |
 
 ---
 
-## 支持的测试框架
+## Supported Test Frameworks
 
-| 框架 | 语言 | 检测方式 |
-|:-----|:-----|:---------|
-| Jest | JavaScript/TypeScript | package.json 依赖 |
+| Framework | Language | Detection Method |
+|:----------|:---------|:-----------------|
+| Jest | JavaScript/TypeScript | package.json dependencies |
 | Vitest | JavaScript/TypeScript | vite.config / vitest.config |
-| Mocha | JavaScript/TypeScript | package.json 依赖 |
+| Mocha | JavaScript/TypeScript | package.json dependencies |
 | Pytest | Python | pytest.ini / pyproject.toml |
-| Go Test | Go | go.mod 存在 |
+| Go Test | Go | go.mod exists |
 | JUnit | Java | pom.xml / build.gradle |
 
 ---
 
-## 执行流程
+## Execution Flow
 
-Phase 0 环境检测 → Phase 1 目标分析 → Phase 2 用例规划 → Phase 3 测试生成 → Phase 4 验证
+Phase 0 Environment Detection -> Phase 1 Target Analysis -> Phase 2 Test Case Planning -> Phase 3 Test Generation -> Phase 4 Validation
 
-### Subagent 分配
+### Subagent Assignment
 
-| Phase | 功能 | Subagent | 说明 |
-|:------|:-----|:---------|:-----|
-| 0 | 环境检测 | 主进程 | 检测测试框架和现有覆盖率 |
-| 1 | 目标分析 | `atlas:information-gatherer` | 分析目标代码 |
-| 2 | 用例规划 | `Plan` | 规划测试用例 |
-| 3 | 测试生成 | `atlas:atlas-executor` | 并行生成测试文件 |
-| 4 | 验证 | 主进程 | 运行测试，报告覆盖率 |
-
----
-
-## Phase 0: 环境检测
-
-**检测内容**: 测试框架类型、命名约定、目录结构、Mock 库、现有覆盖率
+| Phase | Function | Subagent | Description |
+|:------|:---------|:---------|:------------|
+| 0 | Environment detection | Main process | Detect test framework and existing coverage |
+| 1 | Target analysis | `atlas:information-gatherer` | Analyze target code |
+| 2 | Test case planning | `Plan` | Plan test cases |
+| 3 | Test generation | `atlas:atlas-executor` | Generate test files in parallel |
+| 4 | Validation | Main process | Run tests, report coverage |
 
 ---
 
-## 项目知识库
+## Phase 0: Environment Detection
 
-**优先从 `.claude/repowiki/` 获取项目信息**（如果存在）：
-
-| 文件 | 用途 |
-|:-----|:-----|
-| `.claude/repowiki/.meta/project.pkg.json` | 项目配置、测试框架信息 |
-| `.claude/repowiki/.meta/modules.pkg.json` | 模块结构（确定测试范围） |
-| `.claude/repowiki/.meta/symbols.pkg.json` | 符号索引（函数签名、参数类型） |
-| `.claude/repowiki/.meta/api.pkg.json` | API 端点（用于集成测试） |
-
-**使用方式**：Phase 1 分析前先检查这些文件是否存在，可获取函数签名和依赖信息。
+**Detection Content**: Test framework type, naming conventions, directory structure, mock libraries, existing coverage
 
 ---
 
-## Phase 1: 目标分析
+## Project Knowledge Base
+
+**Prioritize getting project info from `.claude/repowiki/`** (if exists):
+
+| File | Purpose |
+|:-----|:--------|
+| `.claude/repowiki/.meta/project.pkg.json` | Project config, test framework info |
+| `.claude/repowiki/.meta/modules.pkg.json` | Module structure (determine test scope) |
+| `.claude/repowiki/.meta/symbols.pkg.json` | Symbol index (function signatures, parameter types) |
+| `.claude/repowiki/.meta/api.pkg.json` | API endpoints (for integration tests) |
+
+**Usage**: Check if these files exist before Phase 1 analysis, can get function signatures and dependency info.
+
+---
+
+## Phase 1: Target Analysis
 
 **Subagent**: `atlas:information-gatherer`
 
-**分析内容**: 函数签名、参数类型、分支路径、依赖项、现有测试覆盖
+**Analysis Content**: Function signatures, parameter types, branch paths, dependencies, existing test coverage
 
-**PKG 结构**:
+**PKG Structure**:
 ```json
 {
   "targets": [
@@ -105,163 +105,163 @@ Phase 0 环境检测 → Phase 1 目标分析 → Phase 2 用例规划 → Phase
 
 ---
 
-## Phase 2: 用例规划
+## Phase 2: Test Case Planning
 
 **Subagent**: `Plan`
 
-**规划原则**: 正常路径 + 边界值 + 异常处理 + Mock 设置
+**Planning Principles**: Happy path + boundary values + exception handling + mock setup
 
-**用例规划示例**:
+**Test Case Planning Example**:
 ```markdown
 ### UserService.create
-- [ ] 应该成功创建用户并返回 User 对象
-- [ ] email 为空时应该抛出 BadRequestException
-- [ ] password 长度 < 8 时应该抛出 BadRequestException
-- [ ] email 已存在时应该抛出 ConflictException
+- [ ] Should successfully create user and return User object
+- [ ] Should throw BadRequestException when email is empty
+- [ ] Should throw BadRequestException when password length < 8
+- [ ] Should throw ConflictException when email already exists
 - Mock: PrismaService.user.{create,findUnique}, HashService.hash
 ```
 
 ---
 
-## Phase 3: 测试生成
+## Phase 3: Test Generation
 
-**Subagent**: `atlas:atlas-executor` (并行多个)
+**Subagent**: `atlas:atlas-executor` (multiple in parallel)
 
-**生成策略**: 按文件分组并行生成，遵循项目现有测试风格
+**Generation Strategy**: Group by file and generate in parallel, follow existing test style in project
 
-**文件命名规则**:
-| 框架 | 源文件 | 测试文件 |
-|:-----|:-------|:---------|
-| Jest/Vitest | src/user.service.ts | src/user.service.test.ts 或 __tests__/user.service.test.ts |
+**File Naming Rules**:
+| Framework | Source File | Test File |
+|:----------|:------------|:----------|
+| Jest/Vitest | src/user.service.ts | src/user.service.test.ts or __tests__/user.service.test.ts |
 | Pytest | src/user_service.py | tests/test_user_service.py |
 | Go | src/user/service.go | src/user/service_test.go |
 
-**测试结构要求**:
-- Arrange-Act-Assert 三段式
-- 描述性测试命名（should/when/then）
-- 合理 Mock 设置（不过度 mock）
-- 覆盖关键边界值
+**Test Structure Requirements**:
+- Arrange-Act-Assert three-section pattern
+- Descriptive test naming (should/when/then)
+- Reasonable mock setup (don't over-mock)
+- Cover key boundary values
 
 ---
 
-## Phase 4: 验证
+## Phase 4: Validation
 
-**操作**: 运行测试 → 收集覆盖率 → 对比目标
+**Operations**: Run tests -> Collect coverage -> Compare with target
 
-**验证命令**:
-| 框架 | 命令 |
-|:-----|:-----|
-| Jest | `npx jest --coverage --testPathPattern=<生成的测试>` |
-| Vitest | `npx vitest run --coverage <生成的测试>` |
-| Pytest | `pytest --cov=src <生成的测试>` |
+**Validation Commands**:
+| Framework | Command |
+|:----------|:--------|
+| Jest | `npx jest --coverage --testPathPattern=<generated tests>` |
+| Vitest | `npx vitest run --coverage <generated tests>` |
+| Pytest | `pytest --cov=src <generated tests>` |
 | Go | `go test -cover ./...` |
 
-**报告示例**:
+**Report Example**:
 ```markdown
-### 执行结果
-- ✅ 测试通过: 25/25
-- ⏱️ 执行时间: 3.2s
+### Execution Results
+- Tests passed: 25/25
+- Execution time: 3.2s
 
-### 覆盖率变化
-| 指标 | 之前 | 之后 | 变化 |
-|:-----|:-----|:-----|:-----|
-| 行覆盖 | 65% | 82% | +17% |
-| 分支覆盖 | 58% | 75% | +17% |
+### Coverage Changes
+| Metric | Before | After | Change |
+|:-------|:-------|:------|:-------|
+| Line coverage | 65% | 82% | +17% |
+| Branch coverage | 58% | 75% | +17% |
 
-### 目标达成
-- 目标: 80% | 当前: 82% | ✅ 已达成
+### Target Achievement
+- Target: 80% | Current: 82% | Achieved
 ```
 
 ---
 
-## 约束
+## Constraints
 
-**生成约束**:
-- 只为公开方法/函数生成测试
-- 不修改现有测试（除非明确要求）
-- 遵循项目现有测试风格
-- 使用项目已有的 mock 库
+**Generation Constraints**:
+- Only generate tests for public methods/functions
+- Don't modify existing tests (unless explicitly requested)
+- Follow existing test style in project
+- Use project's existing mock libraries
 
-**质量约束**:
-- 每个测试必须有 Arrange-Act-Assert 结构
-- 测试命名必须描述预期行为
-- Mock 设置必须合理（不过度 mock）
-- 边界值测试必须覆盖关键边界
+**Quality Constraints**:
+- Each test must have Arrange-Act-Assert structure
+- Test naming must describe expected behavior
+- Mock setup must be reasonable (don't over-mock)
+- Boundary value tests must cover key boundaries
 
-**执行约束**:
-- Phase 1 必须使用 information-gatherer
-- Phase 2 必须使用 Plan agent
-- Phase 3 必须使用 atlas-executor
+**Execution Constraints**:
+- Phase 1 must use information-gatherer
+- Phase 2 must use Plan agent
+- Phase 3 must use atlas-executor
 
 ---
 
-## 示例
+## Examples
 
-### 基础用法
+### Basic Usage
 ```bash
-# 为全项目生成测试
+# Generate tests for entire project
 /atlas:test-gen
 
-# 指定范围
+# Specify scope
 /atlas:test-gen --scope src/services
 
-# 指定框架
+# Specify framework
 /atlas:test-gen --framework vitest
 
-# 生成集成测试
+# Generate integration tests
 /atlas:test-gen --type integration
 
-# 设置覆盖率目标
+# Set coverage target
 /atlas:test-gen --coverage-target 90
 ```
 
-### 输出示例
+### Output Examples
 
-**生成完成**:
+**Generation Complete**:
 ```
-✅ 测试生成完成
+Test generation complete
 
-生成统计:
-- 新增测试文件: 5
-- 新增测试用例: 25
-- 覆盖方法: 15
+Generation Statistics:
+- New test files: 5
+- New test cases: 25
+- Covered methods: 15
 
-测试文件:
-- __tests__/user.service.test.ts (8 用例)
-- __tests__/order.service.test.ts (6 用例)
-- __tests__/auth.service.test.ts (5 用例)
-- __tests__/payment.service.test.ts (4 用例)
-- __tests__/notification.service.test.ts (2 用例)
+Test Files:
+- __tests__/user.service.test.ts (8 cases)
+- __tests__/order.service.test.ts (6 cases)
+- __tests__/auth.service.test.ts (5 cases)
+- __tests__/payment.service.test.ts (4 cases)
+- __tests__/notification.service.test.ts (2 cases)
 
-覆盖率变化:
-- 行覆盖: 65% → 82% (+17%)
-- 目标 80% ✅ 已达成
+Coverage Changes:
+- Line coverage: 65% -> 82% (+17%)
+- Target 80% Achieved
 
-建议:
-1. 检查生成的测试是否符合业务逻辑
-2. 考虑添加更多边界情况测试
-3. 运行 `npm test` 确保所有测试通过
+Suggestions:
+1. Review generated tests for business logic accuracy
+2. Consider adding more boundary case tests
+3. Run `npm test` to ensure all tests pass
 ```
 
-**部分失败**:
+**Partial Failure**:
 ```
-⚠️ 测试生成部分完成
+Test generation partially complete
 
-生成统计:
-- 新增测试文件: 5
-- 新增测试用例: 25
-- 失败用例: 3
+Generation Statistics:
+- New test files: 5
+- New test cases: 25
+- Failed cases: 3
 
-失败详情:
+Failure Details:
 1. user.service.test.ts:45 - TypeError: Cannot read property 'create' of undefined
-   建议: 检查 PrismaService mock 配置
+   Suggestion: Check PrismaService mock configuration
 
 2. order.service.test.ts:78 - Expected ConflictException but got InternalServerError
-   建议: 检查异常处理逻辑
+   Suggestion: Check exception handling logic
 
-覆盖率: 75% (未达目标 80%)
+Coverage: 75% (below target 80%)
 
-建议:
-1. 修复失败的测试用例
-2. 添加缺失场景的测试
+Suggestions:
+1. Fix failing test cases
+2. Add tests for missing scenarios
 ```

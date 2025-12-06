@@ -1,128 +1,128 @@
 ---
-description: 变更日志命令。分析 git 历史，自动生成结构化的 CHANGELOG.md，支持 conventional commits 和语义化版本。
+description: Changelog command. Analyzes git history and automatically generates structured CHANGELOG.md, supporting conventional commits and semantic versioning.
 argument-hint: [--from tag|commit] [--to tag|commit] [--version X.Y.Z] [--format keep-a-changelog|conventional|github] [--output path]
 ---
 
-# /changelog - 变更日志生成器
+# /changelog - Changelog Generator
 
-用户输入: $ARGUMENTS
+User input: $ARGUMENTS
 
 ---
 
-## 第一步：解析参数与确认选项
+## Step 1: Parse Arguments and Confirm Options
 
-### 参数表
+### Parameter Table
 
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `--from` | 起始点（tag 或 commit） | 上一个 tag |
-| `--to` | 结束点（tag 或 commit） | HEAD |
-| `--version` | 新版本号（X.Y.Z） | 自动推断 |
-| `--format` | 输出格式 | keep-a-changelog |
-| `--output` | 输出路径 | CHANGELOG.md |
-| `--append` | 追加模式（保留旧内容） | true |
-| `--dry-run` | 仅预览，不写入文件 | false |
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `--from` | Starting point (tag or commit) | Previous tag |
+| `--to` | Ending point (tag or commit) | HEAD |
+| `--version` | New version number (X.Y.Z) | Auto-inferred |
+| `--format` | Output format | keep-a-changelog |
+| `--output` | Output path | CHANGELOG.md |
+| `--append` | Append mode (preserve old content) | true |
+| `--dry-run` | Preview only, don't write to file | false |
 
-### 版本自动推断规则
+### Version Auto-Inference Rules
 
-| 变更类型 | 版本变化 | 说明 |
-|----------|----------|------|
-| BREAKING CHANGE / "!" | Major (X.0.0) | 不兼容变更 |
-| `feat:` | Minor (x.Y.0) | 新功能 |
-| `fix:` / `docs:` / `perf:` | Patch (x.y.Z) | 修复和优化 |
+| Change Type | Version Change | Description |
+|-------------|----------------|-------------|
+| BREAKING CHANGE / "!" | Major (X.0.0) | Breaking changes |
+| `feat:` | Minor (x.Y.0) | New features |
+| `fix:` / `docs:` / `perf:` | Patch (x.y.Z) | Fixes and optimizations |
 
-### 如果用户未指定选项
+### If User Doesn't Specify Options
 
-**使用 AskUserQuestion 询问：**
+**Use AskUserQuestion to ask:**
 
 ```
-问题1: 输出格式
-- keep-a-changelog: Added/Changed/Fixed/Security（推荐）
+Question 1: Output format
+- keep-a-changelog: Added/Changed/Fixed/Security (recommended)
 - conventional: Features/Bug Fixes/BREAKING CHANGES
-- github: GitHub Release 风格（What's Changed）
+- github: GitHub Release style (What's Changed)
 
-问题2: 版本号
-- auto: 自动推断（基于提交类型）
-- manual: 手动指定（输入 X.Y.Z）
+Question 2: Version number
+- auto: Auto-infer (based on commit types)
+- manual: Manually specify (enter X.Y.Z)
 
-问题3: 分析范围
-- last-tag: 从上一个 tag 到 HEAD
-- custom: 自定义范围（--from X --to Y）
+Question 3: Analysis range
+- last-tag: From previous tag to HEAD
+- custom: Custom range (--from X --to Y)
 
-问题4: 追加模式
-- append: 追加到现有 CHANGELOG（保留历史）
-- overwrite: 覆盖整个文件
+Question 4: Append mode
+- append: Append to existing CHANGELOG (preserve history)
+- overwrite: Overwrite entire file
 ```
 
-**如果用户已指定（如 `/changelog --version 2.0.0 --format conventional`），跳过询问。**
+**If user has specified options (e.g., `/changelog --version 2.0.0 --format conventional`), skip asking.**
 
 ---
 
-## 第二步：版本检测与提交分析
+## Step 2: Version Detection and Commit Analysis
 
-### 2.1 检测当前版本
+### 2.1 Detect Current Version
 
 ```bash
-# 获取最新 tag
+# Get latest tag
 git describe --tags --abbrev=0
 
-# 如果没有 tag，使用 0.0.0 作为起点
+# If no tag exists, use 0.0.0 as starting point
 ```
 
-### 2.2 分析提交记录
+### 2.2 Analyze Commit History
 
-**调用 atlas:commit-analyzer 子任务**:
+**Call atlas:commit-analyzer subtask**:
 
 ```
 Task(subagent_type="atlas:commit-analyzer")
 prompt: |
-  ## 任务
-  任务 ID: changelog-analysis-<timestamp>
-  分析范围: <from>..<to>
+  ## Task
+  Task ID: changelog-analysis-<timestamp>
+  Analysis range: <from>..<to>
 
-  ## 收集内容
-  1. 提交历史（git log --oneline --no-merges）
-  2. 提交分类（按 conventional commits 规范）:
-     - feat: 新功能
-     - fix: 错误修复
-     - docs: 文档变更
-     - style: 代码格式
-     - refactor: 重构
-     - perf: 性能优化
-     - test: 测试
-     - chore: 构建/工具
-     - BREAKING: 破坏性变更（包含 "!" 或 `BREAKING CHANGE:` 的提交）
-  3. 统计信息（提交总数、文件变更数、贡献者）
+  ## Collect Content
+  1. Commit history (git log --oneline --no-merges)
+  2. Commit classification (following conventional commits spec):
+     - feat: New features
+     - fix: Bug fixes
+     - docs: Documentation changes
+     - style: Code formatting
+     - refactor: Refactoring
+     - perf: Performance optimization
+     - test: Tests
+     - chore: Build/tools
+     - BREAKING: Breaking changes (commits containing "!" or `BREAKING CHANGE:`)
+  3. Statistics (total commits, file changes, contributors)
 
-  ## 输出
-  写入: docs/information/changelog-analysis-<timestamp>.md
-  返回: 提交分类结果和版本推断建议
+  ## Output
+  Write to: docs/information/changelog-analysis-<timestamp>.md
+  Return: Commit classification results and version inference recommendations
 ```
 
-**如果提交不规范（无类型前缀）**:
-- 尝试根据提交信息内容推断类型（如包含 "add" → feat, "fix" → fix）
-- 无法推断的归类为 `Other Changes`
+**If commits are non-standard (no type prefix)**:
+- Try to infer type from commit message content (e.g., contains "add" -> feat, "fix" -> fix)
+- Uninferable commits are classified as `Other Changes`
 
-### 2.3 版本号推断
+### 2.3 Version Number Inference
 
-**基于提交分类自动推断**:
+**Auto-infer based on commit classification**:
 
 ```
-当前版本: 1.2.3
+Current version: 1.2.3
 
-如果有 BREAKING CHANGE: → 2.0.0 (Major bump)
-否则如果有 feat: → 1.3.0 (Minor bump)
-否则如果有 fix/docs/perf: → 1.2.4 (Patch bump)
-否则: → 保持 1.2.3（无需发布）
+If BREAKING CHANGE exists: -> 2.0.0 (Major bump)
+Else if feat exists: -> 1.3.0 (Minor bump)
+Else if fix/docs/perf exists: -> 1.2.4 (Patch bump)
+Else: -> Keep 1.2.3 (no release needed)
 ```
 
-**如果用户手动指定 `--version`，跳过推断，直接使用指定版本。**
+**If user manually specifies `--version`, skip inference and use the specified version.**
 
 ---
 
-## 第三步：变更分类与内容生成
+## Step 3: Change Classification and Content Generation
 
-### 3.1 按格式生成内容
+### 3.1 Generate Content by Format
 
 #### Format: keep-a-changelog
 
@@ -130,25 +130,25 @@ prompt: |
 ## [X.Y.Z] - YYYY-MM-DD
 
 ### Added
-- 新功能 1 (commit hash)
-- 新功能 2 (commit hash)
+- New feature 1 (commit hash)
+- New feature 2 (commit hash)
 
 ### Changed
-- 重构项目 A (commit hash)
-- 优化性能 B (commit hash)
+- Refactored project A (commit hash)
+- Optimized performance B (commit hash)
 
 ### Fixed
-- 修复 Bug #123 (commit hash)
-- 修复内存泄漏 (commit hash)
+- Fixed Bug #123 (commit hash)
+- Fixed memory leak (commit hash)
 
 ### Security
-- 修复安全漏洞 CVE-XXXX (commit hash)
+- Fixed security vulnerability CVE-XXXX (commit hash)
 
 ### Deprecated
-- 弃用旧 API X (commit hash)
+- Deprecated old API X (commit hash)
 
 ### Removed
-- 移除废弃功能 Y (commit hash)
+- Removed deprecated feature Y (commit hash)
 ```
 
 #### Format: conventional
@@ -157,17 +157,17 @@ prompt: |
 ## [X.Y.Z] (YYYY-MM-DD)
 
 ### Features
-- **scope**: 功能描述 (commit hash)
-- 功能描述 2 (commit hash)
+- **scope**: Feature description (commit hash)
+- Feature description 2 (commit hash)
 
 ### Bug Fixes
-- **scope**: 修复描述 (commit hash)
+- **scope**: Fix description (commit hash)
 
 ### Performance Improvements
-- 性能优化描述 (commit hash)
+- Performance optimization description (commit hash)
 
 ### BREAKING CHANGES
-- 破坏性变更描述 (commit hash)
+- Breaking change description (commit hash)
 ```
 
 #### Format: github
@@ -175,22 +175,22 @@ prompt: |
 ```markdown
 ## What's Changed
 
-### 🚀 New Features
-- 功能描述 by @username in #PR
+### New Features
+- Feature description by @username in #PR
 
-### 🐛 Bug Fixes
-- 修复描述 by @username in #PR
+### Bug Fixes
+- Fix description by @username in #PR
 
-### 📚 Documentation
-- 文档更新 by @username in #PR
+### Documentation
+- Documentation update by @username in #PR
 
-### 🏗️ Chores
-- 依赖更新 by @username in #PR
+### Chores
+- Dependency update by @username in #PR
 
 **Full Changelog**: https://github.com/owner/repo/compare/v1.2.3...v1.3.0
 ```
 
-### 3.2 包含贡献者列表
+### 3.2 Include Contributors List
 
 ```markdown
 ### Contributors
@@ -201,241 +201,241 @@ prompt: |
 
 ---
 
-## 第四步：文件更新
+## Step 4: File Update
 
-### 4.1 Dry-run 模式
+### 4.1 Dry-run Mode
 
-**如果指定 `--dry-run`**:
+**If `--dry-run` is specified**:
 ```markdown
-📄 预览生成的变更日志:
+Preview of generated changelog:
 
-────────────────────────────────────
-[生成的内容]
-────────────────────────────────────
+------------------------------------
+[Generated content]
+------------------------------------
 
-📊 统计:
-- 版本: 1.3.0
-- 提交数: 25
-- 新功能: 8
-- Bug 修复: 12
-- 其他: 5
+Statistics:
+- Version: 1.3.0
+- Commits: 25
+- New features: 8
+- Bug fixes: 12
+- Others: 5
 
-💡 提示: 使用 /changelog 无 --dry-run 参数以实际写入文件
+Tip: Use /changelog without --dry-run parameter to actually write to file
 ```
 
-**停止执行，不写入文件。**
+**Stop execution, don't write to file.**
 
-### 4.2 实际写入
+### 4.2 Actual Write
 
-**调用 atlas:atlas-executor 执行文件更新**:
+**Call atlas:atlas-executor to update file**:
 
 ```
 Task(subagent_type="atlas:atlas-executor")
 prompt: |
-  ## 子任务
-  编号: #1
-  描述: 更新 CHANGELOG.md 文件
+  ## Subtask
+  Number: #1
+  Description: Update CHANGELOG.md file
 
-  ## 文件
+  ## File
   - <output-path>
 
-  ## 操作
-  模式: <append|overwrite>
+  ## Operation
+  Mode: <append|overwrite>
 
-  ## 内容
-  读取: docs/information/changelog-analysis-<timestamp>.md
-  生成格式: <keep-a-changelog|conventional|github>
+  ## Content
+  Read: docs/information/changelog-analysis-<timestamp>.md
+  Generate format: <keep-a-changelog|conventional|github>
 
-  ## 要求
-  1. 如果是 append 模式:
-     - 在文件开头插入新版本内容（在标题下方）
-     - 保留所有旧版本记录
-  2. 如果是 overwrite 模式:
-     - 替换整个文件内容
-  3. 确保格式一致性（标题层级、列表格式）
+  ## Requirements
+  1. If append mode:
+     - Insert new version content at file beginning (below title)
+     - Preserve all old version records
+  2. If overwrite mode:
+     - Replace entire file content
+  3. Ensure format consistency (heading levels, list format)
 ```
 
 ---
 
-## 第五步：输出摘要
+## Step 5: Output Summary
 
-**固定输出结构**:
+**Fixed output structure**:
 
 ```markdown
-✅ 变更日志已生成
+Changelog generated successfully
 
-## 版本信息
-- 版本号: X.Y.Z
-- 推断依据: [Major/Minor/Patch] bump based on [BREAKING/feat/fix] commits
-- 分析范围: vA.B.C..HEAD (25 commits)
+## Version Info
+- Version: X.Y.Z
+- Inference basis: [Major/Minor/Patch] bump based on [BREAKING/feat/fix] commits
+- Analysis range: vA.B.C..HEAD (25 commits)
 
-## 变更统计
-- 🚀 新功能: 8
-- 🐛 Bug 修复: 12
-- 📚 文档: 3
-- ♻️ 重构: 2
+## Change Statistics
+- New features: 8
+- Bug fixes: 12
+- Documentation: 3
+- Refactoring: 2
 
-## 文件位置
-- 输出文件: CHANGELOG.md
-- 格式: keep-a-changelog
-- 模式: append（旧版本已保留）
+## File Location
+- Output file: CHANGELOG.md
+- Format: keep-a-changelog
+- Mode: append (old versions preserved)
 
-## 后续步骤
-1. 审查变更内容: `cat CHANGELOG.md | head -50`
-2. 提交变更: `git add CHANGELOG.md && git commit -m "docs: update changelog for vX.Y.Z"`
-3. 创建 tag: `git tag -a vX.Y.Z -m "Release vX.Y.Z"`
-4. 推送到远程: `git push origin main --tags`
+## Next Steps
+1. Review changes: `cat CHANGELOG.md | head -50`
+2. Commit changes: `git add CHANGELOG.md && git commit -m "docs: update changelog for vX.Y.Z"`
+3. Create tag: `git tag -a vX.Y.Z -m "Release vX.Y.Z"`
+4. Push to remote: `git push origin main --tags`
 ```
 
 ---
 
-## 执行示例
+## Execution Examples
 
-### 示例 1: 自动生成（默认选项）
+### Example 1: Auto-generate (Default Options)
 
 ```
-用户: /changelog
+User: /changelog
 
-1. 询问用户选项:
-   - 格式: keep-a-changelog
-   - 版本: auto (推断为 1.3.0)
-   - 范围: last-tag (v1.2.3..HEAD)
-   - 模式: append
+1. Ask user for options:
+   - Format: keep-a-changelog
+   - Version: auto (inferred as 1.3.0)
+   - Range: last-tag (v1.2.3..HEAD)
+   - Mode: append
 
-2. 版本检测:
-   git describe --tags → v1.2.3
+2. Version detection:
+   git describe --tags -> v1.2.3
 
-3. 提交分析:
+3. Commit analysis:
    git log v1.2.3..HEAD --oneline
-   → 25 commits (8 feat, 12 fix, 5 other)
-   → 版本推断: 1.3.0 (Minor bump)
+   -> 25 commits (8 feat, 12 fix, 5 other)
+   -> Version inference: 1.3.0 (Minor bump)
 
-4. 内容生成 (keep-a-changelog 格式):
+4. Content generation (keep-a-changelog format):
    ## [1.3.0] - 2024-01-15
    ### Added
-   - 新增用户认证功能
+   - Added user authentication feature
    ...
 
-5. 文件更新 (append 模式):
-   在 CHANGELOG.md 开头插入新版本内容
+5. File update (append mode):
+   Insert new version content at CHANGELOG.md beginning
 
-6. 输出摘要
+6. Output summary
 ```
 
-### 示例 2: 指定版本和格式
+### Example 2: Specify Version and Format
 
 ```
-用户: /changelog --version 2.0.0 --format conventional --from v1.5.0
+User: /changelog --version 2.0.0 --format conventional --from v1.5.0
 
-1. 跳过询问（已指定参数）
+1. Skip asking (parameters specified)
 
-2. 提交分析:
+2. Commit analysis:
    git log v1.5.0..HEAD
-   → 发现 BREAKING CHANGE 提交
-   → 验证版本号 2.0.0 符合 Major bump 规范
+   -> Found BREAKING CHANGE commits
+   -> Verify version 2.0.0 conforms to Major bump spec
 
-3. 内容生成 (conventional 格式):
+3. Content generation (conventional format):
    ## [2.0.0] (2024-01-15)
    ### BREAKING CHANGES
-   - 移除旧版 API...
+   - Removed old version API...
 
-4. 文件更新并输出摘要
+4. File update and output summary
 ```
 
-### 示例 3: Dry-run 预览
+### Example 3: Dry-run Preview
 
 ```
-用户: /changelog --dry-run
+User: /changelog --dry-run
 
-1. 执行分析和内容生成
+1. Execute analysis and content generation
 
-2. 输出预览:
-   📄 预览生成的变更日志:
-   ────────────────────────────────────
+2. Output preview:
+   Preview of generated changelog:
+   ------------------------------------
    ## [1.3.0] - 2024-01-15
    ...
-   ────────────────────────────────────
+   ------------------------------------
 
-3. 停止执行，不写入文件
+3. Stop execution, don't write to file
 ```
 
 ---
 
-## 特殊场景处理
+## Special Scenario Handling
 
-### 首次生成（无现有 CHANGELOG）
-
-```
-检测: CHANGELOG.md 不存在
-操作: 创建新文件，包含:
-  - 标题: # Changelog
-  - 说明段落: All notable changes...
-  - 新版本内容
-```
-
-### 无 Git 标签
+### First Generation (No Existing CHANGELOG)
 
 ```
-检测: git describe --tags 失败
-操作: 使用 0.0.0 作为起点
-  → 分析范围: 初始提交..HEAD
-  → 推断版本: 0.1.0（首个版本）
+Detection: CHANGELOG.md doesn't exist
+Action: Create new file containing:
+  - Title: # Changelog
+  - Description paragraph: All notable changes...
+  - New version content
 ```
 
-### 提交不规范
+### No Git Tags
 
 ```
-检测: 提交信息无 conventional commits 前缀
-操作:
-  1. 尝试智能推断（如 "Add feature" → feat）
-  2. 无法推断的归入 "Other Changes" 类别
-  3. 提示用户使用规范的提交格式
+Detection: git describe --tags fails
+Action: Use 0.0.0 as starting point
+  -> Analysis range: initial commit..HEAD
+  -> Version inference: 0.1.0 (first version)
 ```
 
-### 版本号冲突
+### Non-standard Commits
 
 ```
-检测: 指定版本号已存在于 CHANGELOG
-操作:
-  - 警告用户版本号重复
-  - 询问: 覆盖 / 使用新版本号 / 取消
+Detection: Commit messages lack conventional commits prefix
+Action:
+  1. Try smart inference (e.g., "Add feature" -> feat)
+  2. Uninferable ones go to "Other Changes" category
+  3. Prompt user to use standardized commit format
+```
+
+### Version Number Conflict
+
+```
+Detection: Specified version already exists in CHANGELOG
+Action:
+  - Warn user of duplicate version
+  - Ask: Overwrite / Use new version number / Cancel
 ```
 
 ---
 
-## 核心约束
+## Core Constraints
 
-### 必须做
-- 严格遵循语义化版本规范（Semantic Versioning）
-- 分析所有提交，不遗漏任何变更
-- 生成的日志格式保持一致性
-- append 模式必须保留旧版本内容
-- 包含完整的元数据（日期、版本、提交 hash）
+### Must Do
+- Strictly follow Semantic Versioning specification
+- Analyze all commits, don't miss any changes
+- Generated log format maintains consistency
+- Append mode must preserve old version content
+- Include complete metadata (date, version, commit hash)
 
-### 禁止做
-- 篡改提交历史或提交信息
-- 在 dry-run 模式下写入文件
-- 跳过 BREAKING CHANGES 的警告
-- 推断不符合规范的版本号（如 feat → Major bump）
-- 覆盖用户手动编辑的自定义内容（识别并保留）
+### Must Not Do
+- Tamper with commit history or messages
+- Write to file in dry-run mode
+- Skip BREAKING CHANGES warnings
+- Infer non-compliant version numbers (e.g., feat -> Major bump)
+- Overwrite user's manually edited custom content (identify and preserve)
 
 ---
 
-## 与其他命令配合
+## Integration with Other Commands
 
 ```bash
-# 工作流示例
+# Workflow example
 
-# 1. 生成变更日志
+# 1. Generate changelog
 /changelog --version 2.1.0
 
-# 2. 审查内容
+# 2. Review content
 cat CHANGELOG.md | head -100
 
-# 3. 批量更新版本号（如需要）
-/orchestrate 更新所有 package.json 中的版本号为 2.1.0
+# 3. Batch update version numbers (if needed)
+/orchestrate Update version number to 2.1.0 in all package.json files
 
-# 4. 提交和发布
+# 4. Commit and release
 git add .
 git commit -m "chore: release v2.1.0"
 git tag -a v2.1.0 -m "Release v2.1.0"
@@ -444,9 +444,9 @@ git push origin main --tags
 
 ---
 
-## 输出文件示例
+## Output File Examples
 
-### Keep-a-Changelog 格式
+### Keep-a-Changelog Format
 
 ```markdown
 # Changelog
@@ -479,7 +479,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ...
 ```
 
-### Conventional Commits 格式
+### Conventional Commits Format
 
 ```markdown
 # Changelog
@@ -505,10 +505,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## 注意事项
+## Notes
 
-- 生成的日志可能需要人工审校（特别是非规范提交）
-- BREAKING CHANGES 务必在版本号和内容中突出显示
-- 敏感信息（如安全漏洞细节）应在发布前人工审核
-- 支持自定义模板（通过 `.claude/templates/changelog.md` 配置）
-- 所有 git 操作只读，不会修改提交历史
+- Generated logs may require manual review (especially for non-standard commits)
+- BREAKING CHANGES must be highlighted in version number and content
+- Sensitive information (such as security vulnerability details) should be manually reviewed before release
+- Custom templates supported (via `.claude/templates/changelog.md` configuration)
+- All git operations are read-only, commit history will not be modified

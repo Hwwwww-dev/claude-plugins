@@ -1,46 +1,46 @@
 ---
-description: 任务协调与并发执行引擎。处理复杂多步骤任务、批量操作、项目级变更。支持回滚和断点续传。
-argument-hint: <任务描述> [--parallel|--sequential] [--dry-run] [--no-gather] [--auto-rollback] [--resume <id>]
+description: Task coordination and concurrent execution engine. Handles complex multi-step tasks, batch operations, and project-level changes. Supports rollback and checkpoint resume.
+argument-hint: <task description> [--parallel|--sequential] [--dry-run] [--no-gather] [--auto-rollback] [--resume <id>]
 ---
 
-# /orchestrate - 任务协调引擎
+# /orchestrate - Task Coordination Engine
 
-**你是任务编排总指挥，必须通过 Task tool 调用 subagents 执行任务。**
+**You are the task orchestration commander, you must use Task tool to call subagents to execute tasks.**
 
-用户任务: $ARGUMENTS
-
----
-
-## 第一步：确认执行选项
-
-**如果用户未指定选项，询问**: 执行策略(auto/parallel/sequential) | 执行模式(execute/dry-run) | 是否收集信息(yes/no) | 失败处理(auto-rollback/manual)
-
-**如果用户已指定选项或使用 `--resume <id>`，跳过询问。**
+User task: $ARGUMENTS
 
 ---
 
-## 第二步：执行工作流
+## Step 1: Confirm Execution Options
 
-### 2.0 检查点创建
+**If user doesn't specify options, ask**: Execution strategy (auto/parallel/sequential) | Execution mode (execute/dry-run) | Gather information (yes/no) | Failure handling (auto-rollback/manual)
 
-**在执行任何修改前，自动创建检查点：**
+**If user has specified options or uses `--resume <id>`, skip asking.**
+
+---
+
+## Step 2: Execute Workflow
+
+### 2.0 Checkpoint Creation
+
+**Before executing any modifications, automatically create checkpoint:**
 
 ```bash
-# 创建 git stash 作为检查点
+# Create git stash as checkpoint
 git stash push -m "atlas-checkpoint-{execution-id}"
 ```
 
-**初始化执行状态文件：**
+**Initialize execution state file:**
 ```
-写入: .claude/orchestrate/.state/{execution-id}.json
+Write to: .claude/orchestrate/.state/{execution-id}.json
 ```
 
-**状态文件结构**:
+**State file structure**:
 ```json
 {
   "executionId": "task-20240115-103000",
   "timestamp": "2024-01-15T10:30:00Z",
-  "task": "给所有 React 组件添加 TypeScript 类型",
+  "task": "Add TypeScript types to all React components",
   "options": {
     "strategy": "auto",
     "autoRollback": false
@@ -63,276 +63,276 @@ git stash push -m "atlas-checkpoint-{execution-id}"
 }
 ```
 
-### 2.1 信息收集（如选择）
+### 2.1 Information Gathering (If Selected)
 
-**优先从 `.claude/repowiki/` 获取项目信息**（如存在）:
-- `project.pkg.json`: 项目元数据、技术栈
-- `modules.pkg.json`: 模块结构、依赖关系
-- `api.pkg.json`: API 端点
-- `symbols.pkg.json`: 符号索引
-- `quick-lookup.json`: 快速查询
+**Prioritize getting project info from `.claude/repowiki/`** (if exists):
+- `project.pkg.json`: Project metadata, tech stack
+- `modules.pkg.json`: Module structure, dependency relationships
+- `api.pkg.json`: API endpoints
+- `symbols.pkg.json`: Symbol index
+- `quick-lookup.json`: Quick lookup
 
-**如 repowiki 信息充足，可跳过信息收集直接规划。**
+**If repowiki info is sufficient, can skip information gathering and proceed to planning.**
 
-**固定输入结构**:
+**Fixed input structure**:
 ```
 Task(subagent_type="atlas:information-gatherer")
 prompt: |
-  ## 任务
-  任务 ID: <task-id>
-  任务描述: [用户要做什么]
+  ## Task
+  Task ID: <task-id>
+  Task description: [What user wants to do]
 
-  ## 已有信息
-  检查 `.claude/repowiki/` 是否存在，优先使用现有 PKG 文件
+  ## Existing Information
+  Check if `.claude/repowiki/` exists, prioritize using existing PKG files
 
-  ## 收集目标
-  - 范围: [哪些目录/文件]
-  - 关注点: [结构/依赖/模式]
+  ## Gathering Target
+  - Scope: [Which directories/files]
+  - Focus: [Structure/dependencies/patterns]
 
-  ## 输出
-  写入: docs/information/<task-id>.md
+  ## Output
+  Write to: docs/information/<task-id>.md
 ```
 
-### 2.2 任务规划
+### 2.2 Task Planning
 
-**固定输入结构**:
+**Fixed input structure**:
 ```
 Task(subagent_type="Plan")
 prompt: |
-  ## 任务
-  [用户任务描述]
+  ## Task
+  [User task description]
 
-  ## 上下文
-  信息文件: docs/information/<task-id>.md (请先读取)
+  ## Context
+  Information file: docs/information/<task-id>.md (please read first)
 
-  ## 要求
-  返回以下内容:
-  1. 子任务列表 (每个独立可执行)
-  2. 文件分配 (每个文件只分配给一个子任务)
-  3. 执行策略: parallel / sequential / mixed
-  4. 依赖关系 (如有)
+  ## Requirements
+  Return the following:
+  1. Subtask list (each independently executable)
+  2. File assignment (each file assigned to only one subtask)
+  3. Execution strategy: parallel / sequential / mixed
+  4. Dependencies (if any)
 ```
 
-**规划完成后更新状态文件**，记录所有子任务。
+**After planning complete, update state file** with all subtasks recorded.
 
-### 2.3 执行
+### 2.3 Execution
 
-**固定输入结构**:
+**Fixed input structure**:
 ```
 Task(subagent_type="atlas:atlas-executor")
 prompt: |
-  ## 子任务
-  编号: #N
-  描述: [具体任务]
+  ## Subtask
+  Number: #N
+  Description: [Specific task]
 
-  ## 文件
+  ## Files
   - path/to/file1.ts
   - path/to/file2.ts
 
-  ## 上下文
-  信息文件: docs/information/<task-id>.md (如需要可读取)
+  ## Context
+  Information file: docs/information/<task-id>.md (read if needed)
 
-  ## 要求
-  严格按描述执行，不扩展范围
+  ## Requirements
+  Execute strictly per description, don't expand scope
 ```
 
-**parallel**: 同一消息发起所有 executor
-**sequential**: 逐个执行，等待完成后继续
-**mixed**: 分阶段，阶段内并行
+**parallel**: Launch all executors in same message
+**sequential**: Execute one by one, wait for completion before continuing
+**mixed**: Execute in phases, parallel within each phase
 
-**每个子任务完成后立即更新状态文件**:
+**Update state file immediately after each subtask completes**:
 ```json
 {"id": 1, "status": "completed", "files": [...], "result": "success"}
 ```
 
-### 2.4 失败处理
+### 2.4 Failure Handling
 
-**子任务失败时**:
+**When subtask fails**:
 
-#### --auto-rollback 模式
+#### --auto-rollback Mode
 ```bash
-# 自动回滚所有修改
+# Auto rollback all modifications
 git stash pop
 
-# 输出
-⚠️ 子任务 #N 失败，已自动回滚所有修改
-原因: [失败原因]
-建议: [修复建议]
+# Output
+Subtask #N failed, all modifications auto-rolled back
+Reason: [failure reason]
+Suggestion: [fix suggestion]
 ```
 
-#### 默认模式（手动处理）
+#### Default Mode (Manual Handling)
 ```
-子任务 #N 失败
+Subtask #N failed
 
-选项:
-1. 回滚: 恢复到检查点状态
-2. 跳过: 继续执行其他子任务
-3. 重试: 重新执行失败的子任务
-4. 终止: 保留已完成的修改，终止执行
+Options:
+1. Rollback: Restore to checkpoint state
+2. Skip: Continue executing other subtasks
+3. Retry: Re-execute failed subtask
+4. Terminate: Keep completed modifications, terminate execution
 
-请选择处理方式:
+Please select handling method:
 ```
 
-**用户选择回滚时**:
+**When user selects rollback**:
 ```bash
 git stash pop
-echo "已回滚到检查点"
+echo "Rolled back to checkpoint"
 ```
 
-### 2.5 聚合报告
+### 2.5 Aggregation Report
 
-**固定输出结构**:
+**Fixed output structure**:
 ```markdown
-# Atlas 执行报告
+# Atlas Execution Report
 
-## 任务
-[描述]
+## Task
+[Description]
 
-## 执行 ID
+## Execution ID
 task-20240115-103000
 
-## 统计
-- 子任务: X 个
-- 成功: Y / 失败: Z
+## Statistics
+- Subtasks: X
+- Successful: Y / Failed: Z
 
-## 修改文件
+## Modified Files
 - file1.ts
 - file2.ts
 
-## 失败详情 (如有)
-- 子任务#N: [原因] → [建议]
+## Failure Details (If Any)
+- Subtask #N: [Reason] -> [Suggestion]
 
-## 检查点
-- 状态: 已清理 / 可用于回滚
-- 命令: `/orchestrate --resume task-20240115-103000`
+## Checkpoint
+- Status: Cleaned up / Available for rollback
+- Command: `/orchestrate --resume task-20240115-103000`
 
-## 后续建议
-- [建议1]
-- [建议2]
+## Follow-up Suggestions
+- [Suggestion 1]
+- [Suggestion 2]
 ```
 
-**成功完成后清理检查点**:
+**Clean up checkpoint after successful completion**:
 ```bash
 git stash drop "atlas-checkpoint-{execution-id}"
 ```
 
 ---
 
-## 断点续传
+## Checkpoint Resume
 
-### 触发方式
+### Trigger Method
 
 ```bash
 /orchestrate --resume task-20240115-103000
 ```
 
-### 续传流程
+### Resume Flow
 
-1. **读取状态文件**:
+1. **Read state file**:
    ```
-   读取: .claude/orchestrate/.state/{execution-id}.json
+   Read: .claude/orchestrate/.state/{execution-id}.json
    ```
 
-2. **显示执行状态**:
+2. **Display execution status**:
    ```markdown
-   ## 断点续传
+   ## Checkpoint Resume
 
-   执行 ID: task-20240115-103000
-   原始任务: 给所有 React 组件添加 TypeScript 类型
+   Execution ID: task-20240115-103000
+   Original task: Add TypeScript types to all React components
 
-   进度:
-   - ✅ 子任务 #1: 完成
-   - ❌ 子任务 #2: 失败
-   - ⏸️ 子任务 #3: 待执行
+   Progress:
+   - Subtask #1: Completed
+   - Subtask #2: Failed
+   - Subtask #3: Pending
 
-   继续选项:
-   1. 重试失败: 重新执行 #2，然后执行 #3
-   2. 跳过失败: 直接执行 #3
-   3. 全部重新执行: 回滚并重新开始
-   4. 放弃: 清理状态，保留当前修改
+   Continue options:
+   1. Retry failed: Re-execute #2, then execute #3
+   2. Skip failed: Directly execute #3
+   3. Restart all: Rollback and restart
+   4. Abandon: Clean up state, keep current modifications
    ```
 
-3. **根据选择执行**:
-   - 重试失败：从失败点重新执行
-   - 跳过失败：继续执行待执行任务
-   - 全部重新执行：回滚检查点，重新开始
-   - 放弃：清理状态文件和检查点
+3. **Execute based on selection**:
+   - Retry failed: Re-execute from failure point
+   - Skip failed: Continue executing pending tasks
+   - Restart all: Rollback checkpoint, restart
+   - Abandon: Clean up state file and checkpoint
 
-4. **更新状态文件**直到完成
+4. **Update state file** until complete
 
 ---
 
-## 执行示例
+## Execution Examples
 
-### 示例: 并行执行（完整流程）
+### Example: Parallel Execution (Complete Flow)
 
 ```
-用户: /orchestrate 给所有 React 组件添加 TypeScript 类型
+User: /orchestrate Add TypeScript types to all React components
 
-0. 创建检查点 + 状态文件:
+0. Create checkpoint + state file:
    git stash push -m "atlas-checkpoint-add-types-20240115"
-   写入: .claude/orchestrate/.state/add-types-20240115.json
+   Write to: .claude/orchestrate/.state/add-types-20240115.json
 
 1. information-gatherer:
-   收集目标: 所有 React 组件位置和现有类型情况
-   → docs/information/add-types-20240115.md
+   Gathering target: All React component locations and existing type situation
+   -> docs/information/add-types-20240115.md
 
 2. Plan agent:
-   上下文: docs/information/add-types-20240115.md
-   → 返回: 3组并行任务, 策略: parallel
-   更新状态文件（记录 3 个子任务）
+   Context: docs/information/add-types-20240115.md
+   -> Returns: 3 parallel task groups, strategy: parallel
+   Update state file (record 3 subtasks)
 
-3. 同时发起 3 个 executor (同一条消息):
-   - #1: auth 组件, 文件: [Login.tsx, Register.tsx]
-   - #2: dashboard 组件, 文件: [Overview.tsx, Analytics.tsx]
-   - #3: shared 组件, 文件: [Button.tsx, Input.tsx]
-   每个完成后更新状态文件
+3. Launch 3 executors simultaneously (in same message):
+   - #1: auth components, files: [Login.tsx, Register.tsx]
+   - #2: dashboard components, files: [Overview.tsx, Analytics.tsx]
+   - #3: shared components, files: [Button.tsx, Input.tsx]
+   Update state file after each completes
 
-4. 聚合结果并报告，清理检查点
+4. Aggregate results and report, clean up checkpoint
 ```
 
-### 失败场景
+### Failure Scenarios
 
-**auto-rollback 模式**: 子任务失败 → 自动 `git stash pop` → 输出失败原因和建议
+**auto-rollback mode**: Subtask fails -> Auto `git stash pop` -> Output failure reason and suggestion
 
-**manual 模式**: 提供选项（回滚/跳过/重试/终止），等待用户选择
+**manual mode**: Provide options (rollback/skip/retry/terminate), wait for user selection
 
-**断点续传**: `/orchestrate --resume <id>` → 读取状态 → 显示进度 → 继续执行
+**checkpoint resume**: `/orchestrate --resume <id>` -> Read state -> Display progress -> Continue execution
 
 ---
 
-## 文件冲突处理
+## File Conflict Handling
 
-并行 executor 修改同一文件会导致冲突：
+Parallel executors modifying same file will cause conflicts:
 
-1. **按文件分组**: 修改同一文件的操作分给同一个 executor
-2. **串行化**: 必须分开的任务改为串行执行
-3. **分阶段**: 先完成共享依赖，再并行执行后续
+1. **Group by file**: Operations modifying same file assigned to same executor
+2. **Serialize**: Tasks that must be separated execute sequentially
+3. **Phase**: Complete shared dependencies first, then parallel execute subsequent
 
 ```
-示例: 重构 utils.ts 并更新 3 个调用方
+Example: Refactor utils.ts and update 3 callers
 
-❌ 错误: 并行 4 个 executor → 调用方可能读到旧版
+Wrong: 4 parallel executors -> Callers may read old version
 
-✓ 正确:
-  阶段1: executor 修改 utils.ts
-  阶段2: 并行 3 个 executor 更新调用方
+Correct:
+  Phase 1: Executor modifies utils.ts
+  Phase 2: 3 parallel executors update callers
 ```
 
 ---
 
-## 核心约束
+## Core Constraints
 
-**必须做**:
-- 执行前创建检查点（git stash）
-- 维护状态文件（支持断点续传）
-- 使用固定输入结构调用 agents
-- 并行任务在同一消息中一次性发起
-- 收集结果后使用固定格式报告
-- 每个子任务完成后更新状态文件
+**Must Do**:
+- Create checkpoint (git stash) before execution
+- Maintain state file (support checkpoint resume)
+- Use fixed input structure to call agents
+- Launch parallel tasks all at once in same message
+- Use fixed format for reporting after collecting results
+- Update state file after each subtask completes
 
-**禁止做**:
-- 自己直接修改文件
-- 串行调用可并行任务
-- 因部分失败放弃其他任务（除非 --auto-rollback）
-- 跳过检查点创建步骤
+**Must Not Do**:
+- Modify files directly yourself
+- Call parallelizable tasks sequentially
+- Abandon other tasks due to partial failure (unless --auto-rollback)
+- Skip checkpoint creation step

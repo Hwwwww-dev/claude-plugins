@@ -1,62 +1,62 @@
 ---
 name: wiki-query
-description: 当用户询问"项目有哪些API"、"XXX类有哪些方法"、"查找XXX"、"模块依赖"等项目结构问题时，使用此 skill。优先级高于 Serena。支持模糊搜索，找不到时显示相似结果。
+description: Use this skill when user asks "what APIs does the project have", "what methods does XXX class have", "find XXX", "module dependencies", etc. Priority higher than Serena. Supports fuzzy search, shows similar results when not found.
 version: 2.1.0
 color: blue
 ---
 
-# Wiki Query - 项目索引查询
+# Wiki Query - Project Index Query
 
-从 `.claude/repowiki/` 索引查询项目信息。**优先级 > Serena**。
+Query project information from `.claude/repowiki/` index. **Priority > Serena**.
 
-## 脚本路径
+## Script Path
 
-使用 `${CLAUDE_PLUGIN_ROOT}` 环境变量（Claude Code 自动设置）：
+Use the `${CLAUDE_PLUGIN_ROOT}` environment variable (automatically set by Claude Code):
 
 ```bash
-# 脚本位置
-${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/query.py        # 标准查询
-${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/stream_query.py # 流式查询（推荐）
+# Script location
+${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/query.py        # Standard query
+${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/stream_query.py # Streaming query (recommended)
 ```
 
-**备选**：相对路径 `scripts/query.py`（依赖 Claude 自动解析 base path）
+**Alternative**: Relative path `scripts/query.py` (depends on Claude auto-resolving base path)
 
-## 前置条件
+## Prerequisites
 
 ```bash
-# 检查索引是否存在
-ls .claude/repowiki/.meta/*.pkg.json 2>/dev/null || echo "❌ 请先运行 /atlas:repo-wiki"
+# Check if index exists
+ls .claude/repowiki/.meta/*.pkg.json 2>/dev/null || echo "Please run /atlas:repo-wiki first"
 
-# 流式查询需要 ijson（可选）
+# Streaming query requires ijson (optional)
 pip install ijson
 ```
 
-## 快速查询
+## Quick Queries
 
-**所有调用必须设置 `WIKI_TARGET_DIR=$PWD`**
+**All calls must set `WIKI_TARGET_DIR=$PWD`**
 
 ```bash
-# 流式查询（推荐，大文件友好）
+# Streaming query (recommended, large file friendly)
 WIKI_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/stream_query.py" class <ClassName>
 WIKI_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/stream_query.py" api <keyword>
 
-# 标准查询
-WIKI_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/query.py" search <keyword>  # 全局搜索
-WIKI_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/query.py" class <name>     # 类查询
-WIKI_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/query.py" api <keyword>    # API 查询
-WIKI_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/query.py" module <name>    # 模块依赖
-WIKI_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/query.py" stats            # 项目统计
+# Standard query
+WIKI_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/query.py" search <keyword>  # Global search
+WIKI_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/query.py" class <name>     # Class query
+WIKI_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/query.py" api <keyword>    # API query
+WIKI_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/query.py" module <name>    # Module dependencies
+WIKI_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/query.py" stats            # Project statistics
 
-# 跨项目查询
+# Cross-project query
 WIKI_TARGET_DIR="/path/to/other-project" python3 "${CLAUDE_PLUGIN_ROOT}/skills/wiki-query/scripts/query.py" class UserService
 ```
 
-## 内联命令（备用）
+## Inline Commands (Fallback)
 
-当脚本不可用时，可使用内联 Python：
+When the script is unavailable, you can use inline Python:
 
 <details>
-<summary>全局搜索</summary>
+<summary>Global Search</summary>
 
 ```bash
 python3 -c "
@@ -64,16 +64,16 @@ import json, sys
 q = '$QUERY'.lower()
 r = []
 
-# 搜索类
+# Search classes
 try:
     with open('.claude/repowiki/.meta/symbols.pkg.json') as f:
         d = json.load(f)
         for c in d.get('classes', []):
             if q in c.get('name', '').lower():
-                r.append(('类', c['name'], c.get('path', '-'), len(c.get('methods', []))))
+                r.append(('Class', c['name'], c.get('path', '-'), len(c.get('methods', []))))
 except: pass
 
-# 搜索 API
+# Search APIs
 try:
     with open('.claude/repowiki/.meta/api.pkg.json') as f:
         d = json.load(f)
@@ -82,29 +82,29 @@ try:
                 r.append(('API', f\"{e['method']} {e['path']}\", e.get('controller', '-'), 0))
 except: pass
 
-# 搜索模块
+# Search modules
 try:
     with open('.claude/repowiki/.meta/modules.pkg.json') as f:
         d = json.load(f)
         for m in d.get('modules', []):
             if q in m.get('name', '').lower():
-                r.append(('模块', m['name'], m.get('path', '-'), 0))
+                r.append(('Module', m['name'], m.get('path', '-'), 0))
 except: pass
 
 if r:
-    print(f'搜索 \"{q}\" 找到 {len(r)} 个结果:')
+    print(f'Search \"{q}\" found {len(r)} results:')
     for t, n, p, c in r[:20]:
         extra = f' ({c} methods)' if c > 0 else ''
         print(f'  [{t}] {n}{extra}')
         print(f'        @ {p}')
 else:
-    print(f'未找到 \"{q}\"')
+    print(f'Not found: \"{q}\"')
 "
 ```
 </details>
 
 <details>
-<summary>类查询</summary>
+<summary>Class Query</summary>
 
 ```bash
 python3 -c "
@@ -115,24 +115,24 @@ with open('.claude/repowiki/.meta/symbols.pkg.json') as f:
     matches = [c for c in d.get('classes', []) if q in c.get('name', '').lower()]
 
     if len(matches) == 0:
-        print(f'未找到包含 \"{q}\" 的类')
+        print(f'No class found containing \"{q}\"')
         all_classes = [c['name'] for c in d.get('classes', [])]
-        print(f'\\n项目中的类 ({len(all_classes)} 个):')
+        print(f'\\nClasses in project ({len(all_classes)} total):')
         for c in all_classes[:15]:
             print(f'  - {c}')
     elif len(matches) == 1:
         c = matches[0]
-        print(f'类: {c[\"name\"]}')
-        print(f'路径: {c.get(\"path\", \"-\")}')
-        if c.get('extends'): print(f'继承: {c[\"extends\"]}')
-        if c.get('implements'): print(f'实现: {c[\"implements\"]}')
+        print(f'Class: {c[\"name\"]}')
+        print(f'Path: {c.get(\"path\", \"-\")}')
+        if c.get('extends'): print(f'Extends: {c[\"extends\"]}')
+        if c.get('implements'): print(f'Implements: {c[\"implements\"]}')
         if c.get('methods'):
-            print(f'方法 ({len(c[\"methods\"])} 个):')
+            print(f'Methods ({len(c[\"methods\"])} total):')
             for m in c['methods']:
-                v = {'public':'🟢','private':'🔴','protected':'🟡'}.get(m.get('visibility',''),'⚪')
+                v = {'public':'[pub]','private':'[priv]','protected':'[prot]'}.get(m.get('visibility',''),'[?]')
                 print(f'  {v} {m.get(\"name\", \"-\")}()')
     else:
-        print(f'找到 {len(matches)} 个匹配类:')
+        print(f'Found {len(matches)} matching classes:')
         for c in matches:
             print(f'  - {c[\"name\"]} ({len(c.get(\"methods\",[]))} methods) @ {c.get(\"path\",\"-\")}')
 "
@@ -140,7 +140,7 @@ with open('.claude/repowiki/.meta/symbols.pkg.json') as f:
 </details>
 
 <details>
-<summary>API 查询</summary>
+<summary>API Query</summary>
 
 ```bash
 python3 -c "
@@ -154,19 +154,19 @@ with open('.claude/repowiki/.meta/api.pkg.json') as f:
                or q in e.get('handler', '').lower()]
 
     if results:
-        print(f'API 搜索 \"{q}\" ({len(results)} 个):')
+        print(f'API search \"{q}\" ({len(results)} results):')
         for e in results[:15]:
-            auth = '🔒' if e.get('auth') else '🔓'
+            auth = '[auth]' if e.get('auth') else '[open]'
             print(f'  {auth} {e[\"method\"]:6} {e[\"path\"]}')
-            print(f'       → {e.get(\"controller\",\"-\")}.{e.get(\"handler\",\"-\")}')
+            print(f'       -> {e.get(\"controller\",\"-\")}.{e.get(\"handler\",\"-\")}')
     else:
-        print(f'未找到包含 \"{q}\" 的 API')
+        print(f'No API found containing \"{q}\"')
 "
 ```
 </details>
 
 <details>
-<summary>模块依赖</summary>
+<summary>Module Dependencies</summary>
 
 ```bash
 python3 -c "
@@ -178,52 +178,52 @@ with open('.claude/repowiki/.meta/modules.pkg.json') as f:
     deps = [g for g in d.get('graph', []) if q in g.get('from', '').lower() or q in g.get('to', '').lower()]
 
     if modules:
-        print(f'匹配的模块 ({len(modules)} 个):')
+        print(f'Matching modules ({len(modules)} total):')
         for m in modules:
             print(f'  {m.get(\"name\", \"-\")} @ {m.get(\"path\", \"-\")}')
     if deps:
-        print(f'\\n相关依赖 ({len(deps)} 个):')
+        print(f'\\nRelated dependencies ({len(deps)} total):')
         for g in deps[:15]:
-            print(f'  {g.get(\"from\", \"-\")} → {g.get(\"to\", \"-\")}')
+            print(f'  {g.get(\"from\", \"-\")} -> {g.get(\"to\", \"-\")}')
 "
 ```
 </details>
 
 <details>
-<summary>统计概览</summary>
+<summary>Statistics Overview</summary>
 
 ```bash
 python3 -c "
 import json
-print('=== 项目统计 ===')
+print('=== Project Statistics ===')
 
 try:
     with open('.claude/repowiki/.meta/symbols.pkg.json') as f:
         d = json.load(f)
-        print(f'类: {len(d.get(\"classes\", []))} 个')
-        print(f'函数: {len(d.get(\"functions\", []))} 个')
-        print(f'接口: {len(d.get(\"interfaces\", []))} 个')
+        print(f'Classes: {len(d.get(\"classes\", []))}')
+        print(f'Functions: {len(d.get(\"functions\", []))}')
+        print(f'Interfaces: {len(d.get(\"interfaces\", []))}')
 except: pass
 
 try:
     with open('.claude/repowiki/.meta/api.pkg.json') as f:
         d = json.load(f)
-        print(f'API 端点: {len(d.get(\"endpoints\", []))} 个')
+        print(f'API Endpoints: {len(d.get(\"endpoints\", []))}')
 except: pass
 
 try:
     with open('.claude/repowiki/.meta/modules.pkg.json') as f:
         d = json.load(f)
-        print(f'模块: {len(d.get(\"modules\", []))} 个')
+        print(f'Modules: {len(d.get(\"modules\", []))}')
 except: pass
 "
 ```
 </details>
 
-## 注意事项
+## Notes
 
-- **支持模糊匹配** - 输入部分名称即可（如 `User` 匹配 `UserService`）
-- **找不到时显示相似项** - 帮助定位正确名称
-- **流式查询更优** - `stream_query.py` 内存占用低，适合大型项目
-- **索引过期？** - 运行 `/atlas:repo-wiki --force` 重建
-- **降级方案** - 索引不完整时使用 Serena MCP 直接查询源码
+- **Fuzzy matching supported** - Enter partial names (e.g., `User` matches `UserService`)
+- **Shows similar items when not found** - Helps locate correct names
+- **Streaming query preferred** - `stream_query.py` has lower memory usage, suitable for large projects
+- **Index outdated?** - Run `/atlas:repo-wiki --force` to rebuild
+- **Fallback** - When index is incomplete, use Serena MCP to query source code directly

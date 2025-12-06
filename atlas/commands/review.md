@@ -1,270 +1,270 @@
 ---
-description: 代码审查命令。对指定范围的代码进行多维度自动化审查（安全、性能、风格、架构），支持自动修复。
+description: Code review command. Performs multi-dimensional automated review on specified code scope (security, performance, style, architecture), supports auto-fix.
 argument-hint: [--scope path] [--type security|performance|style|architecture|all] [--fix] [--severity critical|warning|all]
 ---
 
-# 代码审查命令
+# Code Review Command
 
-对代码进行多维度自动化审查，发现潜在问题并提供修复建议。
+Performs multi-dimensional automated code review, discovers potential issues and provides fix suggestions.
 
-## 参数
+## Parameters
 
-| 参数 | 说明 | 默认值 |
-|:-----|:-----|:-------|
-| `--scope` | 审查范围（目录/文件/git diff） | git diff（未提交变更） |
-| `--type` | 审查类型 | all |
-| `--fix` | 自动修复可修复的问题 | false |
-| `--severity` | 报告的最低严重性级别 | all |
-
----
-
-## 审查类型
-
-| 类型 | 说明 | 检查项 |
-|:-----|:-----|:-------|
-| `security` | 安全审查 | SQL 注入、XSS、硬编码密钥、敏感信息泄露、不安全的依赖 |
-| `performance` | 性能审查 | N+1 查询、内存泄漏、不必要的重渲染、复杂度过高 |
-| `style` | 风格审查 | 命名规范、代码结构、一致性、注释质量 |
-| `architecture` | 架构审查 | 分层违规、循环依赖、耦合度、模块边界 |
-| `all` | 全部审查 | 以上所有类型 |
+| Parameter | Description | Default |
+|:----------|:------------|:--------|
+| `--scope` | Review scope (directory/file/git diff) | git diff (uncommitted changes) |
+| `--type` | Review type | all |
+| `--fix` | Auto-fix fixable issues | false |
+| `--severity` | Minimum severity level to report | all |
 
 ---
 
-## 执行流程
+## Review Types
 
-Phase 0 范围确定 → Phase 1 代码分析 → Phase 2 并行审查 → Phase 3 报告聚合 → Phase 4 自动修复（可选）
-
-### Subagent 分配
-
-| Phase | 功能 | Subagent | 说明 |
-|:------|:-----|:---------|:-----|
-| 0 | 范围确定 | 主进程 | 解析参数，确定审查范围 |
-| 1 | 代码分析 | `atlas:information-gatherer` | 收集目标代码信息 |
-| 2 | 并行审查 | `atlas:code-reviewer` | 多个实例并行审查不同维度 |
-| 3 | 报告聚合 | 主进程 | 合并结果，生成统一报告 |
-| 4 | 自动修复 | `atlas:atlas-executor` | 执行可自动修复的问题 |
+| Type | Description | Check Items |
+|:-----|:------------|:------------|
+| `security` | Security review | SQL injection, XSS, hardcoded secrets, sensitive data leaks, insecure dependencies |
+| `performance` | Performance review | N+1 queries, memory leaks, unnecessary re-renders, excessive complexity |
+| `style` | Style review | Naming conventions, code structure, consistency, comment quality |
+| `architecture` | Architecture review | Layer violations, circular dependencies, coupling level, module boundaries |
+| `all` | Full review | All types above |
 
 ---
 
-## Phase 0: 范围确定
+## Execution Flow
 
-**输入**: 命令参数
+Phase 0 Scope Determination -> Phase 1 Code Analysis -> Phase 2 Parallel Review -> Phase 3 Report Aggregation -> Phase 4 Auto-fix (optional)
 
-**输出**: 审查目标列表
+### Subagent Assignment
 
-**范围确定规则**:
-| 场景 | 范围 |
-|:-----|:-----|
-| 无 --scope | git diff（未提交的变更文件） |
-| --scope . | 全项目（排除 node_modules、.git 等） |
-| --scope src | 指定目录 |
-| --scope src/user.ts | 指定文件 |
-
-**操作**:
-1. 解析 --scope 参数
-2. 如果未指定，获取 git diff 变更文件列表
-3. 过滤非代码文件
-4. 输出目标文件列表
+| Phase | Function | Subagent | Description |
+|:------|:---------|:---------|:------------|
+| 0 | Scope determination | Main process | Parse parameters, determine review scope |
+| 1 | Code analysis | `atlas:information-gatherer` | Collect target code information |
+| 2 | Parallel review | `atlas:code-reviewer` | Multiple instances review different dimensions in parallel |
+| 3 | Report aggregation | Main process | Merge results, generate unified report |
+| 4 | Auto-fix | `atlas:atlas-executor` | Execute auto-fixable issues |
 
 ---
 
-## 项目知识库
+## Phase 0: Scope Determination
 
-**优先从 `.claude/repowiki/` 获取项目信息**（如果存在）：
+**Input**: Command parameters
 
-| 文件 | 用途 |
-|:-----|:-----|
-| `.claude/repowiki/.meta/modules.pkg.json` | 模块结构、依赖关系（用于架构审查） |
-| `.claude/repowiki/.meta/api.pkg.json` | API 端点信息（用于安全审查） |
-| `.claude/repowiki/.meta/symbols.pkg.json` | 符号索引（加速代码定位） |
+**Output**: Review target list
 
-**使用方式**：Phase 1 分析前先检查这些文件是否存在，优先利用现有信息。
+**Scope determination rules**:
+| Scenario | Scope |
+|:---------|:------|
+| No --scope | git diff (uncommitted change files) |
+| --scope . | Entire project (exclude node_modules, .git, etc.) |
+| --scope src | Specified directory |
+| --scope src/user.ts | Specified file |
+
+**Operations**:
+1. Parse --scope parameter
+2. If not specified, get git diff changed file list
+3. Filter non-code files
+4. Output target file list
 
 ---
 
-## Phase 1: 代码分析
+## Project Knowledge Base
+
+**Prioritize getting project info from `.claude/repowiki/`** (if exists):
+
+| File | Purpose |
+|:-----|:--------|
+| `.claude/repowiki/.meta/modules.pkg.json` | Module structure, dependency relationships (for architecture review) |
+| `.claude/repowiki/.meta/api.pkg.json` | API endpoint information (for security review) |
+| `.claude/repowiki/.meta/symbols.pkg.json` | Symbol index (accelerate code location) |
+
+**Usage**: Check if these files exist before Phase 1 analysis, prioritize using existing information.
+
+---
+
+## Phase 1: Code Analysis
 
 **Subagent**: `atlas:information-gatherer`
 
-**输入**: Phase 0 的目标文件列表 + `.claude/repowiki/` 现有信息（如果存在）
+**Input**: Phase 0 target file list + `.claude/repowiki/` existing info (if exists)
 
-**输出**: `.claude/review/.meta/targets.pkg.json`（包含文件路径、语言、行数、符号、导入导出、统计信息）
+**Output**: `.claude/review/.meta/targets.pkg.json` (contains file path, language, line count, symbols, imports/exports, statistics)
 
 ---
 
-## Phase 2: 并行审查
+## Phase 2: Parallel Review
 
-**Subagent**: `atlas:code-reviewer` (多个实例并行)
+**Subagent**: `atlas:code-reviewer` (multiple instances in parallel)
 
-**输入**:
+**Input**:
 - `.claude/review/.meta/targets.pkg.json`
-- 审查类型（--type 参数）
+- Review type (--type parameter)
 
-**输出**: 各维度审查结果 JSON
+**Output**: Review result JSON for each dimension
 
-**并行策略**:
-- --type all: 启动 4 个 code-reviewer（security、performance、style、architecture）
-- --type security: 启动 1 个 code-reviewer
-- 多个类型: 按指定类型启动对应数量
+**Parallel Strategy**:
+- --type all: Start 4 code-reviewers (security, performance, style, architecture)
+- --type security: Start 1 code-reviewer
+- Multiple types: Start corresponding number for specified types
 
-**Subagent Prompt 必须包含**:
-1. 审查维度（单一维度）
-2. 目标文件路径列表
-3. 审查规则参考（见下方规则表）
-4. 输出格式要求
+**Subagent Prompt must include**:
+1. Review dimension (single dimension)
+2. Target file path list
+3. Review rules reference (see rules table below)
+4. Output format requirements
 
-### 审查规则
+### Review Rules
 
-#### Security（安全）
+#### Security
 
-| 规则 ID | 检查项 | 严重性 |
-|:--------|:-------|:-------|
-| SEC001 | SQL 注入 | 🔴 critical |
-| SEC002 | XSS 漏洞 | 🔴 critical |
-| SEC003 | 硬编码密钥 | 🔴 critical |
-| SEC004 | 敏感信息日志 | 🟠 warning |
-| SEC005 | 不安全的随机数 | 🟡 info |
-| SEC006 | eval/Function 使用 | 🟠 warning |
-| SEC007 | 路径遍历 | 🔴 critical |
-| SEC008 | CORS 配置 | 🟠 warning |
+| Rule ID | Check Item | Severity |
+|:--------|:-----------|:---------|
+| SEC001 | SQL injection | critical |
+| SEC002 | XSS vulnerability | critical |
+| SEC003 | Hardcoded secrets | critical |
+| SEC004 | Sensitive info logging | warning |
+| SEC005 | Insecure random numbers | info |
+| SEC006 | eval/Function usage | warning |
+| SEC007 | Path traversal | critical |
+| SEC008 | CORS configuration | warning |
 
-#### Performance（性能）
+#### Performance
 
-| 规则 ID | 检查项 | 严重性 |
-|:--------|:-------|:-------|
-| PERF001 | N+1 查询 | 🟠 warning |
-| PERF002 | 未优化循环 | 🟡 info |
-| PERF003 | 内存泄漏风险 | 🟠 warning |
-| PERF004 | 不必要的重渲染 | 🟡 info |
-| PERF005 | 同步阻塞 | 🟠 warning |
-| PERF006 | 正则回溯 | 🟠 warning |
-| PERF007 | 大对象拷贝 | 🟡 info |
+| Rule ID | Check Item | Severity |
+|:--------|:-----------|:---------|
+| PERF001 | N+1 queries | warning |
+| PERF002 | Unoptimized loops | info |
+| PERF003 | Memory leak risk | warning |
+| PERF004 | Unnecessary re-renders | info |
+| PERF005 | Synchronous blocking | warning |
+| PERF006 | Regex backtracking | warning |
+| PERF007 | Large object copies | info |
 
-#### Style（风格）
+#### Style
 
-| 规则 ID | 检查项 | 严重性 |
-|:--------|:-------|:-------|
-| STYLE001 | 函数过长 | 🟠 warning |
-| STYLE002 | 嵌套过深 | 🟠 warning |
-| STYLE003 | 命名不规范 | 🟡 info |
-| STYLE004 | 魔法数字 | 🟡 info |
-| STYLE005 | 重复代码 | 🟠 warning |
-| STYLE006 | TODO/FIXME | 🟡 info |
-| STYLE007 | 无用代码 | 🟡 info |
-| STYLE008 | 参数过多 | 🟡 info |
+| Rule ID | Check Item | Severity |
+|:--------|:-----------|:---------|
+| STYLE001 | Function too long | warning |
+| STYLE002 | Nesting too deep | warning |
+| STYLE003 | Non-standard naming | info |
+| STYLE004 | Magic numbers | info |
+| STYLE005 | Duplicate code | warning |
+| STYLE006 | TODO/FIXME | info |
+| STYLE007 | Dead code | info |
+| STYLE008 | Too many parameters | info |
 
-#### Architecture（架构）
+#### Architecture
 
-| 规则 ID | 检查项 | 严重性 |
-|:--------|:-------|:-------|
-| ARCH001 | 循环依赖 | 🟠 warning |
-| ARCH002 | 分层违规 | 🟠 warning |
-| ARCH003 | 模块边界 | 🟡 info |
-| ARCH004 | 耦合度高 | 🟡 info |
-| ARCH005 | 缺少抽象 | 🟡 info |
-| ARCH006 | 单例滥用 | 🟡 info |
+| Rule ID | Check Item | Severity |
+|:--------|:-----------|:---------|
+| ARCH001 | Circular dependencies | warning |
+| ARCH002 | Layer violations | warning |
+| ARCH003 | Module boundaries | info |
+| ARCH004 | High coupling | info |
+| ARCH005 | Missing abstraction | info |
+| ARCH006 | Singleton abuse | info |
 
-### 输出格式
+### Output Format
 
-每个 code-reviewer 实例输出 JSON，包含：
-- `dimension`: 审查维度
-- `timestamp`: 时间戳
-- `issues[]`: 问题列表（ruleId, severity, file, line, column, code, message, suggestion, autoFixable, fixedCode）
-- `summary`: 统计信息（critical, warning, info, total）
-
----
-
-## Phase 3: 报告聚合
-
-**执行者**: 主进程
-
-**输入**: Phase 2 各维度的审查结果 JSON
-
-**输出**: `.claude/review/report-{date}.md`
-
-**报告包含**:
-- 概览（审查范围、类型、总问题数、严重问题、警告、提示）
-- 问题分布（按维度和严重性）
-- 严重问题详情（文件、代码、建议、是否可自动修复）
-- 警告和提示问题列表
-- 修复建议（自动修复和手动修复分组）
+Each code-reviewer instance outputs JSON containing:
+- `dimension`: Review dimension
+- `timestamp`: Timestamp
+- `issues[]`: Issue list (ruleId, severity, file, line, column, code, message, suggestion, autoFixable, fixedCode)
+- `summary`: Statistics (critical, warning, info, total)
 
 ---
 
-## Phase 4: 自动修复（可选）
+## Phase 3: Report Aggregation
 
-**条件**: 仅当 --fix 参数存在时执行
+**Executor**: Main process
+
+**Input**: Phase 2 review result JSON for each dimension
+
+**Output**: `.claude/review/report-{date}.md`
+
+**Report Contains**:
+- Overview (review scope, types, total issues, critical issues, warnings, info)
+- Issue distribution (by dimension and severity)
+- Critical issue details (file, code, suggestion, auto-fixable or not)
+- Warning and info issue list
+- Fix suggestions (grouped by auto-fix and manual fix)
+
+---
+
+## Phase 4: Auto-fix (Optional)
+
+**Condition**: Only execute when --fix parameter exists
 
 **Subagent**: `atlas:atlas-executor`
 
-**输入**: Phase 3 报告中 autoFixable=true 的问题列表
+**Input**: Phase 3 report issues list where autoFixable=true
 
-**输出**: 修复后的文件 + 修复报告
+**Output**: Fixed files + fix report
 
-**执行策略**:
-1. 按文件分组，每个文件一个子任务
-2. 并行执行各子任务
-3. 每个修复保持原有代码风格
+**Execution Strategy**:
+1. Group by file, one subtask per file
+2. Execute subtasks in parallel
+3. Each fix maintains original code style
 
-**修复原则**:
-- 只修复 autoFixable=true 的问题
-- 保持代码格式一致
-- 不引入新问题
-- 修复后验证语法正确性
+**Fix Principles**:
+- Only fix issues where autoFixable=true
+- Maintain code format consistency
+- Don't introduce new issues
+- Verify syntax correctness after fix
 
-**修复报告**包含：修复统计、修复详情、后续建议
-
----
-
-## 条件执行
-
-| 条件 | 行为 |
-|:-----|:-----|
-| 无变更文件 | 提示无需审查，退出 |
-| 目标文件 >100 | 建议使用 --scope 缩小范围 |
-| --fix 但无可修复问题 | 报告无可自动修复的问题 |
-| 审查类型无问题 | 报告该维度通过 |
+**Fix Report** contains: Fix statistics, fix details, follow-up suggestions
 
 ---
 
-## 约束
+## Conditional Execution
 
-**执行约束**:
-- Phase 2 必须使用 `atlas:code-reviewer` agent
-- Phase 4 必须使用 `atlas:atlas-executor` agent
-- 不同审查维度必须并行执行
-- 每个 code-reviewer 只处理单一维度
-
-**审查约束**:
-- 只报告问题，不擅自修复（除非 --fix）
-- 严格按规则判断严重性
-- 提供可操作的修复建议
-- autoFixable 必须谨慎判断
-
-**报告约束**:
-- 问题必须包含文件路径和行号
-- 必须提供代码片段上下文
-- 必须按严重性排序
-- 必须说明是否可自动修复
+| Condition | Behavior |
+|:----------|:---------|
+| No changed files | Prompt no review needed, exit |
+| Target files >100 | Suggest using --scope to narrow scope |
+| --fix but no fixable issues | Report no auto-fixable issues |
+| Review type has no issues | Report that dimension passed |
 
 ---
 
-## 示例
+## Constraints
 
-### 基础用法
+**Execution Constraints**:
+- Phase 2 must use `atlas:code-reviewer` agent
+- Phase 4 must use `atlas:atlas-executor` agent
+- Different review dimensions must execute in parallel
+- Each code-reviewer only handles single dimension
+
+**Review Constraints**:
+- Only report issues, don't fix without permission (unless --fix)
+- Strictly judge severity by rules
+- Provide actionable fix suggestions
+- autoFixable must be carefully determined
+
+**Report Constraints**:
+- Issues must include file path and line number
+- Must provide code snippet context
+- Must sort by severity
+- Must indicate if auto-fixable
+
+---
+
+## Examples
+
+### Basic Usage
 ```bash
-# 审查未提交的变更
+# Review uncommitted changes
 /atlas:review
 
-# 审查指定目录
+# Review specified directory
 /atlas:review --scope src/services
 
-# 仅安全审查
+# Security review only
 /atlas:review --type security
 
-# 审查并自动修复
+# Review and auto-fix
 /atlas:review --fix
 
-# 只看严重问题
+# Show critical issues only
 /atlas:review --severity critical
 ```

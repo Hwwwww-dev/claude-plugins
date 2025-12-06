@@ -1,209 +1,209 @@
 ---
-description: 智能重构命令。识别代码问题并执行特定模式的自动化重构，支持预览和交互式确认。
+description: Smart refactoring command. Identifies code issues and executes automated refactoring for specific patterns, supports preview and interactive confirmation.
 argument-hint: <pattern> [--scope path] [--dry-run] [--interactive]
 ---
 
-# 智能重构命令
+# Smart Refactoring Command
 
-识别符合特定模式的代码问题，并执行自动化重构。
+Identifies code issues matching specific patterns and executes automated refactoring.
 
-## 参数
+## Parameters
 
-| 参数 | 说明 | 默认值 |
-|:-----|:-----|:-------|
-| `pattern` | 重构模式（必填） | - |
-| `--scope` | 重构范围 | . (全项目) |
-| `--dry-run` | 仅预览，不实际修改 | false |
-| `--interactive` | 交互式逐个确认 | false |
-
----
-
-## 重构模式
-
-| 模式 | 说明 | 识别条件 | 示例 |
-|:-----|:-----|:---------|:-----|
-| `extract-method` | 提取长函数为小函数 | 函数体 >50 行 | 拆分 processOrder 为多个子函数 |
-| `extract-component` | 提取大组件为子组件 | JSX/模板 >100 行 | 拆分 Dashboard 为 Header/Content/Sidebar |
-| `consolidate-duplicate` | 合并重复代码 | 相似度 >80%，≥3 处 | 提取公共函数 |
-| `modernize-js` | JavaScript 现代化 | var/callback/传统语法 | var→const, callback→async/await |
-| `add-types` | 添加 TypeScript 类型 | any/缺失类型 | any→具体类型, 添加接口定义 |
-| `rename-convention` | 统一命名规范 | 命名不一致 | snake_case→camelCase |
-| `simplify-conditions` | 简化条件逻辑 | 复杂 if-else | 提前返回, 三元表达式 |
-| `remove-dead-code` | 移除死代码 | 未使用的导出/变量 | 删除无引用代码 |
+| Parameter | Description | Default |
+|:----------|:------------|:--------|
+| `pattern` | Refactoring pattern (required) | - |
+| `--scope` | Refactoring scope | . (entire project) |
+| `--dry-run` | Preview only, don't actually modify | false |
+| `--interactive` | Interactive confirmation one by one | false |
 
 ---
 
-## 执行流程
+## Refactoring Patterns
 
-Phase 0 模式解析 → Phase 1 候选识别 → Phase 2 规划 → Phase 3 执行/预览 → Phase 4 验证
-
-### Subagent 分配
-
-| Phase | 功能 | Subagent | 说明 |
-|:------|:-----|:---------|:-----|
-| 0 | 模式解析 | 主进程 | 验证模式有效性 |
-| 1 | 候选识别 | `atlas:information-gatherer` | 扫描符合模式的代码 |
-| 2 | 规划 | `Plan` | 生成重构计划 |
-| 3 | 执行 | `atlas:atlas-executor` | 并行执行重构 |
-| 4 | 验证 | 主进程 | 运行测试/类型检查 |
-
----
-
-## Phase 0: 模式解析
-
-**输入**: 命令参数
-
-**操作**:
-1. 验证 pattern 是否为支持的模式
-2. 解析 --scope 确定范围
-3. 记录执行选项（dry-run/interactive）
-
-**失败场景**:
-- 未知模式 → 列出支持的模式，终止
-- 范围不存在 → 报错，终止
+| Pattern | Description | Detection Criteria | Example |
+|:--------|:------------|:-------------------|:--------|
+| `extract-method` | Extract long functions into smaller functions | Function body >50 lines | Split processOrder into multiple sub-functions |
+| `extract-component` | Extract large components into sub-components | JSX/template >100 lines | Split Dashboard into Header/Content/Sidebar |
+| `consolidate-duplicate` | Consolidate duplicate code | Similarity >80%, >=3 occurrences | Extract common function |
+| `modernize-js` | JavaScript modernization | var/callback/legacy syntax | var->const, callback->async/await |
+| `add-types` | Add TypeScript types | any/missing types | any->concrete types, add interface definitions |
+| `rename-convention` | Unify naming conventions | Inconsistent naming | snake_case->camelCase |
+| `simplify-conditions` | Simplify conditional logic | Complex if-else | Early return, ternary expressions |
+| `remove-dead-code` | Remove dead code | Unused exports/variables | Delete unreferenced code |
 
 ---
 
-## 项目知识库
+## Execution Flow
 
-**优先从 `.claude/repowiki/` 获取项目信息**（如果存在）：
+Phase 0 Pattern Parsing -> Phase 1 Candidate Identification -> Phase 2 Planning -> Phase 3 Execute/Preview -> Phase 4 Validation
 
-| 文件 | 用途 |
-|:-----|:-----|
-| `.claude/repowiki/.meta/modules.pkg.json` | 模块结构（用于依赖分析） |
-| `.claude/repowiki/.meta/symbols.pkg.json` | 符号索引（加速候选识别） |
-| `.claude/repowiki/.meta/quality.pkg.json` | 质量分析（已识别的问题点） |
+### Subagent Assignment
 
-**使用方式**：Phase 1 识别前先检查这些文件是否存在，可加速候选识别过程。
+| Phase | Function | Subagent | Description |
+|:------|:---------|:---------|:------------|
+| 0 | Pattern parsing | Main process | Validate pattern validity |
+| 1 | Candidate identification | `atlas:information-gatherer` | Scan code matching pattern |
+| 2 | Planning | `Plan` | Generate refactoring plan |
+| 3 | Execution | `atlas:atlas-executor` | Execute refactoring in parallel |
+| 4 | Validation | Main process | Run tests/type checks |
 
 ---
 
-## Phase 1: 候选识别
+## Phase 0: Pattern Parsing
+
+**Input**: Command parameters
+
+**Operations**:
+1. Validate pattern is a supported pattern
+2. Parse --scope to determine scope
+3. Record execution options (dry-run/interactive)
+
+**Failure Scenarios**:
+- Unknown pattern -> List supported patterns, terminate
+- Scope doesn't exist -> Error, terminate
+
+---
+
+## Project Knowledge Base
+
+**Prioritize getting project info from `.claude/repowiki/`** (if exists):
+
+| File | Purpose |
+|:-----|:--------|
+| `.claude/repowiki/.meta/modules.pkg.json` | Module structure (for dependency analysis) |
+| `.claude/repowiki/.meta/symbols.pkg.json` | Symbol index (accelerate candidate identification) |
+| `.claude/repowiki/.meta/quality.pkg.json` | Quality analysis (identified problem points) |
+
+**Usage**: Check if these files exist before Phase 1 identification, can accelerate candidate identification process.
+
+---
+
+## Phase 1: Candidate Identification
 
 **Subagent**: `atlas:information-gatherer`
 
-**输入**: 重构模式 + 范围 + `.claude/repowiki/` 现有信息（如果存在）
+**Input**: Refactoring pattern + scope + `.claude/repowiki/` existing info (if exists)
 
-**输出**: `.claude/refactor/.meta/candidates.pkg.json` - 包含候选项列表（id, file, symbol, line, reason, complexity, suggestedSplits）
+**Output**: `.claude/refactor/.meta/candidates.pkg.json` - Contains candidate list (id, file, symbol, line, reason, complexity, suggestedSplits)
 
-### 各模式识别规则
+### Detection Rules for Each Pattern
 
-| 模式 | 识别条件 | 输出内容 |
-|:-----|:---------|:---------|
-| `extract-method` | 函数体 >50 行或圈复杂度 >10 | 函数位置、拆分点、命名建议 |
-| `extract-component` | JSX/模板 >100 行或 props >10 | 组件位置、子组件建议、props 分析 |
-| `consolidate-duplicate` | 相似度 >80%，≥3 处 | 重复位置列表、相似度、合并建议 |
-| `modernize-js` | 使用 var/callback/arguments/with | 旧语法位置、现代替代方案 |
-| `add-types` | any/缺失类型 | 类型缺失位置、推断的类型建议 |
-| `rename-convention` | 命名不符合项目约定 | 不规范命名列表、建议的新命名 |
-| `simplify-conditions` | if-else >3 层或条件 >3 运算符 | 复杂条件位置、简化建议 |
-| `remove-dead-code` | 未被引用的导出 | 死代码位置、引用分析结果 |
+| Pattern | Detection Criteria | Output Content |
+|:--------|:-------------------|:---------------|
+| `extract-method` | Function body >50 lines or cyclomatic complexity >10 | Function location, split points, naming suggestions |
+| `extract-component` | JSX/template >100 lines or props >10 | Component location, sub-component suggestions, props analysis |
+| `consolidate-duplicate` | Similarity >80%, >=3 occurrences | Duplicate location list, similarity, merge suggestions |
+| `modernize-js` | Uses var/callback/arguments/with | Legacy syntax locations, modern alternatives |
+| `add-types` | any/missing types | Type missing locations, inferred type suggestions |
+| `rename-convention` | Naming doesn't follow project conventions | Non-standard naming list, suggested new names |
+| `simplify-conditions` | if-else >3 levels or conditions >3 operators | Complex condition locations, simplification suggestions |
+| `remove-dead-code` | Unreferenced exports | Dead code locations, reference analysis results |
 
 ---
 
-## Phase 2: 规划
+## Phase 2: Planning
 
 **Subagent**: `Plan`
 
-**输入**: `.claude/refactor/.meta/candidates.pkg.json`
+**Input**: `.claude/refactor/.meta/candidates.pkg.json`
 
-**输出**: 重构执行计划 + TodoWrite todos
+**Output**: Refactoring execution plan + TodoWrite todos
 
-**规划内容**: 按依赖排序候选项 → 分配子任务 → 决定执行策略（parallel/sequential） → 生成详细步骤
-
----
-
-## Phase 3: 执行/预览
-
-### --dry-run 模式
-**执行者**: 主进程
-**输出**: 预览报告（不修改文件），展示变更概要和预计影响
-
-### --interactive 模式
-**执行者**: 主进程 + atlas:atlas-executor
-**流程**: 逐个展示变更预览 → 询问 [执行/跳过/终止] → 根据选择执行
-
-### 默认模式（直接执行）
-**Subagent**: `atlas:atlas-executor` (并行多个)
-
-**执行策略**:
-- 无依赖冲突：并行执行所有子任务
-- 有依赖冲突：按依赖顺序串行执行
-
-**子任务 Prompt 必须包含**: 重构模式和规则 + 目标文件和符号 + 候选项详细信息 + 代码风格一致性要求
+**Planning Content**: Sort candidates by dependencies -> Assign subtasks -> Decide execution strategy (parallel/sequential) -> Generate detailed steps
 
 ---
 
-## Phase 4: 验证
+## Phase 3: Execute/Preview
 
-**执行者**: 主进程
+### --dry-run Mode
+**Executor**: Main process
+**Output**: Preview report (don't modify files), show change summary and expected impact
 
-**操作**: 检测测试框架 → 运行相关测试 → 运行类型检查 → 报告验证结果
+### --interactive Mode
+**Executor**: Main process + atlas:atlas-executor
+**Flow**: Show change preview one by one -> Ask [Execute/Skip/Terminate] -> Execute based on selection
 
-**验证命令检测**:
-| 检测 | 命令 |
-|:-----|:-----|
+### Default Mode (Direct Execution)
+**Subagent**: `atlas:atlas-executor` (multiple in parallel)
+
+**Execution Strategy**:
+- No dependency conflicts: Execute all subtasks in parallel
+- Has dependency conflicts: Execute sequentially per dependencies
+
+**Subtask Prompt must include**: Refactoring pattern and rules + Target files and symbols + Candidate details + Code style consistency requirements
+
+---
+
+## Phase 4: Validation
+
+**Executor**: Main process
+
+**Operations**: Detect test framework -> Run related tests -> Run type checks -> Report validation results
+
+**Validation Command Detection**:
+| Detection | Command |
+|:----------|:--------|
 | package.json test script | `npm test` / `yarn test` |
 | TypeScript | `tsc --noEmit` |
 | ESLint | `eslint --fix` |
 
 ---
 
-## 约束
+## Constraints
 
-**模式约束**:
-- 只执行指定模式的重构
-- 不"顺便"做其他优化
-- 保持现有代码风格
+**Pattern Constraints**:
+- Only execute refactoring for specified pattern
+- Don't do other optimizations "along the way"
+- Maintain existing code style
 
-**安全约束**:
-- 重构前记录原始代码
-- 验证失败时提供回滚建议
-- 不修改测试文件（除非明确要求）
+**Safety Constraints**:
+- Record original code before refactoring
+- Provide rollback suggestions when validation fails
+- Don't modify test files (unless explicitly requested)
 
-**执行约束**:
-- Phase 1 必须使用 information-gatherer
-- Phase 2 必须使用 Plan agent
-- Phase 3 必须使用 atlas-executor（非 dry-run 时）
+**Execution Constraints**:
+- Phase 1 must use information-gatherer
+- Phase 2 must use Plan agent
+- Phase 3 must use atlas-executor (when not dry-run)
 
 ---
 
-## 示例
+## Examples
 
-### 基础用法
+### Basic Usage
 ```bash
-/atlas:refactor extract-method              # 提取长函数
-/atlas:refactor extract-method --dry-run    # 仅预览
-/atlas:refactor extract-method --interactive # 交互式确认
-/atlas:refactor add-types --scope src/services # 限定范围
-/atlas:refactor modernize-js --scope src    # JS 现代化
+/atlas:refactor extract-method              # Extract long functions
+/atlas:refactor extract-method --dry-run    # Preview only
+/atlas:refactor extract-method --interactive # Interactive confirmation
+/atlas:refactor add-types --scope src/services # Limit scope
+/atlas:refactor modernize-js --scope src    # JS modernization
 ```
 
-### 输出示例
+### Output Examples
 
-**预览模式**:
+**Preview Mode**:
 ```
-📋 重构预览
-模式: extract-method | 范围: src/services | 候选数: 5
+Refactoring Preview
+Pattern: extract-method | Scope: src/services | Candidates: 5
 
-变更预览:
-1. processOrder (order.service.ts:45) → 拆分为 3 个函数
-2. handleRegistration (user.service.ts:23) → 拆分为 2 个函数
+Change Preview:
+1. processOrder (order.service.ts:45) -> Split into 3 functions
+2. handleRegistration (user.service.ts:23) -> Split into 2 functions
 ...
 
-预计影响: 修改 3 个文件，新增 7 个私有函数
+Expected Impact: Modify 3 files, add 7 private functions
 ```
 
-**执行完成**:
+**Execution Complete**:
 ```
-✅ 重构完成
-模式: extract-method | 执行: 5/5 候选项
+Refactoring Complete
+Pattern: extract-method | Executed: 5/5 candidates
 
-修改文件:
-- src/order/order.service.ts (+3 函数)
-- src/user/user.service.ts (+2 函数)
+Modified Files:
+- src/order/order.service.ts (+3 functions)
+- src/user/user.service.ts (+2 functions)
 
-验证结果:
-- ✅ 类型检查通过
-- ✅ 测试通过 (42/42)
+Validation Results:
+- Type check passed
+- Tests passed (42/42)
 ```

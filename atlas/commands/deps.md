@@ -1,127 +1,127 @@
 ---
-description: 依赖管理命令。分析项目依赖,检测安全漏洞、版本冲突、升级建议,支持自动修复。
+description: Dependency management command. Analyzes project dependencies, detects security vulnerabilities, version conflicts, and upgrade suggestions, supports auto-fix.
 argument-hint: [--scope path] [--type security|outdated|conflicts|tree|all] [--fix] [--upgrade major|minor|patch]
 ---
 
-# /deps - 依赖管理
+# /deps - Dependency Management
 
-用户输入: $ARGUMENTS
+User input: $ARGUMENTS
 
 ---
 
-## 第一步:确认执行选项
+## Step 1: Confirm Execution Options
 
-**如果用户未指定选项,使用 AskUserQuestion 询问:**
+**If user doesn't specify options, use AskUserQuestion to ask:**
 
 ```
-问题1: 分析类型
-- security: 安全漏洞检测(CVE、恶意包)
-- outdated: 过期依赖分析(版本差距、更新建议)
-- conflicts: 版本冲突检测(peer dependency、重复包)
-- tree: 依赖树分析(深度、包大小、冗余)
-- all: 全部分析(默认)
+Question 1: Analysis type
+- security: Security vulnerability detection (CVE, malicious packages)
+- outdated: Outdated dependency analysis (version gap, update suggestions)
+- conflicts: Version conflict detection (peer dependency, duplicate packages)
+- tree: Dependency tree analysis (depth, package size, redundancy)
+- all: All analysis (default)
 
-问题2: 分析范围
-- 默认: 项目根目录
-- 指定: 输入路径(如 packages/core)
+Question 2: Analysis scope
+- Default: Project root directory
+- Specified: Enter path (e.g., packages/core)
 
-问题3: 修复策略
-- report: 仅生成报告(默认)
-- fix: 自动修复可修复的问题
-- interactive: 交互式选择修复
+Question 3: Fix strategy
+- report: Generate report only (default)
+- fix: Auto-fix fixable issues
+- interactive: Interactive fix selection
 
-问题4: 升级策略(仅 outdated 类型)
-- patch: 补丁版本(1.0.x)
-- minor: 次版本(1.x.0)
-- major: 主版本(x.0.0)
+Question 4: Upgrade strategy (outdated type only)
+- patch: Patch version (1.0.x)
+- minor: Minor version (1.x.0)
+- major: Major version (x.0.0)
 ```
 
-**如果用户已指定(如 `/deps --type security --fix`),跳过询问。**
+**If user has specified (e.g., `/deps --type security --fix`), skip asking.**
 
 ---
 
-## 参数
+## Parameters
 
-| 参数 | 说明 | 默认值 |
-|:-----|:-----|:-------|
-| `--scope` | 分析范围(目录/文件) | . (项目根) |
-| `--type` | 分析类型 | all |
-| `--fix` | 自动修复可修复的问题 | false |
-| `--upgrade` | 升级策略(patch/minor/major) | patch |
-| `--interactive` | 交互式选择修复项 | false |
-| `--no-dev` | 排除开发依赖 | false |
-
----
-
-## 分析类型
-
-| 类型 | 检查内容 | 输出 |
-|:-----|:---------|:-----|
-| **security** | CVE 漏洞、恶意包、许可证风险 | 漏洞清单、CVSS 评分、修复建议 |
-| **outdated** | 过期依赖、版本差距、破坏性变更 | 当前版本、最新版本、升级建议 |
-| **conflicts** | 版本冲突、peer dependency、重复包 | 冲突清单、解决方案、依赖树 |
-| **tree** | 依赖深度、包大小、传递依赖、冗余 | 依赖树、大小分析、优化建议 |
-| **all** | 以上所有类型 | 综合报告 |
+| Parameter | Description | Default |
+|:----------|:------------|:--------|
+| `--scope` | Analysis scope (directory/file) | . (project root) |
+| `--type` | Analysis type | all |
+| `--fix` | Auto-fix fixable issues | false |
+| `--upgrade` | Upgrade strategy (patch/minor/major) | patch |
+| `--interactive` | Interactive fix selection | false |
+| `--no-dev` | Exclude dev dependencies | false |
 
 ---
 
-## 执行流程
+## Analysis Types
 
-Phase 0 环境检测 → Phase 1 依赖扫描 → Phase 2 问题分析 → Phase 3 报告生成 → Phase 4 自动修复(可选)
-
-### Subagent 分配
-
-| Phase | 功能 | Subagent | 说明 |
-|:------|:-----|:---------|:-----|
-| 0 | 环境检测 | 主进程 | 检测包管理器、lockfile、配置文件 |
-| 1 | 依赖扫描 | `atlas:dependency-analyzer` | 读取依赖清单、构建依赖树 |
-| 2 | 问题分析 | `atlas:dependency-analyzer` | 并行执行各类型分析 |
-| 3 | 报告生成 | 主进程 | 合并结果、生成统一报告 |
-| 4 | 自动修复 | `atlas:atlas-executor` | 执行可自动修复的问题 |
+| Type | Check Content | Output |
+|:-----|:--------------|:-------|
+| **security** | CVE vulnerabilities, malicious packages, license risks | Vulnerability list, CVSS scores, fix suggestions |
+| **outdated** | Outdated dependencies, version gaps, breaking changes | Current version, latest version, upgrade suggestions |
+| **conflicts** | Version conflicts, peer dependencies, duplicate packages | Conflict list, solutions, dependency tree |
+| **tree** | Dependency depth, package size, transitive dependencies, redundancy | Dependency tree, size analysis, optimization suggestions |
+| **all** | All types above | Comprehensive report |
 
 ---
 
-## Phase 0: 环境检测
+## Execution Flow
 
-**输入**: --scope 参数
+Phase 0 Environment Detection -> Phase 1 Dependency Scan -> Phase 2 Problem Analysis -> Phase 3 Report Generation -> Phase 4 Auto-fix (optional)
 
-**输出**: 环境配置信息
+### Subagent Assignment
 
-**检测内容**:
+| Phase | Function | Subagent | Description |
+|:------|:---------|:---------|:------------|
+| 0 | Environment detection | Main process | Detect package manager, lockfile, config files |
+| 1 | Dependency scan | `atlas:dependency-analyzer` | Read dependency list, build dependency tree |
+| 2 | Problem analysis | `atlas:dependency-analyzer` | Execute various type analyses in parallel |
+| 3 | Report generation | Main process | Merge results, generate unified report |
+| 4 | Auto-fix | `atlas:atlas-executor` | Execute auto-fixable issues |
 
-| 检测项 | 说明 |
-|:-------|:-----|
-| 包管理器 | npm/yarn/pnpm/bun(检测 lockfile) |
+---
+
+## Phase 0: Environment Detection
+
+**Input**: --scope parameter
+
+**Output**: Environment configuration info
+
+**Detection Content**:
+
+| Detection Item | Description |
+|:---------------|:------------|
+| Package manager | npm/yarn/pnpm/bun (detect lockfile) |
 | Lockfile | package-lock.json/yarn.lock/pnpm-lock.yaml/bun.lockb |
-| 配置文件 | package.json/lerna.json/pnpm-workspace.yaml |
-| Monorepo | 检测是否为 monorepo 结构 |
-| Node 版本 | 检测 engines 字段和实际版本 |
+| Config files | package.json/lerna.json/pnpm-workspace.yaml |
+| Monorepo | Detect if monorepo structure |
+| Node version | Detect engines field and actual version |
 
-**操作**:
-1. 检测 --scope 指定的目录
-2. 识别包管理器类型
-3. 读取 package.json 和 lockfile
-4. 输出环境信息供后续阶段使用
+**Operations**:
+1. Detect directory specified by --scope
+2. Identify package manager type
+3. Read package.json and lockfile
+4. Output environment info for subsequent phases
 
 ---
 
-## Phase 1: 依赖扫描
+## Phase 1: Dependency Scan
 
 **Subagent**: `atlas:dependency-analyzer`
 
-**输入**: Phase 0 的环境配置
+**Input**: Phase 0 environment configuration
 
-**输出**: `.claude/.meta/dependencies.json`
+**Output**: `.claude/.meta/dependencies.json`
 
-**扫描内容**:
-- dependencies: 生产依赖
-- devDependencies: 开发依赖
-- peerDependencies: 对等依赖
-- optionalDependencies: 可选依赖
-- 传递依赖树
-- 包元数据(版本、许可证、仓库)
+**Scan Content**:
+- dependencies: Production dependencies
+- devDependencies: Development dependencies
+- peerDependencies: Peer dependencies
+- optionalDependencies: Optional dependencies
+- Transitive dependency tree
+- Package metadata (version, license, repository)
 
-**数据结构**:
+**Data Structure**:
 ```json
 {
   "manager": "npm",
@@ -140,303 +140,303 @@ Phase 0 环境检测 → Phase 1 依赖扫描 → Phase 2 问题分析 → Phase
 
 ---
 
-## Phase 2: 问题分析
+## Phase 2: Problem Analysis
 
-**Subagent**: `atlas:dependency-analyzer` (多个实例并行)
+**Subagent**: `atlas:dependency-analyzer` (multiple instances in parallel)
 
-**输入**:
+**Input**:
 - `.claude/.meta/dependencies.json`
-- 分析类型(--type 参数)
+- Analysis type (--type parameter)
 
-**输出**: 各类型分析结果 JSON
+**Output**: Analysis result JSON for each type
 
-**并行策略**:
-- --type all: 启动 4 个 analyzer(security、outdated、conflicts、tree)
-- --type security: 启动 1 个 analyzer
-- 多个类型: 按指定类型启动对应数量
+**Parallel Strategy**:
+- --type all: Start 4 analyzers (security, outdated, conflicts, tree)
+- --type security: Start 1 analyzer
+- Multiple types: Start corresponding number for specified types
 
-**Subagent Prompt 必须包含**:
-1. 分析维度(单一维度)
-2. 依赖数据路径
-3. 分析规则参考(见下方规则表)
-4. 输出格式要求
+**Subagent Prompt must include**:
+1. Analysis dimension (single dimension)
+2. Dependency data path
+3. Analysis rules reference (see rules table below)
+4. Output format requirements
 
-### 分析规则
+### Analysis Rules
 
-#### Security(安全)
+#### Security
 
-| 检查项 | 说明 | 严重性 |
-|:-------|:-----|:-------|
-| CVE 漏洞 | 已知安全漏洞 | 🔴 critical/high/medium/low |
-| 恶意包 | typosquatting、supply chain attack | 🔴 critical |
-| 许可证风险 | GPL、AGPL 等传染性许可证 | 🟠 warning |
-| 废弃包 | deprecated 标记 | 🟡 info |
-| 维护状态 | 长期未更新(>2年) | 🟡 info |
+| Check Item | Description | Severity |
+|:-----------|:------------|:---------|
+| CVE vulnerabilities | Known security vulnerabilities | critical/high/medium/low |
+| Malicious packages | Typosquatting, supply chain attack | critical |
+| License risks | GPL, AGPL and other copyleft licenses | warning |
+| Deprecated packages | deprecated flag | info |
+| Maintenance status | Not updated for >2 years | info |
 
-**数据源**:
+**Data Sources**:
 - npm audit / yarn audit / pnpm audit
-- OSV(Open Source Vulnerabilities)
+- OSV (Open Source Vulnerabilities)
 - GitHub Advisory Database
 
-#### Outdated(过期)
+#### Outdated
 
-| 检查项 | 说明 | 建议 |
-|:-------|:-----|:-----|
-| 补丁版本 | 1.0.0 → 1.0.5 | 🟢 推荐升级 |
-| 次版本 | 1.0.0 → 1.5.0 | 🟡 评估后升级 |
-| 主版本 | 1.0.0 → 2.0.0 | 🟠 仔细评估(破坏性变更) |
-| 版本差距 | 落后 >10 个小版本 | 🟠 建议分阶段升级 |
-| EOL 版本 | React 16.x(已停止支持) | 🔴 尽快升级 |
+| Check Item | Description | Suggestion |
+|:-----------|:------------|:-----------|
+| Patch version | 1.0.0 -> 1.0.5 | Recommended upgrade |
+| Minor version | 1.0.0 -> 1.5.0 | Evaluate before upgrade |
+| Major version | 1.0.0 -> 2.0.0 | Careful evaluation (breaking changes) |
+| Version gap | Behind >10 minor versions | Staged upgrade recommended |
+| EOL version | React 16.x (no longer supported) | Upgrade ASAP |
 
-#### Conflicts(冲突)
+#### Conflicts
 
-| 检查项 | 说明 | 解决方案 |
-|:-------|:-----|:---------|
-| 版本冲突 | 多个包要求不同版本 | resolutions/overrides |
-| Peer Dependency | 未满足的对等依赖 | 安装缺失依赖 |
-| 重复包 | 多个版本共存 | dedupe/resolutions |
-| 循环依赖 | A→B→C→A | 重构依赖关系 |
+| Check Item | Description | Solution |
+|:-----------|:------------|:---------|
+| Version conflict | Multiple packages require different versions | resolutions/overrides |
+| Peer Dependency | Unmet peer dependencies | Install missing dependencies |
+| Duplicate packages | Multiple versions coexist | dedupe/resolutions |
+| Circular dependency | A->B->C->A | Refactor dependency relationships |
 
-#### Tree(依赖树)
+#### Tree (Dependency Tree)
 
-| 分析项 | 说明 | 优化建议 |
-|:-------|:-----|:---------|
-| 依赖深度 | 最大依赖层级 | 减少深度(<5层) |
-| 包数量 | 总包数量 | 移除未使用依赖 |
-| 包大小 | node_modules 大小 | 寻找更轻量的替代品 |
-| 传递依赖 | 间接依赖数量 | 审查必要性 |
-| 冗余依赖 | 多个包提供相同功能 | 统一工具链 |
+| Analysis Item | Description | Optimization Suggestion |
+|:--------------|:------------|:------------------------|
+| Dependency depth | Maximum dependency level | Reduce depth (<5 levels) |
+| Package count | Total package count | Remove unused dependencies |
+| Package size | node_modules size | Find lighter alternatives |
+| Transitive dependencies | Indirect dependency count | Review necessity |
+| Redundant dependencies | Multiple packages providing same functionality | Unify toolchain |
 
-### 输出格式
+### Output Format
 
-每个 analyzer 实例输出 JSON,包含:
-- `type`: 分析类型
-- `timestamp`: 时间戳
-- `issues[]`: 问题列表(包含 severity、package、version、message、solution、autoFixable)
-- `summary`: 统计信息(critical、warning、info、total)
+Each analyzer instance outputs JSON containing:
+- `type`: Analysis type
+- `timestamp`: Timestamp
+- `issues[]`: Issue list (contains severity, package, version, message, solution, autoFixable)
+- `summary`: Statistics (critical, warning, info, total)
 
 ---
 
-## Phase 3: 报告生成
+## Phase 3: Report Generation
 
-**执行者**: 主进程
+**Executor**: Main process
 
-**输入**: Phase 2 各类型的分析结果 JSON
+**Input**: Phase 2 analysis result JSON for each type
 
-**输出**: `.claude/deps/report-{date}.md`
+**Output**: `.claude/deps/report-{date}.md`
 
-**报告包含**:
-- 概览(包管理器、总依赖数、检测到的问题数)
-- 安全报告(漏洞清单、CVSS 评分、影响包、修复命令)
-- 过期报告(当前版本、最新版本、版本差距、升级建议)
-- 冲突报告(冲突清单、涉及包、解决方案)
-- 依赖树分析(深度、大小、优化建议)
-- 修复建议(自动修复和手动修复分组)
+**Report Contains**:
+- Overview (package manager, total dependencies, detected issues)
+- Security report (vulnerability list, CVSS scores, affected packages, fix commands)
+- Outdated report (current version, latest version, version gap, upgrade suggestions)
+- Conflict report (conflict list, involved packages, solutions)
+- Dependency tree analysis (depth, size, optimization suggestions)
+- Fix suggestions (grouped by auto-fix and manual fix)
 
-**报告示例**:
+**Report Example**:
 
 ```markdown
-# 依赖分析报告
+# Dependency Analysis Report
 
-生成时间: 2024-01-15 10:30:00
-包管理器: npm 10.2.0
-分析范围: /Users/project
+Generated: 2024-01-15 10:30:00
+Package Manager: npm 10.2.0
+Analysis Scope: /Users/project
 
-## 概览
+## Overview
 
-- 总依赖数: 347 个(直接: 42, 传递: 305)
-- 安全漏洞: 3 个(🔴 critical: 1, 🟠 high: 2)
-- 过期依赖: 12 个(主版本: 3, 次版本: 9)
-- 版本冲突: 2 个
-- node_modules 大小: 245 MB
+- Total dependencies: 347 (direct: 42, transitive: 305)
+- Security vulnerabilities: 3 (critical: 1, high: 2)
+- Outdated dependencies: 12 (major: 3, minor: 9)
+- Version conflicts: 2
+- node_modules size: 245 MB
 
-## 🔴 安全漏洞(3)
+## Security Vulnerabilities (3)
 
 ### [CVE-2024-1234] axios <1.6.0 - SSRF Vulnerability
 
-- **严重性**: 🔴 Critical (CVSS 9.1)
-- **当前版本**: 1.4.0
-- **修复版本**: ≥1.6.0
-- **影响范围**: 直接依赖
-- **修复命令**: `npm install axios@^1.6.0`
-- **自动修复**: ✅ 可以
+- **Severity**: Critical (CVSS 9.1)
+- **Current version**: 1.4.0
+- **Fixed version**: >=1.6.0
+- **Impact scope**: Direct dependency
+- **Fix command**: `npm install axios@^1.6.0`
+- **Auto-fixable**: Yes
 
 ...
 
-## 后续建议
+## Recommendations
 
-1. 优先修复 critical 安全漏洞
-2. 使用 `npm dedupe` 消除重复依赖
-3. 考虑将 moment.js 替换为 date-fns(减小包大小)
+1. Prioritize fixing critical security vulnerabilities
+2. Use `npm dedupe` to eliminate duplicate dependencies
+3. Consider replacing moment.js with date-fns (reduce package size)
 ```
 
 ---
 
-## Phase 4: 自动修复(可选)
+## Phase 4: Auto-fix (Optional)
 
-**条件**: 仅当 --fix 或 --interactive 参数存在时执行
+**Condition**: Only execute when --fix or --interactive parameter exists
 
 **Subagent**: `atlas:atlas-executor`
 
-**输入**: Phase 3 报告中 autoFixable=true 的问题列表
+**Input**: Phase 3 report issues list where autoFixable=true
 
-**输出**: 修复后的文件 + 修复报告
+**Output**: Fixed files + fix report
 
-**可自动修复的问题**:
-- 安全漏洞(版本升级)
-- 过期依赖(按 --upgrade 策略升级)
-- 重复包(dedupe)
-- 缺失的 peer dependency(安装)
+**Auto-fixable Issues**:
+- Security vulnerabilities (version upgrade)
+- Outdated dependencies (upgrade per --upgrade strategy)
+- Duplicate packages (dedupe)
+- Missing peer dependencies (install)
 
-**修复策略**:
+**Fix Strategy**:
 
-| 问题类型 | 修复方式 | 命令 |
-|:---------|:---------|:-----|
-| 安全漏洞 | 升级到修复版本 | `npm install pkg@fixed-version` |
-| 过期依赖 | 按策略升级 | `npm update pkg` |
-| 重复包 | dedupe | `npm dedupe` |
-| Peer Dependency | 安装缺失依赖 | `npm install peer-pkg` |
-| 废弃包 | 寻找替代品 | (手动) |
+| Issue Type | Fix Method | Command |
+|:-----------|:-----------|:--------|
+| Security vulnerability | Upgrade to fixed version | `npm install pkg@fixed-version` |
+| Outdated dependency | Upgrade per strategy | `npm update pkg` |
+| Duplicate packages | dedupe | `npm dedupe` |
+| Peer Dependency | Install missing dependency | `npm install peer-pkg` |
+| Deprecated package | Find alternative | (manual) |
 
-**交互式模式**(--interactive):
+**Interactive Mode** (--interactive):
 ```
-发现 5 个可自动修复的问题:
+Found 5 auto-fixable issues:
 
-1. [CRITICAL] axios 1.4.0 → 1.6.0(修复 CVE-2024-1234)
-2. [WARNING] lodash 4.17.15 → 4.17.21(安全更新)
-3. [INFO] react 18.2.0 → 18.3.0(功能更新)
-4. [INFO] 重复包: webpack 5.88.0 和 5.90.0
-5. [WARNING] 缺失 peer: react-dom@^18.0.0
+1. [CRITICAL] axios 1.4.0 -> 1.6.0 (fix CVE-2024-1234)
+2. [WARNING] lodash 4.17.15 -> 4.17.21 (security update)
+3. [INFO] react 18.2.0 -> 18.3.0 (feature update)
+4. [INFO] Duplicate: webpack 5.88.0 and 5.90.0
+5. [WARNING] Missing peer: react-dom@^18.0.0
 
-请选择修复项(空格选择,Enter 确认):
-[x] 1. axios 升级
-[x] 2. lodash 升级
-[ ] 3. react 升级
+Select items to fix (space to select, Enter to confirm):
+[x] 1. axios upgrade
+[x] 2. lodash upgrade
+[ ] 3. react upgrade
 [x] 4. webpack dedupe
-[x] 5. 安装 react-dom
+[x] 5. Install react-dom
 ```
 
-**修复原则**:
-- 优先修复安全漏洞
-- 按 --upgrade 策略控制版本跨度
-- 保持 lockfile 一致性
-- 修复后运行 install 更新 lockfile
-- 不自动修复破坏性变更(需人工评估)
+**Fix Principles**:
+- Prioritize security vulnerability fixes
+- Control version span per --upgrade strategy
+- Maintain lockfile consistency
+- Run install after fix to update lockfile
+- Don't auto-fix breaking changes (requires manual evaluation)
 
-**修复报告**包含:修复统计、修复详情、后续建议
-
----
-
-## 条件执行
-
-| 条件 | 行为 |
-|:-----|:-----|
-| 无 package.json | 提示不是有效的 Node.js 项目 |
-| 无 lockfile | 建议先运行 `npm install` 生成 lockfile |
-| --scope 路径无效 | 报错并退出 |
-| 无问题检测到 | 报告依赖健康状况良好 |
-| --fix 但无可修复项 | 报告无可自动修复的问题 |
+**Fix Report** contains: Fix statistics, fix details, follow-up suggestions
 
 ---
 
-## 约束
+## Conditional Execution
 
-**执行约束**:
-- Phase 2 必须使用 `atlas:dependency-analyzer` agent
-- Phase 4 必须使用 `atlas:atlas-executor` agent
-- 不同分析类型必须并行执行
-- 每个 analyzer 只处理单一类型
-
-**分析约束**:
-- 只报告问题,不擅自修复(除非 --fix)
-- 严格按 CVSS 评分判断漏洞严重性
-- 提供可操作的修复命令
-- autoFixable 必须谨慎判断
-
-**修复约束**:
-- 修复前备份 package.json 和 lockfile
-- 修复后验证依赖可安装
-- 不跨越主版本(除非 --upgrade major)
-- 记录所有修改操作
-
-**报告约束**:
-- 问题必须包含包名、版本、严重性
-- 必须提供修复命令
-- 必须按严重性排序
-- 必须说明是否可自动修复
+| Condition | Behavior |
+|:----------|:---------|
+| No package.json | Prompt not a valid Node.js project |
+| No lockfile | Suggest running `npm install` first to generate lockfile |
+| --scope path invalid | Error and exit |
+| No issues detected | Report dependency health is good |
+| --fix but no fixable items | Report no auto-fixable issues |
 
 ---
 
-## 示例
+## Constraints
 
-### 基础用法
+**Execution Constraints**:
+- Phase 2 must use `atlas:dependency-analyzer` agent
+- Phase 4 must use `atlas:atlas-executor` agent
+- Different analysis types must execute in parallel
+- Each analyzer only handles single type
+
+**Analysis Constraints**:
+- Only report issues, don't fix without permission (unless --fix)
+- Strictly judge vulnerability severity by CVSS scores
+- Provide actionable fix commands
+- autoFixable must be carefully determined
+
+**Fix Constraints**:
+- Backup package.json and lockfile before fix
+- Verify dependencies installable after fix
+- Don't cross major versions (unless --upgrade major)
+- Record all modification operations
+
+**Report Constraints**:
+- Issues must include package name, version, severity
+- Must provide fix commands
+- Must sort by severity
+- Must indicate if auto-fixable
+
+---
+
+## Examples
+
+### Basic Usage
 
 ```bash
-# 全面依赖分析
+# Full dependency analysis
 /deps
 
-# 仅安全检查
+# Security check only
 /deps --type security
 
-# 检查过期依赖
+# Check outdated dependencies
 /deps --type outdated
 
-# 检查并自动修复
+# Check and auto-fix
 /deps --fix
 
-# 交互式修复
+# Interactive fix
 /deps --interactive
 
-# 指定范围
+# Specify scope
 /deps --scope packages/core
 ```
 
-### 高级用法
+### Advanced Usage
 
 ```bash
-# 安全检查并自动修复
+# Security check and auto-fix
 /deps --type security --fix
 
-# 升级次版本
+# Upgrade minor versions
 /deps --type outdated --upgrade minor --fix
 
-# 排除开发依赖
+# Exclude dev dependencies
 /deps --no-dev
 
-# 依赖树分析
+# Dependency tree analysis
 /deps --type tree
 
-# Monorepo 特定包
+# Monorepo specific package
 /deps --scope packages/api --type security
 ```
 
-### 配合其他命令
+### Integration with Other Commands
 
 ```bash
-# 工作流示例
-/deps --type security              # 1. 检测安全问题
-/deps --type security --fix        # 2. 自动修复
-npm test                           # 3. 运行测试验证
-/atlas:review --scope package.json # 4. 审查变更
+# Workflow example
+/deps --type security              # 1. Detect security issues
+/deps --type security --fix        # 2. Auto-fix
+npm test                           # 3. Run tests to verify
+/atlas:review --scope package.json # 4. Review changes
 ```
 
 ---
 
-## 支持的包管理器
+## Supported Package Managers
 
-| 包管理器 | Lockfile | Audit 命令 | Dedupe |
-|:---------|:---------|:-----------|:-------|
+| Package Manager | Lockfile | Audit Command | Dedupe |
+|:----------------|:---------|:--------------|:-------|
 | npm | package-lock.json | `npm audit` | `npm dedupe` |
 | yarn | yarn.lock | `yarn audit` | `yarn dedupe` |
 | pnpm | pnpm-lock.yaml | `pnpm audit` | `pnpm dedupe` |
-| bun | bun.lockb | `bun audit` | (内置) |
+| bun | bun.lockb | `bun audit` | (built-in) |
 
 ---
 
-## 注意事项
+## Notes
 
-- 分析需要读取 lockfile,确保已运行过 install
-- 安全漏洞数据来自 npm audit 和公开数据库
-- 自动修复可能引入破坏性变更,建议先测试
-- Monorepo 需要分别分析各包或使用 --scope
-- 优先使用项目配置的包管理器
+- Analysis requires reading lockfile, ensure install has been run
+- Security vulnerability data comes from npm audit and public databases
+- Auto-fix may introduce breaking changes, suggest testing first
+- Monorepo needs to analyze each package separately or use --scope
+- Prefer using project-configured package manager

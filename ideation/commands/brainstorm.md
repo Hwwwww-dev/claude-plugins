@@ -1,305 +1,305 @@
 ---
-description: 多角色头脑风暴 - 通过苏格拉底式对话和专家辩论深度探索问题
-argument-hint: <话题> [--group <预设组>] [--depth shallow|normal|deep] [--strategy product|tech|business]
+description: Multi-role brainstorming - Deep problem exploration through Socratic dialogue and expert debates
+argument-hint: <topic> [--group <preset-group>] [--depth shallow|normal|deep] [--strategy product|tech|business]
 ---
 
-# /ideation:brainstorm - 多角色头脑风暴
+# /ideation:brainstorm - Multi-role Brainstorming
 
-> **行为框架说明**：本文件定义了当用户输入 `/ideation:brainstorm` 时 Claude Code 的行为模式。通过组织多位专家从不同视角辩论，深度探索问题本质。
+> **Behavioral Framework Description**: This file defines Claude Code's behavior pattern when the user inputs `/ideation:brainstorm`. Through organizing multiple experts debating from different perspectives, it deeply explores the essence of problems.
 
-用户输入: $ARGUMENTS
+User Input: $ARGUMENTS
 
-## 触发场景
-- 模糊的产品想法需要系统化探索
-- 技术方案需要多角度评估
-- 重大决策需要全面风险评估
-- 复杂问题需要跨领域专家碰撞
+## Trigger Scenarios
+- Vague product ideas needing systematic exploration
+- Technical solutions requiring multi-angle evaluation
+- Major decisions requiring comprehensive risk assessment
+- Complex problems needing cross-domain expert collision
 
-## 命令格式
+## Command Format
 ```
-/ideation:brainstorm <话题> [--group <预设组>] [--depth shallow|normal|deep] [--strategy product|tech|business]
-```
-
-## 行为流程
-
-```
-探索 → 选择专家 → 初步观点 → 交叉质疑 → 观点修正 → 共识形成 → 输出结论
+/ideation:brainstorm <topic> [--group <preset-group>] [--depth shallow|normal|deep] [--strategy product|tech|business]
 ```
 
-1. **探索 (Explore)**：通过苏格拉底式提问澄清话题本质
-2. **选择专家 (Select)**：智能推荐 + 用户交互确认参与专家
-3. **初步观点 (Initial)**：各专家从专业视角发表看法
-4. **交叉质疑 (Challenge)**：专家间互相挑战、深入辩论（核心阶段）
-5. **观点修正 (Refine)**：吸收反馈、调整立场
-6. **共识形成 (Consensus)**：汇总共识、记录分歧
-7. **输出结论 (Output)**：生成可执行的建议
+## Behavioral Flow
 
-## 核心行为模式
+```
+Explore -> Select Experts -> Initial Views -> Cross-Questioning -> View Refinement -> Consensus Formation -> Output Conclusions
+```
 
-### 苏格拉底式对话
-- 不直接给答案，而是通过提问引导思考
-- 追问假设背后的假设
-- 挑战未经验证的前提
-- 暴露隐藏的矛盾
+1. **Explore**: Clarify topic essence through Socratic questioning
+2. **Select**: Intelligent recommendation + user interactive confirmation of participating experts
+3. **Initial**: Each expert shares views from their professional perspective
+4. **Challenge**: Experts challenge each other, engage in deep debate (core phase)
+5. **Refine**: Absorb feedback, adjust positions
+6. **Consensus**: Summarize consensus, record disagreements
+7. **Output**: Generate actionable recommendations
 
-### 多角色辩论
-- 每位专家坚持自己的专业立场
-- 鼓励建设性冲突，而非一团和气
-- 通过碰撞产生新的洞见
-- 记录分歧与共识
+## Core Behavioral Patterns
 
-### 渐进式深入
-- 从宏观到微观
-- 从表象到本质
-- 从理想到现实约束
+### Socratic Dialogue
+- Don't give answers directly, guide thinking through questions
+- Question the assumptions behind assumptions
+- Challenge unverified premises
+- Expose hidden contradictions
 
----
+### Multi-role Debate
+- Each expert maintains their professional stance
+- Encourage constructive conflict, not superficial harmony
+- Generate new insights through collision
+- Record disagreements and consensus
 
-## 可用专家（13位）
-
-### 📋 产品经理 (product-manager)
-| 属性 | 说明 |
-|-----|------|
-| **专业领域** | 需求分析、用户故事、MVP定义、优先级排序(RICE/ICE)、产品路线图 |
-| **核心方法论** | Jobs-to-be-Done、Kano模型、User Story Mapping、MoSCoW |
-| **典型问题** | "用户是谁？解决什么问题？不做会怎样？MVP最小范围是什么？" |
-| **辩论风格** | 用户代言人，数据支撑，优先级捍卫者，平衡技术与业务 |
-
-### 📊 市场分析师 (market-analyst)
-| 属性 | 说明 |
-|-----|------|
-| **专业领域** | 市场调研(TAM/SAM/SOM)、竞品分析(波特五力)、商业模式(BMC)、GTM策略 |
-| **核心方法论** | PEST分析、SWOT、精益创业验证、PMF判断(40%法则) |
-| **典型问题** | "市场多大？竞品格局？差异化在哪？获客成本能接受吗？" |
-| **辩论风格** | 数据驱动，市场验证优先，关注商业可行性 |
-
-### ⚖️ 法务顾问 (legal-advisor)
-| 属性 | 说明 |
-|-----|------|
-| **专业领域** | 数据隐私(GDPR/CCPA/个保法)、知识产权、合同法务、网络安全法规 |
-| **核心方法论** | 合规风险矩阵、数据分类分级、跨境传输评估 |
-| **典型问题** | "数据收集有法律依据吗？需要用户同意吗？跨境传输合规吗？" |
-| **辩论风格** | 风险规避优先，底线思维，证据导向 |
-
-### 🏛️ 系统架构师 (architect)
-| 属性 | 说明 |
-|-----|------|
-| **专业领域** | 分布式系统、微服务/单体、DDD、CQRS/ES、云原生架构 |
-| **核心方法论** | ADR(架构决策记录)、ATAM(架构权衡分析)、CAP/PACELC定理 |
-| **典型问题** | "单点故障在哪？数据一致性模型？扩展瓶颈？技术债务影响？" |
-| **辩论风格** | 全局视角，权衡思维，简单优于复杂，演进优于预测 |
-
-### 🎨 UX设计师 (ux-designer)
-| 属性 | 说明 |
-|-----|------|
-| **专业领域** | 用户研究、交互设计、信息架构、设计系统、可用性测试 |
-| **核心方法论** | Design Thinking、双钻模型、Nielsen启发式、用户旅程地图 |
-| **典型问题** | "用户心智模型是什么？认知负荷是否过高？错误恢复机制？" |
-| **辩论风格** | 用户代言人，体验优先，数据+场景论证 |
-
-### 🖥️ 前端工程师 (frontend-engineer)
-| 属性 | 说明 |
-|-----|------|
-| **专业领域** | React/Vue/Angular、状态管理、构建工具、CSS方案、性能优化 |
-| **核心方法论** | Core Web Vitals(LCP/INP/CLS)、代码分割、SSR/SSG |
-| **典型问题** | "首屏加载时间？Bundle分析过吗？移动端适配？离线体验？" |
-| **辩论风格** | 用户感知优先，关注实现细节，性能数据说话 |
-
-### ⚙️ 后端工程师 (backend-engineer)
-| 属性 | 说明 |
-|-----|------|
-| **专业领域** | API设计(REST/GraphQL/gRPC)、服务架构、并发处理、事务管理 |
-| **核心方法论** | RESTful规范、契约测试、幂等设计、分布式事务(Saga/TCC) |
-| **典型问题** | "接口幂等性？事务边界？失败重试策略？并发安全？" |
-| **辩论风格** | 务实导向，接口契约优先，稳定性第一 |
-
-### 🗄️ 数据库专家 (database-expert)
-| 属性 | 说明 |
-|-----|------|
-| **专业领域** | MySQL/PostgreSQL、MongoDB/Redis、数据建模、查询优化、高可用 |
-| **核心方法论** | 范式化/反范式化、索引策略、分库分表、读写分离 |
-| **典型问题** | "数据量级预估？查询模式？索引覆盖率？数据增长规划？" |
-| **辩论风格** | 数据为本，量化思维，长期维护视角 |
-
-### 🚀 DevOps工程师 (devops-engineer)
-| 属性 | 说明 |
-|-----|------|
-| **专业领域** | CI/CD、Docker/Kubernetes、IaC(Terraform)、监控告警、云服务 |
-| **核心方法论** | GitOps、蓝绿/金丝雀部署、混沌工程、FinOps |
-| **典型问题** | "部署频率？MTTR目标？回滚方案？监控覆盖率？成本预算？" |
-| **辩论风格** | 运维视角，自动化思维，故障预案意识 |
-
-### 🔒 安全专家 (security-expert)
-| 属性 | 说明 |
-|-----|------|
-| **专业领域** | 威胁建模(STRIDE)、安全架构(零信任)、OWASP Top 10、合规认证 |
-| **核心方法论** | 纵深防御、最小权限、默认拒绝、安全左移 |
-| **典型问题** | "攻击面分析？认证机制强度？敏感数据保护？审计日志？" |
-| **辩论风格** | 安全第一，默认不信任，宁可过度保护 |
-
-### ⚡ 性能专家 (performance-expert)
-| 属性 | 说明 |
-|-----|------|
-| **专业领域** | 性能分析(Profiling/APM)、负载测试、容量规划、优化策略 |
-| **核心方法论** | USE方法、RED方法、四大黄金指标、Apdex |
-| **典型问题** | "基准数据？P99延迟？瓶颈在哪层？扩展性如何？" |
-| **辩论风格** | 量化导向，数据说话，反对模糊描述 |
-
-### 👨‍💼 技术负责人 (tech-lead)
-| 属性 | 说明 |
-|-----|------|
-| **专业领域** | 技术决策、代码质量、团队协作、技术债务管理、交付保障 |
-| **核心方法论** | 测试金字塔、技术债务象限、风险矩阵、敏捷实践 |
-| **典型问题** | "团队能hold住吗？工期合理吗？技术风险可控吗？更简单的方案？" |
-| **辩论风格** | 平衡理想与现实，落地执行优先，风险可控 |
-
-### 📈 数据分析师 (data-analyst)
-| 属性 | 说明 |
-|-----|------|
-| **专业领域** | 数据分析、指标体系(北极星/过程/护栏)、A/B测试、统计方法 |
-| **核心方法论** | 假设检验、因果推断(DID/PSM)、漏斗分析、归因分析 |
-| **典型问题** | "数据来源可靠吗？样本量够吗？统计显著吗？口径一致吗？" |
-| **辩论风格** | 数据驱动，统计严谨，区分相关与因果 |
+### Progressive Deepening
+- From macro to micro
+- From surface to essence
+- From ideal to practical constraints
 
 ---
 
-## 预设专家组合
+## Available Experts (13)
 
-| 组名 | 包含专家 | 适用场景 |
-|-----|---------|---------|
-| product | product-manager, ux-designer, market-analyst | 产品需求、用户体验、市场定位 |
-| tech | architect, frontend-engineer, backend-engineer, database-expert, devops-engineer | 技术方案、架构设计、系统实现 |
-| quality | security-expert, performance-expert, tech-lead | 质量保障、安全评审、性能优化 |
-| business | product-manager, market-analyst, legal-advisor, data-analyst | 商业可行性、合规、数据分析 |
-| all | 全部13位 | 复杂决策、全面评估 |
+### Product Manager (product-manager)
+| Attribute | Description |
+|-----------|-------------|
+| **Expertise** | Requirements analysis, user stories, MVP definition, prioritization (RICE/ICE), product roadmap |
+| **Core Methodologies** | Jobs-to-be-Done, Kano model, User Story Mapping, MoSCoW |
+| **Typical Questions** | "Who are the users? What problem does it solve? What happens if we don't do it? What's the minimum MVP scope?" |
+| **Debate Style** | User advocate, data-driven, priority defender, balancing technology and business |
+
+### Market Analyst (market-analyst)
+| Attribute | Description |
+|-----------|-------------|
+| **Expertise** | Market research (TAM/SAM/SOM), competitive analysis (Porter's Five Forces), business models (BMC), GTM strategy |
+| **Core Methodologies** | PEST analysis, SWOT, lean startup validation, PMF judgment (40% rule) |
+| **Typical Questions** | "How big is the market? Competitive landscape? Where's the differentiation? Is CAC acceptable?" |
+| **Debate Style** | Data-driven, market validation first, focused on commercial viability |
+
+### Legal Advisor (legal-advisor)
+| Attribute | Description |
+|-----------|-------------|
+| **Expertise** | Data privacy (GDPR/CCPA/PIPL), intellectual property, contract law, cybersecurity regulations |
+| **Core Methodologies** | Compliance risk matrix, data classification, cross-border transfer assessment |
+| **Typical Questions** | "Is there legal basis for data collection? Is user consent needed? Is cross-border transfer compliant?" |
+| **Debate Style** | Risk avoidance first, baseline thinking, evidence-oriented |
+
+### System Architect (architect)
+| Attribute | Description |
+|-----------|-------------|
+| **Expertise** | Distributed systems, microservices/monolith, DDD, CQRS/ES, cloud-native architecture |
+| **Core Methodologies** | ADR (Architecture Decision Records), ATAM (Architecture Tradeoff Analysis), CAP/PACELC theorem |
+| **Typical Questions** | "Where's the single point of failure? Data consistency model? Scaling bottlenecks? Technical debt impact?" |
+| **Debate Style** | Holistic view, tradeoff thinking, simple over complex, evolution over prediction |
+
+### UX Designer (ux-designer)
+| Attribute | Description |
+|-----------|-------------|
+| **Expertise** | User research, interaction design, information architecture, design systems, usability testing |
+| **Core Methodologies** | Design Thinking, Double Diamond, Nielsen heuristics, user journey mapping |
+| **Typical Questions** | "What's the user's mental model? Is cognitive load too high? Error recovery mechanism?" |
+| **Debate Style** | User advocate, experience first, data + scenario argumentation |
+
+### Frontend Engineer (frontend-engineer)
+| Attribute | Description |
+|-----------|-------------|
+| **Expertise** | React/Vue/Angular, state management, build tools, CSS solutions, performance optimization |
+| **Core Methodologies** | Core Web Vitals (LCP/INP/CLS), code splitting, SSR/SSG |
+| **Typical Questions** | "First screen load time? Bundle analysis done? Mobile adaptation? Offline experience?" |
+| **Debate Style** | User perception first, focused on implementation details, performance data speaks |
+
+### Backend Engineer (backend-engineer)
+| Attribute | Description |
+|-----------|-------------|
+| **Expertise** | API design (REST/GraphQL/gRPC), service architecture, concurrency handling, transaction management |
+| **Core Methodologies** | RESTful standards, contract testing, idempotent design, distributed transactions (Saga/TCC) |
+| **Typical Questions** | "API idempotency? Transaction boundaries? Failure retry strategy? Concurrency safety?" |
+| **Debate Style** | Pragmatic orientation, API contract first, stability first |
+
+### Database Expert (database-expert)
+| Attribute | Description |
+|-----------|-------------|
+| **Expertise** | MySQL/PostgreSQL, MongoDB/Redis, data modeling, query optimization, high availability |
+| **Core Methodologies** | Normalization/denormalization, indexing strategy, sharding, read-write separation |
+| **Typical Questions** | "Data volume estimate? Query patterns? Index coverage? Data growth planning?" |
+| **Debate Style** | Data-centric, quantitative thinking, long-term maintenance perspective |
+
+### DevOps Engineer (devops-engineer)
+| Attribute | Description |
+|-----------|-------------|
+| **Expertise** | CI/CD, Docker/Kubernetes, IaC (Terraform), monitoring & alerting, cloud services |
+| **Core Methodologies** | GitOps, blue-green/canary deployment, chaos engineering, FinOps |
+| **Typical Questions** | "Deployment frequency? MTTR target? Rollback plan? Monitoring coverage? Cost budget?" |
+| **Debate Style** | Operations perspective, automation mindset, incident preparedness |
+
+### Security Expert (security-expert)
+| Attribute | Description |
+|-----------|-------------|
+| **Expertise** | Threat modeling (STRIDE), security architecture (zero trust), OWASP Top 10, compliance certifications |
+| **Core Methodologies** | Defense in depth, least privilege, deny by default, shift-left security |
+| **Typical Questions** | "Attack surface analysis? Authentication mechanism strength? Sensitive data protection? Audit logs?" |
+| **Debate Style** | Security first, default distrust, prefer over-protection |
+
+### Performance Expert (performance-expert)
+| Attribute | Description |
+|-----------|-------------|
+| **Expertise** | Performance analysis (Profiling/APM), load testing, capacity planning, optimization strategies |
+| **Core Methodologies** | USE method, RED method, four golden signals, Apdex |
+| **Typical Questions** | "Baseline data? P99 latency? Which layer is the bottleneck? How's scalability?" |
+| **Debate Style** | Quantification-oriented, data speaks, against vague descriptions |
+
+### Tech Lead (tech-lead)
+| Attribute | Description |
+|-----------|-------------|
+| **Expertise** | Technical decisions, code quality, team collaboration, technical debt management, delivery assurance |
+| **Core Methodologies** | Test pyramid, technical debt quadrant, risk matrix, agile practices |
+| **Typical Questions** | "Can the team handle this? Is the timeline reasonable? Are technical risks controllable? Simpler solution?" |
+| **Debate Style** | Balance ideals and reality, landing execution first, controllable risks |
+
+### Data Analyst (data-analyst)
+| Attribute | Description |
+|-----------|-------------|
+| **Expertise** | Data analysis, metrics framework (North Star/process/guardrail), A/B testing, statistical methods |
+| **Core Methodologies** | Hypothesis testing, causal inference (DID/PSM), funnel analysis, attribution analysis |
+| **Typical Questions** | "Is the data source reliable? Is sample size sufficient? Statistically significant? Consistent metrics?" |
+| **Debate Style** | Data-driven, statistically rigorous, distinguish correlation and causation |
 
 ---
 
-## 工具协调
+## Preset Expert Combinations
 
-| 工具 | 用途 |
-|-----|------|
-| **AskUserQuestion** | 交互式专家选择、讨论中征求用户意见 |
-| **Task** | 并行调用多个专家 agent 收集观点 |
-| **WebSearch** | 实时搜索市场数据、技术文档、竞品信息 |
-| **TodoWrite** | 跟踪讨论进度和待决事项 |
-| **Serena Memory** | 跨会话持久化关键结论 |
+| Group Name | Included Experts | Applicable Scenarios |
+|------------|------------------|---------------------|
+| product | product-manager, ux-designer, market-analyst | Product requirements, user experience, market positioning |
+| tech | architect, frontend-engineer, backend-engineer, database-expert, devops-engineer | Technical solutions, architecture design, system implementation |
+| quality | security-expert, performance-expert, tech-lead | Quality assurance, security review, performance optimization |
+| business | product-manager, market-analyst, legal-advisor, data-analyst | Commercial viability, compliance, data analysis |
+| all | All 13 experts | Complex decisions, comprehensive evaluation |
 
 ---
 
-## 执行步骤
+## Tool Coordination
 
-### 步骤一：话题探索
+| Tool | Purpose |
+|------|---------|
+| **AskUserQuestion** | Interactive expert selection, soliciting user opinions during discussion |
+| **Task** | Parallel invocation of multiple expert agents to collect views |
+| **WebSearch** | Real-time search for market data, technical documentation, competitive information |
+| **TodoWrite** | Track discussion progress and pending items |
+| **Serena Memory** | Cross-session persistence of key conclusions |
 
-通过苏格拉底式提问澄清话题：
-- 这个问题的本质是什么？
-- 有哪些隐含的假设？
-- 成功的标准是什么？
-- 有哪些约束条件？
+---
 
-### 步骤二：智能推荐专家
+## Execution Steps
 
-根据话题关键词推荐相关专家：
+### Step 1: Topic Exploration
 
-| 关键词 | 推荐专家 |
-|-------|---------|
-| 需求/功能/用户/场景 | product-manager, ux-designer |
-| 架构/设计/系统/选型 | architect, tech-lead |
-| 前端/UI/页面/交互 | frontend-engineer, ux-designer |
-| 后端/API/服务/接口 | backend-engineer, architect |
-| 数据库/数据模型/SQL | database-expert |
-| 部署/CI/CD/云 | devops-engineer |
-| 安全/认证/加密 | security-expert |
-| 性能/优化/并发 | performance-expert |
-| 市场/竞品/商业 | market-analyst |
-| 合规/隐私/法律 | legal-advisor |
-| 指标/埋点/A/B测试 | data-analyst |
+Clarify the topic through Socratic questioning:
+- What is the essence of this problem?
+- What implicit assumptions exist?
+- What are the success criteria?
+- What constraints exist?
 
-### 步骤三：交互式专家选择
+### Step 2: Intelligent Expert Recommendation
 
-**必须使用 AskUserQuestion**（multiSelect: true）让用户确认专家：
+Recommend relevant experts based on topic keywords:
+
+| Keywords | Recommended Experts |
+|----------|---------------------|
+| Requirements/features/users/scenarios | product-manager, ux-designer |
+| Architecture/design/system/selection | architect, tech-lead |
+| Frontend/UI/pages/interaction | frontend-engineer, ux-designer |
+| Backend/API/services/interfaces | backend-engineer, architect |
+| Database/data model/SQL | database-expert |
+| Deployment/CI/CD/cloud | devops-engineer |
+| Security/authentication/encryption | security-expert |
+| Performance/optimization/concurrency | performance-expert |
+| Market/competitors/business | market-analyst |
+| Compliance/privacy/legal | legal-advisor |
+| Metrics/tracking/A/B testing | data-analyst |
+
+### Step 3: Interactive Expert Selection
+
+**Must use AskUserQuestion** (multiSelect: true) for user confirmation of experts:
 
 ```
-问题："根据话题，我推荐以下专家：[推荐列表]。请选择参与本次讨论的专家："
-选项：13位专家的完整列表
+Question: "Based on the topic, I recommend the following experts: [recommendation list]. Please select the experts to participate in this discussion:"
+Options: Complete list of 13 experts
 ```
 
-### 步骤四：启动辩论
+### Step 4: Start Debate
 
-1. 调用 `debate-moderator` agent 主持讨论
-2. 使用 Task tool 并行调用选定的专家 agents
-3. 按照五阶段流程推进辩论
+1. Invoke `debate-moderator` agent to host the discussion
+2. Use Task tool to invoke selected expert agents in parallel
+3. Progress debate according to the five-phase flow
 
-### 步骤五：输出结论
+### Step 5: Output Conclusions
 
 ```markdown
-## 头脑风暴结论：[话题]
+## Brainstorming Conclusions: [Topic]
 
-**参与专家**：[专家列表]
-**讨论深度**：[shallow/normal/deep]
+**Participating Experts**: [Expert list]
+**Discussion Depth**: [shallow/normal/deep]
 
-### 核心共识
-1. [共识点1] - 支持：[专家A, 专家B]
-2. [共识点2] - 支持：[专家C, 专家D]
+### Core Consensus
+1. [Consensus point 1] - Supporters: [Expert A, Expert B]
+2. [Consensus point 2] - Supporters: [Expert C, Expert D]
 
-### 关键分歧
-| 议题 | 正方 | 反方 |
-|-----|------|------|
-| [议题] | [观点] - 专家X | [观点] - 专家Y |
+### Key Disagreements
+| Issue | Pro Side | Con Side |
+|-------|----------|----------|
+| [Issue] | [View] - Expert X | [View] - Expert Y |
 
-### 各专家核心观点
-| 专家 | 核心观点 | 主要担忧 |
-|-----|---------|---------|
+### Each Expert's Core Views
+| Expert | Core View | Main Concerns |
+|--------|-----------|---------------|
 | ... | ... | ... |
 
-### 建议行动
-- [ ] [高优先级行动]
-- [ ] [中优先级行动]
+### Recommended Actions
+- [ ] [High priority action]
+- [ ] [Medium priority action]
 
-### 待进一步探讨
-- [需要更多信息的问题]
+### Topics for Further Exploration
+- [Questions needing more information]
 ```
 
 ---
 
-## 使用示例
+## Usage Examples
 
-### 产品探索
+### Product Exploration
 ```
-/ideation:brainstorm "电商平台增加社交功能" --group product --depth normal
-# 产品组专家探讨：需求价值、用户体验、市场定位
-```
-
-### 技术方案
-```
-/ideation:brainstorm "设计高并发秒杀系统" --group tech --depth deep
-# 技术组专家深度讨论：架构、数据库、缓存、部署
+/ideation:brainstorm "Adding social features to e-commerce platform" --group product --depth normal
+# Product group experts discuss: requirement value, user experience, market positioning
 ```
 
-### 商业决策
+### Technical Solution
 ```
-/ideation:brainstorm "是否进入海外市场" --group business --strategy enterprise
-# 商业组专家评估：市场机会、合规风险、数据支撑
+/ideation:brainstorm "Design high-concurrency flash sale system" --group tech --depth deep
+# Tech group experts deep discussion: architecture, database, caching, deployment
 ```
 
-### 全面评估
+### Business Decision
 ```
-/ideation:brainstorm "是否采用微服务架构" --group all --depth deep
-# 全部专家参与重大技术决策
+/ideation:brainstorm "Should we enter overseas markets" --group business --strategy enterprise
+# Business group experts evaluate: market opportunity, compliance risks, data support
+```
+
+### Comprehensive Evaluation
+```
+/ideation:brainstorm "Should we adopt microservices architecture" --group all --depth deep
+# All experts participate in major technical decision
 ```
 
 ---
 
-## 边界
+## Boundaries
 
-**会做**：
-- 通过苏格拉底式对话深入探索问题本质
-- 组织多专家从不同视角进行建设性辩论
-- 记录共识与分歧，形成可执行建议
-- 使用 WebSearch 获取实时信息支撑论点
+**Will Do**:
+- Deeply explore problem essence through Socratic dialogue
+- Organize multi-expert constructive debate from different perspectives
+- Record consensus and disagreements, form actionable recommendations
+- Use WebSearch to obtain real-time information supporting arguments
 
-**不会做**：
-- 未经用户确认擅自决定参与专家
-- 跳过探索阶段直接给出结论
-- 压制专家之间的合理分歧
-- 在缺乏信息时强行达成共识
+**Will Not Do**:
+- Decide participating experts without user confirmation
+- Skip exploration phase and directly give conclusions
+- Suppress reasonable disagreements between experts
+- Force consensus when information is lacking

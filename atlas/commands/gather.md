@@ -1,106 +1,106 @@
 ---
-description: 智能信息收集命令。分析项目结构、依赖关系、代码模式,输出结构化报告。
-argument-hint: <分析目标> [--scope path] [--depth N] [--output report|pkg]
+description: Smart information gathering command. Analyzes project structure, dependency relationships, and code patterns, outputs structured reports.
+argument-hint: <analysis target> [--scope path] [--depth N] [--output report|pkg]
 ---
 
-# /gather - 信息收集
+# /gather - Information Gathering
 
-用户输入: $ARGUMENTS
+User input: $ARGUMENTS
 
 ---
 
-## 第一步：确认收集选项
+## Step 1: Confirm Gathering Options
 
-**如果用户未指定模式，使用 AskUserQuestion 询问：**
+**If user doesn't specify mode, use AskUserQuestion to ask:**
 
 ```
-问题1: 收集模式
-- project-structure: 项目结构分析
-- dependencies: 依赖关系梳理
-- code-patterns: 代码模式搜索
-- impact: 修改影响分析
+Question 1: Gathering mode
+- project-structure: Project structure analysis
+- dependencies: Dependency relationship mapping
+- code-patterns: Code pattern search
+- impact: Modification impact analysis
 
-问题2: 分析深度
-- normal (默认): 标准分析
-- deep: 深度分析，更详细
+Question 2: Analysis depth
+- normal (default): Standard analysis
+- deep: Deep analysis, more detailed
 
-问题3: 分析范围
-- all: 整个项目
-- specific: 指定目录/文件
+Question 3: Analysis scope
+- all: Entire project
+- specific: Specified directory/file
 ```
 
-**如果用户已指定（如 `/gather dependencies UserAPI --deep`），跳过询问。**
+**If user has specified (e.g., `/gather dependencies UserAPI --deep`), skip asking.**
 
 ---
 
-## 第二步：调用 information-gatherer
+## Step 2: Call information-gatherer
 
-**固定输入结构**:
+**Fixed input structure**:
 ```
 Task(subagent_type="atlas:information-gatherer")
 prompt: |
-  ## 任务
-  任务 ID: <mode>-<target>-<date>
-  收集模式: [project-structure / dependencies / code-patterns / impact]
+  ## Task
+  Task ID: <mode>-<target>-<date>
+  Gathering mode: [project-structure / dependencies / code-patterns / impact]
 
-  ## 目标
-  - 目标: [符号名 / 模式 / 目录]
-  - 范围: [整个项目 / 指定路径]
-  - 深度: [normal / deep]
+  ## Target
+  - Target: [symbol name / pattern / directory]
+  - Scope: [entire project / specified path]
+  - Depth: [normal / deep]
 
-  ## 收集内容
-  [根据模式列出具体收集项]
+  ## Gathering Content
+  [List specific items to collect based on mode]
 
-  ## 输出
-  写入: docs/information/<task-id>.md
-  返回: 简洁摘要给主对话
+  ## Output
+  Write to: docs/information/<task-id>.md
+  Return: Concise summary to main conversation
 ```
 
 ---
 
-## 收集模式详情
+## Gathering Mode Details
 
-| 模式 | 收集内容 |
-|:-----|:---------|
-| **project-structure** | 文件统计、模块结构、关键文件清单、核心符号列表 |
-| **dependencies** | 符号定位、引用位置(文件:行号)、调用上下文、影响评估 |
-| **code-patterns** | 匹配统计、详细清单(文件:行号)、模式分析、使用建议 |
-| **impact** | 直接引用点、间接影响范围、风险评估、修改建议 |
+| Mode | Gathered Content |
+|:-----|:-----------------|
+| **project-structure** | File statistics, module structure, key file list, core symbol list |
+| **dependencies** | Symbol location, reference locations (file:line), call context, impact assessment |
+| **code-patterns** | Match statistics, detailed list (file:line), pattern analysis, usage suggestions |
+| **impact** | Direct reference points, indirect impact scope, risk assessment, modification suggestions |
 
 ---
 
-## 输出格式
+## Output Format
 
-**固定输出结构**:
+**Fixed output structure**:
 ```markdown
-📊 信息收集完成
+Information gathering complete
 
-## 模式: [收集模式]
-## 目标: [目标符号/模式]
-## 统计: [关键数字]
+## Mode: [gathering mode]
+## Target: [target symbol/pattern]
+## Statistics: [key numbers]
 
-## 核心发现
-- [发现1]
-- [发现2]
+## Core Findings
+- [Finding 1]
+- [Finding 2]
 
-💾 详细报告: docs/information/<task-id>.md
+Detailed report: docs/information/<task-id>.md
 
-🔜 后续建议: [如需批量修改可使用 /orchestrate]
+Next suggestion: [Use /orchestrate for batch modifications if needed]
 ```
 
 ---
 
-## 示例
+## Examples
 
-### 基础用法
+### Basic Usage
 ```bash
-/gather project-structure              # 项目结构分析
-/gather dependencies UserAPI           # 依赖分析
-/gather code-patterns "useState"       # 模式搜索
-/gather impact AuthService             # 影响分析
+/gather project-structure              # Project structure analysis
+/gather dependencies UserAPI           # Dependency analysis
+/gather code-patterns "useState"       # Pattern search
+/gather impact AuthService             # Impact analysis
 ```
 
-### 高级选项
+### Advanced Options
 ```bash
 /gather dependencies LoginComponent --deep
 /gather code-patterns "import.*react" --focus src/components
@@ -108,35 +108,35 @@ prompt: |
 
 ---
 
-## 与 /orchestrate 配合
+## Integration with /orchestrate
 
 ```bash
-# 工作流示例
-/gather dependencies UserAPI           # 1. 分析引用点
-/orchestrate 更新所有 UserAPI 调用    # 2. 基于收集结果批量执行
+# Workflow example
+/gather dependencies UserAPI           # 1. Analyze reference points
+/orchestrate Update all UserAPI calls  # 2. Batch execute based on gathered results
 ```
 
 ---
 
-## 项目知识库
+## Project Knowledge Base
 
-**优先从 `.claude/repowiki/` 获取项目信息**（如果存在）：
+**Prioritize getting project info from `.claude/repowiki/`** (if exists):
 
-| 文件 | 用途 |
-|:-----|:-----|
-| `.claude/repowiki/.meta/project.pkg.json` | 项目元数据、技术栈、依赖 |
-| `.claude/repowiki/.meta/modules.pkg.json` | 模块结构、依赖关系 |
-| `.claude/repowiki/.meta/api.pkg.json` | API 端点信息 |
-| `.claude/repowiki/.meta/symbols.pkg.json` | 符号索引 |
-| `.claude/repowiki/.index/quick-lookup.json` | 快速查询索引 |
+| File | Purpose |
+|:-----|:--------|
+| `.claude/repowiki/.meta/project.pkg.json` | Project metadata, tech stack, dependencies |
+| `.claude/repowiki/.meta/modules.pkg.json` | Module structure, dependency relationships |
+| `.claude/repowiki/.meta/api.pkg.json` | API endpoint information |
+| `.claude/repowiki/.meta/symbols.pkg.json` | Symbol index |
+| `.claude/repowiki/.index/quick-lookup.json` | Quick lookup index |
 
-**使用方式**：在收集前先检查这些文件是否存在，如果存在则优先读取以减少重复分析。
+**Usage**: Check if these files exist before gathering, prioritize reading them to reduce redundant analysis.
 
 ---
 
-## 注意事项
+## Notes
 
-- `/gather` 只读分析，不修改代码
-- 结果写入 `docs/information/`，供后续复用
-- 所有输出包含完整文件路径和行号
-- 优先使用 `.claude/repowiki/` 中的现有信息
+- `/gather` is read-only analysis, doesn't modify code
+- Results written to `docs/information/` for later reuse
+- All outputs include complete file paths and line numbers
+- Prioritize using existing information from `.claude/repowiki/`

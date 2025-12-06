@@ -1,104 +1,104 @@
 ---
-description: 项目健康检查命令。一键诊断项目健康度，整合代码质量、安全漏洞、依赖状态、架构评估，输出综合健康评分和改进建议。
+description: Project health check command. One-click project health diagnosis, integrating code quality, security vulnerabilities, dependency status, and architecture assessment, outputs comprehensive health score and improvement suggestions.
 argument-hint: [--scope path] [--quick] [--export json|html] [--ci]
 ---
 
-# /health - 项目健康检查
+# /health - Project Health Check
 
-用户输入: $ARGUMENTS
-
----
-
-## 第一步：确认检查选项
-
-**如果用户未指定选项，使用 AskUserQuestion 询问：**
-
-```
-问题1: 检查模式
-- full (默认): 完整检查（5个维度）
-- quick: 快速检查（仅安全性和代码质量）
-- security: 仅安全检查
-- quality: 仅代码质量检查
-
-问题2: 检查范围
-- all: 整个项目
-- scope: 指定目录/模块
-
-问题3: 导出格式
-- markdown (默认): Markdown 报告
-- json: JSON 格式（适合 CI）
-- html: HTML 可视化报告
-
-问题4: CI 模式
-- no (默认): 正常模式
-- yes: CI 模式（包含阈值检查）
-```
-
-**如果用户已指定（如 `/health --quick --scope src/`），跳过询问。**
+User input: $ARGUMENTS
 
 ---
 
-## 第二步：环境检测（P0）
+## Step 1: Confirm Check Options
 
-**检测必要工具是否可用：**
+**If user doesn't specify options, use AskUserQuestion to ask:**
+
+```
+Question 1: Check mode
+- full (default): Complete check (5 dimensions)
+- quick: Quick check (security and code quality only)
+- security: Security check only
+- quality: Code quality check only
+
+Question 2: Check scope
+- all: Entire project
+- scope: Specified directory/module
+
+Question 3: Export format
+- markdown (default): Markdown report
+- json: JSON format (suitable for CI)
+- html: HTML visual report
+
+Question 4: CI mode
+- no (default): Normal mode
+- yes: CI mode (includes threshold checks)
+```
+
+**If user has specified (e.g., `/health --quick --scope src/`), skip asking.**
+
+---
+
+## Step 2: Environment Detection (P0)
+
+**Detect if necessary tools are available:**
 
 ```bash
-# 检查 git 仓库
+# Check git repository
 git rev-parse --is-inside-work-tree 2>/dev/null
 
-# 检查 package.json（Node.js 项目）
+# Check package.json (Node.js project)
 test -f package.json
 
-# 检查常用安全工具
+# Check common security tools
 command -v npm audit 2>/dev/null
 command -v yarn audit 2>/dev/null
 ```
 
-**输出环境信息：**
+**Output environment info:**
 ```markdown
-🔍 环境检测
-- Git 仓库: ✓
-- 项目类型: Node.js
-- 包管理器: npm/yarn
-- 可用工具: npm audit, eslint
+Environment Detection
+- Git repository: Yes
+- Project type: Node.js
+- Package manager: npm/yarn
+- Available tools: npm audit, eslint
 ```
 
 ---
 
-## 第三步：并行扫描（P1）
+## Step 3: Parallel Scanning (P1)
 
-**根据检查模式选择扫描维度：**
+**Select scanning dimensions based on check mode:**
 
-### Full 模式（5个维度）
+### Full Mode (5 Dimensions)
 
-**同时启动 4 个 subagent 并行扫描：**
+**Launch 4 subagents simultaneously for parallel scanning:**
 
-#### Subagent 1: 安全扫描
+#### Subagent 1: Security Scan
 ```
 Task(subagent_type="atlas:code-reviewer")
 prompt: |
-  ## 任务
-  任务 ID: health-security-<timestamp>
-  检查类型: security
+  ## Task
+  Task ID: health-security-<timestamp>
+  Check type: security
 
-  ## 范围
-  - 路径: <scope>
-  - 深度: deep
+  ## Scope
+  - Path: <scope>
+  - Depth: deep
 
-  ## 检查项
-  1. 依赖漏洞检测:
-     - 运行: npm audit / yarn audit
-     - 检测: package.json 中的高危依赖
-     - 评估: CVE 漏洞等级
+  ## Check Items
+  1. Dependency vulnerability detection:
+     - Run: npm audit / yarn audit
+     - Detect: High-risk dependencies in package.json
+     - Evaluate: CVE vulnerability level
 
-  2. 硬编码密钥扫描:
-     - 搜索模式: API_KEY, SECRET, PASSWORD, TOKEN
-     - 检测: .env 文件泄露
-     - 检查: 配置文件中的敏感信息
+  2. Hardcoded secret scan:
+     - Search patterns: API_KEY, SECRET, PASSWORD, TOKEN
+     - Detect: .env file leaks
+     - Check: Sensitive info in config files
 
-  ## 输出
-  写入: .claude/health/.scan/security-<timestamp>.json
-  格式:
+  ## Output
+  Write to: .claude/health/.scan/security-<timestamp>.json
+  Format:
   {
     "dimension": "security",
     "score": 0-100,
@@ -107,127 +107,127 @@ prompt: |
       {
         "severity": "critical|high|medium|low",
         "type": "dependency|hardcoded-secret|config",
-        "description": "问题描述",
-        "location": "文件路径:行号",
-        "recommendation": "修复建议"
+        "description": "Issue description",
+        "location": "file path:line number",
+        "recommendation": "Fix suggestion"
       }
     ],
-    "summary": "简要说明"
+    "summary": "Brief description"
   }
 ```
 
-#### Subagent 2: 代码质量扫描
+#### Subagent 2: Code Quality Scan
 ```
 Task(subagent_type="atlas:information-gatherer")
 prompt: |
-  ## 任务
-  任务 ID: health-quality-<timestamp>
-  检查类型: code-quality
+  ## Task
+  Task ID: health-quality-<timestamp>
+  Check type: code-quality
 
-  ## 范围
-  - 路径: <scope>
-  - 文件类型: .js, .ts, .jsx, .tsx
+  ## Scope
+  - Path: <scope>
+  - File types: .js, .ts, .jsx, .tsx
 
-  ## 检查项
-  1. 代码复杂度:
-     - 循环嵌套深度 > 3
-     - 函数行数 > 100
-     - 文件行数 > 500
+  ## Check Items
+  1. Code complexity:
+     - Loop nesting depth > 3
+     - Function lines > 100
+     - File lines > 500
 
-  2. 代码覆盖率（如有 coverage/ 目录）:
-     - 读取: coverage/coverage-summary.json
-     - 提取: line/branch/function coverage
+  2. Code coverage (if coverage/ directory exists):
+     - Read: coverage/coverage-summary.json
+     - Extract: line/branch/function coverage
 
-  3. 问题模式:
-     - TODO/FIXME 数量
-     - console.log 残留
-     - 注释掉的代码块
+  3. Issue patterns:
+     - TODO/FIXME count
+     - console.log remnants
+     - Commented out code blocks
 
-  ## 输出
-  写入: .claude/health/.scan/quality-<timestamp>.json
-  格式同上，score 和 weight(0.25)
+  ## Output
+  Write to: .claude/health/.scan/quality-<timestamp>.json
+  Format same as above, score and weight(0.25)
 ```
 
-#### Subagent 3: 依赖健康扫描
+#### Subagent 3: Dependency Health Scan
 ```
 Task(subagent_type="atlas:dependency-analyzer")
 prompt: |
-  ## 任务
-  任务 ID: health-dependencies-<timestamp>
-  检查类型: dependency-health
+  ## Task
+  Task ID: health-dependencies-<timestamp>
+  Check type: dependency-health
 
-  ## 检查项
-  1. 过期依赖:
-     - 运行: npm outdated / yarn outdated
-     - 统计: major/minor/patch outdated
+  ## Check Items
+  1. Outdated dependencies:
+     - Run: npm outdated / yarn outdated
+     - Count: major/minor/patch outdated
 
-  2. 依赖冲突:
-     - 检测: package-lock.json 中的重复依赖
-     - 评估: 版本不一致问题
+  2. Dependency conflicts:
+     - Detect: Duplicate dependencies in package-lock.json
+     - Evaluate: Version inconsistency issues
 
-  3. 依赖体积:
-     - 统计: dependencies 数量
-     - 分析: 大型依赖（>5MB）
+  3. Dependency size:
+     - Count: dependencies count
+     - Analyze: Large dependencies (>5MB)
 
-  ## 输出
-  写入: .claude/health/.scan/dependencies-<timestamp>.json
-  格式同上，score 和 weight(0.20)
+  ## Output
+  Write to: .claude/health/.scan/dependencies-<timestamp>.json
+  Format same as above, score and weight(0.20)
 ```
 
-#### Subagent 4: 架构质量扫描
+#### Subagent 4: Architecture Quality Scan
 ```
 Task(subagent_type="atlas:code-reviewer")
 prompt: |
-  ## 任务
-  任务 ID: health-architecture-<timestamp>
-  检查类型: architecture
+  ## Task
+  Task ID: health-architecture-<timestamp>
+  Check type: architecture
 
-  ## 检查项
-  1. 循环依赖:
-     - 分析: import 关系图
-     - 检测: 循环引用路径
+  ## Check Items
+  1. Circular dependencies:
+     - Analyze: Import relationship graph
+     - Detect: Circular reference paths
 
-  2. 模块耦合:
-     - 统计: 跨模块引用数量
-     - 评估: 高耦合模块（被引用 >20 次）
+  2. Module coupling:
+     - Count: Cross-module reference count
+     - Evaluate: High coupling modules (referenced >20 times)
 
-  3. 目录结构:
-     - 检查: 是否遵循约定目录结构
-     - 评估: 平坦化 vs 嵌套深度
+  3. Directory structure:
+     - Check: Whether follows conventional directory structure
+     - Evaluate: Flat vs nesting depth
 
-  ## 输出
-  写入: .claude/health/.scan/architecture-<timestamp>.json
-  格式同上，score 和 weight(0.15)
+  ## Output
+  Write to: .claude/health/.scan/architecture-<timestamp>.json
+  Format same as above, score and weight(0.15)
 ```
 
-#### 可维护性检查（主对话执行）
+#### Maintainability Check (Main Process Execution)
 ```
-直接在主对话中快速检查:
-1. 文档覆盖:
-   - 统计: README.md, API docs 存在性
-   - 检查: 核心模块是否有文档
-2. 命名规范:
-   - 搜索: 拼音命名、无意义变量名
-3. 注释质量:
-   - 统计: 注释行数 / 代码行数
+Quick check directly in main conversation:
+1. Documentation coverage:
+   - Count: README.md, API docs existence
+   - Check: Whether core modules have documentation
+2. Naming conventions:
+   - Search: Pinyin naming, meaningless variable names
+3. Comment quality:
+   - Count: Comment lines / code lines
 
-输出: .claude/health/.scan/maintainability-<timestamp>.json
-权重: 0.10
+Output: .claude/health/.scan/maintainability-<timestamp>.json
+Weight: 0.10
 ```
 
-### Quick 模式（2个维度）
+### Quick Mode (2 Dimensions)
 
-**仅执行 Subagent 1 和 2（安全扫描和代码质量）**
+**Execute Subagent 1 and 2 only (security scan and code quality)**
 
-### Security/Quality 模式（单维度）
+### Security/Quality Mode (Single Dimension)
 
-**仅执行对应的 subagent**
+**Execute corresponding subagent only**
 
 ---
 
-## 第四步：评分计算（P2）
+## Step 4: Score Calculation (P2)
 
-**等待所有扫描完成后，读取所有 JSON 文件：**
+**After all scans complete, read all JSON files:**
 
 ```bash
 cat .claude/health/.scan/security-<timestamp>.json
@@ -237,252 +237,252 @@ cat .claude/health/.scan/architecture-<timestamp>.json
 cat .claude/health/.scan/maintainability-<timestamp>.json
 ```
 
-**计算综合评分：**
+**Calculate composite score:**
 
 ```
-总分 = Σ (维度分数 × 维度权重)
+Total = Sum(dimension score x dimension weight)
 
-示例:
-security: 75 × 0.30 = 22.5
-quality: 80 × 0.25 = 20.0
-dependencies: 70 × 0.20 = 14.0
-architecture: 85 × 0.15 = 12.75
-maintainability: 90 × 0.10 = 9.0
+Example:
+security: 75 x 0.30 = 22.5
+quality: 80 x 0.25 = 20.0
+dependencies: 70 x 0.20 = 14.0
+architecture: 85 x 0.15 = 12.75
+maintainability: 90 x 0.10 = 9.0
 -------------------------------
-总分 = 78.25 ≈ 78 (B 级)
+Total = 78.25 ~ 78 (Grade B)
 ```
 
-**评级映射：**
+**Grade Mapping:**
 
-| 分数 | 等级 | 状态 | 说明 |
-|------|------|------|------|
-| 90-100 | A | 🟢 优秀 | 生产就绪，无重大问题 |
-| 80-89 | B | 🟢 良好 | 可部署，有少量改进空间 |
-| 70-79 | C | 🟡 一般 | 需要优化，存在中等问题 |
-| 60-69 | D | 🟠 较差 | 不建议部署，问题较多 |
-| <60 | F | 🔴 危险 | 禁止部署，严重问题 |
+| Score | Grade | Status | Description |
+|-------|-------|--------|-------------|
+| 90-100 | A | Excellent | Production ready, no major issues |
+| 80-89 | B | Good | Deployable, some room for improvement |
+| 70-79 | C | Average | Needs optimization, moderate issues |
+| 60-69 | D | Poor | Not recommended for deployment, many issues |
+| <60 | F | Critical | Deployment prohibited, severe issues |
 
 ---
 
-## 第五步：报告生成（P3）
+## Step 5: Report Generation (P3)
 
-**创建报告目录：**
+**Create report directory:**
 ```bash
 mkdir -p .claude/health/
 ```
 
-### Markdown 格式（默认）
+### Markdown Format (Default)
 
-**写入文件：** `.claude/health/report-<timestamp>.md`
+**Write to file:** `.claude/health/report-<timestamp>.md`
 
-**报告结构：**
+**Report Structure:**
 ```markdown
-# 项目健康检查报告
+# Project Health Check Report
 
-**检查时间**: 2024-01-15 14:30:00
-**检查模式**: full
-**检查范围**: 整个项目
-
----
-
-## 综合评分
-
-### 总评
-**分数**: 78 / 100
-**等级**: B (良好)
-**状态**: 🟢 可部署
-
-### 维度评分
-
-| 维度 | 分数 | 权重 | 贡献 | 状态 |
-|------|------|------|------|------|
-| 🔒 安全性 | 75 | 30% | 22.5 | 🟡 一般 |
-| ⚙️ 代码质量 | 80 | 25% | 20.0 | 🟢 良好 |
-| 📦 依赖健康 | 70 | 20% | 14.0 | 🟡 一般 |
-| 🏗️ 架构质量 | 85 | 15% | 12.75 | 🟢 良好 |
-| 🔧 可维护性 | 90 | 10% | 9.0 | 🟢 优秀 |
+**Check time**: 2024-01-15 14:30:00
+**Check mode**: full
+**Check scope**: Entire project
 
 ---
 
-## 详细问题
+## Composite Score
 
-### 🔒 安全性 (75/100)
+### Summary
+**Score**: 78 / 100
+**Grade**: B (Good)
+**Status**: Deployable
 
-#### ⚠️ Critical (1)
-- **CVE-2023-12345**: lodash 依赖存在原型污染漏洞
-  - 位置: package.json:23
-  - 建议: 升级至 4.17.21 或更高版本
+### Dimension Scores
 
-#### ⚠️ High (2)
-- **硬编码密钥**: API_KEY 暴露在源码中
-  - 位置: src/config/api.ts:15
-  - 建议: 迁移至环境变量 (.env)
+| Dimension | Score | Weight | Contribution | Status |
+|-----------|-------|--------|--------------|--------|
+| Security | 75 | 30% | 22.5 | Average |
+| Code Quality | 80 | 25% | 20.0 | Good |
+| Dependency Health | 70 | 20% | 14.0 | Average |
+| Architecture Quality | 85 | 15% | 12.75 | Good |
+| Maintainability | 90 | 10% | 9.0 | Excellent |
 
-- **依赖漏洞**: axios 版本过低
-  - 位置: package.json:45
-  - 建议: 升级至 1.6.0+
+---
 
-#### ℹ️ Medium (5)
-- TODO 注释中包含敏感信息
-- .env.example 缺失
+## Detailed Issues
+
+### Security (75/100)
+
+#### Critical (1)
+- **CVE-2023-12345**: lodash dependency has prototype pollution vulnerability
+  - Location: package.json:23
+  - Suggestion: Upgrade to 4.17.21 or higher
+
+#### High (2)
+- **Hardcoded secret**: API_KEY exposed in source code
+  - Location: src/config/api.ts:15
+  - Suggestion: Migrate to environment variable (.env)
+
+- **Dependency vulnerability**: axios version too low
+  - Location: package.json:45
+  - Suggestion: Upgrade to 1.6.0+
+
+#### Medium (5)
+- TODO comments contain sensitive information
+- .env.example missing
 - ...
 
 ---
 
-### ⚙️ 代码质量 (80/100)
+### Code Quality (80/100)
 
-#### ⚠️ High (3)
-- **复杂度过高**: UserService.handleRequest 圈复杂度为 25
-  - 位置: src/services/user.ts:120-185
-  - 建议: 拆分为多个小函数
+#### High (3)
+- **Complexity too high**: UserService.handleRequest cyclomatic complexity is 25
+  - Location: src/services/user.ts:120-185
+  - Suggestion: Split into multiple smaller functions
 
-- **文件过大**: components/Dashboard.tsx 达 850 行
-  - 位置: src/components/Dashboard.tsx
-  - 建议: 拆分为多个子组件
+- **File too large**: components/Dashboard.tsx has 850 lines
+  - Location: src/components/Dashboard.tsx
+  - Suggestion: Split into multiple sub-components
 
-#### ℹ️ Medium (8)
-- 12 处 console.log 残留
-- 45 处 TODO/FIXME 注释
-- 测试覆盖率仅 65%（建议 ≥80%）
+#### Medium (8)
+- 12 console.log remnants
+- 45 TODO/FIXME comments
+- Test coverage only 65% (recommended >=80%)
 - ...
 
 ---
 
-### 📦 依赖健康 (70/100)
+### Dependency Health (70/100)
 
-#### ⚠️ High (4)
-- **Major 版本过期**: react 16.x (最新 18.x)
-- **Major 版本过期**: webpack 4.x (最新 5.x)
-- **体积过大**: moment.js (289KB，建议替换为 date-fns)
-- **重复依赖**: lodash 出现 3 个版本 (4.17.19, 4.17.20, 4.17.21)
+#### High (4)
+- **Major version outdated**: react 16.x (latest 18.x)
+- **Major version outdated**: webpack 4.x (latest 5.x)
+- **Size too large**: moment.js (289KB, suggest replacing with date-fns)
+- **Duplicate dependency**: lodash has 3 versions (4.17.19, 4.17.20, 4.17.21)
 
-#### ℹ️ Medium (12)
-- 23 个 minor 版本过期
-- 45 个 patch 版本过期
+#### Medium (12)
+- 23 minor versions outdated
+- 45 patch versions outdated
 - ...
 
 ---
 
-### 🏗️ 架构质量 (85/100)
+### Architecture Quality (85/100)
 
-#### ⚠️ Medium (2)
-- **循环依赖**: utils/helpers.ts ↔ services/user.ts
-  - 路径: helpers → user → api → helpers
-  - 建议: 提取公共逻辑至独立模块
+#### Medium (2)
+- **Circular dependency**: utils/helpers.ts <-> services/user.ts
+  - Path: helpers -> user -> api -> helpers
+  - Suggestion: Extract common logic to independent module
 
-- **高耦合**: AuthService 被 18 个模块引用
-  - 建议: 考虑依赖注入或接口抽象
+- **High coupling**: AuthService referenced by 18 modules
+  - Suggestion: Consider dependency injection or interface abstraction
 
-#### ℹ️ Low (5)
-- components/ 目录嵌套深度达 5 层
-- 部分模块缺少 index.ts 导出
+#### Low (5)
+- components/ directory nesting depth reaches 5 levels
+- Some modules missing index.ts export
 - ...
 
 ---
 
-### 🔧 可维护性 (90/100)
+### Maintainability (90/100)
 
-#### ✅ 良好
-- README.md 完善
-- 核心模块有文档覆盖
-- 命名规范基本一致
+#### Good
+- README.md is comprehensive
+- Core modules have documentation coverage
+- Naming conventions are basically consistent
 
-#### ℹ️ Low (3)
-- API 文档不完整（7/12 端点缺少说明）
-- 3 处拼音命名（如 yonghu, denglu）
-- 部分注释已过时
+#### Low (3)
+- API documentation incomplete (7/12 endpoints missing description)
+- 3 pinyin naming instances
+- Some comments are outdated
 - ...
 
 ---
 
-## 改进建议
+## Improvement Suggestions
 
-### 🎯 高优先级（2周内）
-1. **安全修复**:
-   - 升级 lodash 至 4.17.21+
-   - 迁移硬编码密钥至环境变量
-   - 升级 axios 至最新版本
+### High Priority (Within 2 Weeks)
+1. **Security fixes**:
+   - Upgrade lodash to 4.17.21+
+   - Migrate hardcoded secrets to environment variables
+   - Upgrade axios to latest version
 
-2. **代码重构**:
-   - 简化 UserService.handleRequest 复杂度
-   - 拆分 Dashboard.tsx 为子组件
+2. **Code refactoring**:
+   - Simplify UserService.handleRequest complexity
+   - Split Dashboard.tsx into sub-components
 
-3. **依赖升级**:
-   - 升级 React 至 18.x（评估兼容性）
-   - 替换 moment.js 为 date-fns（减少 220KB）
+3. **Dependency upgrade**:
+   - Upgrade React to 18.x (evaluate compatibility)
+   - Replace moment.js with date-fns (reduce 220KB)
 
-### 📌 中优先级（1-2月）
-4. **测试覆盖**:
-   - 提升测试覆盖率至 80%+
-   - 关键业务逻辑添加单元测试
+### Medium Priority (1-2 Months)
+4. **Test coverage**:
+   - Increase test coverage to 80%+
+   - Add unit tests for critical business logic
 
-5. **架构优化**:
-   - 解决循环依赖问题
-   - 重构高耦合模块（AuthService）
+5. **Architecture optimization**:
+   - Resolve circular dependency issues
+   - Refactor high coupling modules (AuthService)
 
-6. **依赖清理**:
-   - 统一 lodash 版本
-   - 清理未使用的依赖（运行 depcheck）
+6. **Dependency cleanup**:
+   - Unify lodash versions
+   - Clean up unused dependencies (run depcheck)
 
-### 💡 低优先级（持续改进）
-7. **代码清理**:
-   - 移除 console.log 和调试代码
-   - 清理过时注释
-   - 修正拼音命名
+### Low Priority (Continuous Improvement)
+7. **Code cleanup**:
+   - Remove console.log and debug code
+   - Clean up outdated comments
+   - Fix pinyin naming
 
-8. **文档完善**:
-   - 补充 API 文档
-   - 更新过时文档
+8. **Documentation improvements**:
+   - Complete API documentation
+   - Update outdated documentation
 
 ---
 
-## CI 集成
+## CI Integration
 
-**阈值设置**（建议）:
-- 最低评分: 70 (C 级)
-- Critical 问题: 0 个
-- High 问题: ≤3 个
+**Threshold settings** (recommended):
+- Minimum score: 70 (Grade C)
+- Critical issues: 0
+- High issues: <=3
 
-**CI 命令**:
+**CI command**:
 ```bash
 /health --ci --export json
 
-# 或通过脚本检查
+# Or via script check
 node scripts/check-health.js
 ```
 
-**失败处理**: 评分低于阈值时 CI 失败，阻止合并
+**Failure handling**: CI fails when score below threshold, blocking merge
 
 ---
 
-## 下一步行动
+## Next Steps
 
-1. **立即执行**: 修复 1 个 Critical 安全问题
-2. **本周计划**: 处理 2 个 High 级代码质量问题
-3. **本月目标**: 升级主要依赖，解决循环依赖
-4. **持续改进**: 定期执行 `/health` 检查（建议每周一次）
+1. **Immediate**: Fix 1 Critical security issue
+2. **This week**: Handle 2 High-level code quality issues
+3. **This month**: Upgrade major dependencies, resolve circular dependencies
+4. **Continuous**: Run `/health` check regularly (recommended weekly)
 
 ---
 
-**报告生成时间**: 2024-01-15 14:30:15
-**下次检查建议**: 2024-01-22 (7天后)
+**Report generated**: 2024-01-15 14:30:15
+**Next check suggested**: 2024-01-22 (7 days later)
 
-**快速修复命令**:
+**Quick fix commands**:
 ```bash
-# 升级依赖
+# Upgrade dependencies
 npm update lodash axios
 
-# 代码清理
-/orchestrate 移除所有 console.log
+# Code cleanup
+/orchestrate Remove all console.log
 
-# 测试覆盖
+# Test coverage
 npm run test:coverage
 ```
 ```
 
-### JSON 格式（CI 模式）
+### JSON Format (CI Mode)
 
-**写入文件：** `.claude/health/report-<timestamp>.json`
+**Write to file:** `.claude/health/report-<timestamp>.json`
 
 ```json
 {
@@ -522,28 +522,28 @@ npm run test:coverage
         "low": 12
       }
     }
-    // ... 其他维度
+    // ... other dimensions
   ],
   "issues": [
     {
       "dimension": "security",
       "severity": "critical",
       "type": "dependency",
-      "description": "lodash 依赖存在 CVE-2023-12345 原型污染漏洞",
+      "description": "lodash dependency has CVE-2023-12345 prototype pollution vulnerability",
       "location": "package.json:23",
-      "recommendation": "升级至 4.17.21 或更高版本"
+      "recommendation": "Upgrade to 4.17.21 or higher"
     }
-    // ... 所有问题
+    // ... all issues
   ],
   "recommendations": [
     {
       "priority": "high",
       "category": "security",
-      "action": "升级 lodash 至 4.17.21+",
-      "impact": "修复 Critical 安全漏洞",
+      "action": "Upgrade lodash to 4.17.21+",
+      "impact": "Fix Critical security vulnerability",
       "effort": "low"
     }
-    // ... 所有建议
+    // ... all recommendations
   ],
   "ci": {
     "threshold": 70,
@@ -553,194 +553,194 @@ npm run test:coverage
 }
 ```
 
-### HTML 格式
+### HTML Format
 
-**写入文件：** `.claude/health/report-<timestamp>.html`
+**Write to file:** `.claude/health/report-<timestamp>.html`
 
-**包含：**
-- 可视化评分仪表盘
-- 交互式问题过滤器
-- 趋势图表（如有历史数据）
-- 导出按钮（PDF/PNG）
+**Contains:**
+- Visual score dashboard
+- Interactive issue filters
+- Trend charts (if historical data available)
+- Export buttons (PDF/PNG)
 
 ---
 
-## 第六步：CI 检查（仅 --ci 模式）
+## Step 6: CI Check (--ci Mode Only)
 
-**如果指定了 `--ci` 选项：**
+**If `--ci` option is specified:**
 
 ```bash
-# 读取 JSON 报告
+# Read JSON report
 report=.claude/health/report-<timestamp>.json
 
-# 检查阈值
+# Check thresholds
 score=$(jq '.summary.score' $report)
 critical=$(jq '[.issues[] | select(.severity=="critical")] | length' $report)
 high=$(jq '[.issues[] | select(.severity=="high")] | length' $report)
 
-# CI 阈值（可配置）
+# CI thresholds (configurable)
 MIN_SCORE=70
 MAX_CRITICAL=0
 MAX_HIGH=3
 
-# 判断是否通过
+# Determine pass/fail
 if [ $score -lt $MIN_SCORE ]; then
-  echo "❌ CI 失败: 评分 $score < $MIN_SCORE"
+  echo "CI Failed: Score $score < $MIN_SCORE"
   exit 1
 fi
 
 if [ $critical -gt $MAX_CRITICAL ]; then
-  echo "❌ CI 失败: 存在 $critical 个 Critical 问题"
+  echo "CI Failed: $critical Critical issues found"
   exit 1
 fi
 
 if [ $high -gt $MAX_HIGH ]; then
-  echo "⚠️ CI 警告: 存在 $high 个 High 问题 (阈值: $MAX_HIGH)"
+  echo "CI Warning: $high High issues found (threshold: $MAX_HIGH)"
 fi
 
-echo "✅ CI 通过: 健康度检查合格"
+echo "CI Passed: Health check passed"
 ```
 
-**CI 输出：**
+**CI Output:**
 ```markdown
-🏥 项目健康检查 CI
+Project Health Check CI
 
-✅ 评分: 78 ≥ 70 (通过)
-✅ Critical 问题: 0 个 (通过)
-⚠️ High 问题: 5 个 (超出阈值 3，警告)
+Score: 78 >= 70 (Pass)
+Critical issues: 0 (Pass)
+High issues: 5 (Exceeds threshold 3, Warning)
 
-状态: PASS (允许合并，建议修复 High 问题)
+Status: PASS (Merge allowed, recommend fixing High issues)
 ```
 
-**如果未通过：**
+**If failed:**
 ```markdown
-🏥 项目健康检查 CI
+Project Health Check CI
 
-❌ 评分: 58 < 70 (失败)
-❌ Critical 问题: 2 个 (失败)
-❌ High 问题: 12 个 (失败)
+Score: 58 < 70 (Fail)
+Critical issues: 2 (Fail)
+High issues: 12 (Fail)
 
 Blockers:
 1. lodash CVE-2023-12345
-2. 硬编码 API 密钥
+2. Hardcoded API key
 
-状态: FAIL (阻止合并)
+Status: FAIL (Merge blocked)
 ```
 
 ---
 
-## 执行示例
+## Execution Examples
 
-### 示例 1: 完整检查
-
-```
-用户: /health
-
-1. 询问选项（如未指定）
-2. 环境检测
-3. 并行启动 4 个 subagent 扫描（安全/质量/依赖/架构）+ 主对话检查可维护性
-4. 等待所有扫描完成
-5. 读取 5 个 JSON 结果
-6. 计算综合评分: 78/100 (B 级)
-7. 生成 Markdown 报告: .claude/health/report-20240115-143000.md
-8. 输出摘要 + 报告路径
-```
-
-### 示例 2: Quick 模式
+### Example 1: Complete Check
 
 ```
-用户: /health --quick
+User: /health
 
-1. 跳过询问
-2. 环境检测
-3. 并行启动 2 个 subagent（安全/质量）
-4. 计算评分（仅这两个维度）
-5. 生成简化报告
+1. Ask for options (if not specified)
+2. Environment detection
+3. Parallel launch 4 subagents (security/quality/dependencies/architecture) + main process checks maintainability
+4. Wait for all scans to complete
+5. Read 5 JSON results
+6. Calculate composite score: 78/100 (Grade B)
+7. Generate Markdown report: .claude/health/report-20240115-143000.md
+8. Output summary + report path
 ```
 
-### 示例 3: CI 模式
+### Example 2: Quick Mode
 
 ```
-用户: /health --ci --export json
+User: /health --quick
 
-1. 环境检测
-2. 完整扫描（5个维度）
-3. 生成 JSON 报告
-4. 执行 CI 阈值检查
-5. 输出 PASS/FAIL + 具体原因
+1. Skip asking
+2. Environment detection
+3. Parallel launch 2 subagents (security/quality)
+4. Calculate score (these two dimensions only)
+5. Generate simplified report
+```
+
+### Example 3: CI Mode
+
+```
+User: /health --ci --export json
+
+1. Environment detection
+2. Complete scan (5 dimensions)
+3. Generate JSON report
+4. Execute CI threshold check
+5. Output PASS/FAIL + specific reasons
 ```
 
 ---
 
-## 输出格式
+## Output Format
 
-**固定输出结构：**
+**Fixed output structure:**
 
 ```markdown
-🏥 项目健康检查完成
+Project Health Check Complete
 
-## 综合评分
-**分数**: 78 / 100
-**等级**: B (良好)
-**状态**: 🟢 可部署
+## Composite Score
+**Score**: 78 / 100
+**Grade**: B (Good)
+**Status**: Deployable
 
-## 维度分布
-- 🔒 安全性: 75/100 (🟡 一般)
-- ⚙️ 代码质量: 80/100 (🟢 良好)
-- 📦 依赖健康: 70/100 (🟡 一般)
-- 🏗️ 架构质量: 85/100 (🟢 良好)
-- 🔧 可维护性: 90/100 (🟢 优秀)
+## Dimension Distribution
+- Security: 75/100 (Average)
+- Code Quality: 80/100 (Good)
+- Dependency Health: 70/100 (Average)
+- Architecture Quality: 85/100 (Good)
+- Maintainability: 90/100 (Excellent)
 
-## 关键问题
-- ⚠️ Critical: 1 个
-- ⚠️ High: 7 个
-- ℹ️ Medium: 28 个
+## Key Issues
+- Critical: 1
+- High: 7
+- Medium: 28
 
-📊 **完整报告**: .claude/health/report-20240115-143000.md
+**Full report**: .claude/health/report-20240115-143000.md
 
-## 下一步
-1. 立即修复: 1 个 Critical 安全问题
-2. 本周计划: 处理 2 个 High 级代码质量问题
-3. 本月目标: 升级主要依赖
+## Next Steps
+1. Immediate: Fix 1 Critical security issue
+2. This week: Handle 2 High-level code quality issues
+3. This month: Upgrade major dependencies
 
-🔄 **建议检查频率**: 每周一次
+**Recommended check frequency**: Weekly
 ```
 
 ---
 
-## 历史趋势（可选）
+## Historical Trends (Optional)
 
-**如果存在历史报告，显示趋势：**
+**If historical reports exist, show trends:**
 
 ```markdown
-## 健康趋势
+## Health Trends
 
-| 日期 | 评分 | 等级 | 变化 |
-|------|------|------|------|
-| 2024-01-15 | 78 | B | +5 ⬆️ |
-| 2024-01-08 | 73 | C | -2 ⬇️ |
-| 2024-01-01 | 75 | C | — |
+| Date | Score | Grade | Change |
+|------|-------|-------|--------|
+| 2024-01-15 | 78 | B | +5 |
+| 2024-01-08 | 73 | C | -2 |
+| 2024-01-01 | 75 | C | - |
 
-**改进方向**: 安全性 +10, 代码质量 +5
-**待改进**: 依赖健康 -3
+**Improving**: Security +10, Code Quality +5
+**Needs improvement**: Dependency Health -3
 ```
 
 ---
 
-## 参数说明
+## Parameter Description
 
-| 参数 | 说明 | 默认值 | 示例 |
-|------|------|--------|------|
-| --scope | 检查范围（目录路径） | . | --scope src/ |
-| --quick | 快速模式（仅安全和质量） | false | --quick |
-| --export | 导出格式 | markdown | --export json |
-| --ci | CI 模式（包含阈值检查） | false | --ci |
+| Parameter | Description | Default | Example |
+|-----------|-------------|---------|---------|
+| --scope | Check scope (directory path) | . | --scope src/ |
+| --quick | Quick mode (security and quality only) | false | --quick |
+| --export | Export format | markdown | --export json |
+| --ci | CI mode (includes threshold check) | false | --ci |
 
 ---
 
-## 配置文件（可选）
+## Configuration File (Optional)
 
-**支持自定义配置：** `.claude/health/config.json`
+**Custom configuration supported:** `.claude/health/config.json`
 
 ```json
 {
@@ -765,38 +765,38 @@ Blockers:
 
 ---
 
-## 核心约束
+## Core Constraints
 
-**必须做**:
-- 并行扫描多个维度（除非 quick/单维度模式）
-- 使用固定的 JSON 输出格式（便于 CI 解析）
-- 提供具体的文件路径和行号
-- 给出可操作的修复建议
-- 保存历史报告（支持趋势分析）
+**Must Do**:
+- Parallel scan multiple dimensions (unless quick/single dimension mode)
+- Use fixed JSON output format (for CI parsing)
+- Provide specific file paths and line numbers
+- Give actionable fix suggestions
+- Save historical reports (support trend analysis)
 
-**禁止做**:
-- 自己修复问题（仅诊断，不修改代码）
-- 串行扫描（影响效率）
-- 输出不完整的报告（必须包含所有维度）
-- 忽略 CI 阈值检查（--ci 模式下必须执行）
+**Must Not Do**:
+- Fix issues yourself (diagnosis only, don't modify code)
+- Serial scanning (affects efficiency)
+- Output incomplete reports (must include all dimensions)
+- Ignore CI threshold checks (must execute in --ci mode)
 
 ---
 
-## 与其他命令配合
+## Integration with Other Commands
 
 ```bash
-# 工作流示例
-/health                                # 1. 诊断项目健康度
-/gather dependencies <package>         # 2. 分析问题依赖的影响范围
-/orchestrate 升级所有 <package> 引用    # 3. 批量修复
-/health --quick                        # 4. 验证修复效果
+# Workflow example
+/health                                # 1. Diagnose project health
+/gather dependencies <package>         # 2. Analyze impact scope of problem dependency
+/orchestrate Upgrade all <package> references    # 3. Batch fix
+/health --quick                        # 4. Verify fix effect
 ```
 
 ---
 
-## 注意事项
+## Notes
 
-- 首次运行可能较慢（5-10分钟），后续检查会更快
-- CI 模式建议在每次 PR 合并前执行
-- 历史报告保留 30 天（可配置）
-- 大型项目（>10万行）建议使用 --quick 模式
+- First run may be slow (5-10 minutes), subsequent checks will be faster
+- CI mode recommended before each PR merge
+- Historical reports retained for 30 days (configurable)
+- Large projects (>100k lines) recommend using --quick mode
