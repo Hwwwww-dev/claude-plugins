@@ -5,6 +5,8 @@ argument-hint: <话题> [--group <预设组>] [--depth shallow|normal|deep] [--s
 
 # /ideation:brainstorm - 多角色头脑风暴
 
+**你是头脑风暴协调者，必须通过 Task tool 调用专家 agents，禁止自己模拟专家观点。**
+
 > **行为框架说明**：本文件定义了当用户输入 `/ideation:brainstorm` 时 Claude Code 的行为模式。通过组织多位专家从不同视角辩论，深度探索问题本质。
 
 用户输入: $ARGUMENTS
@@ -224,11 +226,108 @@ argument-hint: <话题> [--group <预设组>] [--depth shallow|normal|deep] [--s
 选项：13位专家的完整列表
 ```
 
-### 步骤四：启动辩论
+### 步骤四：启动辩论（核心步骤）
 
-1. 调用 `debate-moderator` agent 主持讨论
-2. 使用 Task tool 并行调用选定的专家 agents
-3. 按照五阶段流程推进辩论
+**必须按以下顺序执行**：
+
+#### 4.1 调用主持人初始化
+
+```
+Task(subagent_type="ideation:debate-moderator", model="sonnet")
+prompt: |
+  ## 讨论主题
+  [用户话题]
+
+  ## 参与专家
+  [用户选择的专家列表]
+
+  ## 讨论深度
+  [shallow/normal/deep]
+
+  ## 要求
+  按照五阶段辩论流程主持讨论，协调各专家发言顺序
+```
+
+#### 4.2 并行调用专家收集初步观点
+
+在同一消息中发起多个 Task 调用：
+
+```
+Task(subagent_type="ideation:product-manager", model="haiku")
+prompt: |
+  ## 讨论主题
+  [主题]
+
+  ## 当前阶段
+  初步观点
+
+  ## 要求
+  从产品经理视角发表专业观点，包括：核心观点、支撑论据、潜在风险
+
+Task(subagent_type="ideation:architect", model="haiku")
+prompt: |
+  ## 讨论主题
+  [主题]
+
+  ## 当前阶段
+  初步观点
+
+  ## 要求
+  从架构师视角发表专业观点，包括：核心观点、支撑论据、潜在风险
+
+# ... 对每个选定专家发起并行 Task 调用
+```
+
+#### 4.3 调用主持人协调交叉质疑
+
+```
+Task(subagent_type="ideation:debate-moderator", model="sonnet")
+prompt: |
+  ## 讨论主题
+  [主题]
+
+  ## 当前阶段
+  交叉质疑
+
+  ## 各专家初步观点
+  [汇总上一步收集的观点]
+
+  ## 要求
+  分析各专家观点，识别分歧点，引导专家互相质疑
+```
+
+#### 4.4 再次并行调用专家进行回应
+
+```
+Task(subagent_type="ideation:[expert]", model="haiku")
+prompt: |
+  ## 讨论主题
+  [主题]
+
+  ## 当前阶段
+  观点修正
+
+  ## 其他专家的质疑
+  [主持人整理的质疑要点]
+
+  ## 要求
+  回应质疑，修正或坚持观点，说明理由
+```
+
+#### 4.5 调用主持人形成共识
+
+```
+Task(subagent_type="ideation:debate-moderator", model="sonnet")
+prompt: |
+  ## 讨论主题
+  [主题]
+
+  ## 完整讨论记录
+  [所有阶段的观点和回应]
+
+  ## 要求
+  汇总共识、记录分歧、形成结论
+```
 
 ### 步骤五：输出结论
 
@@ -303,3 +402,23 @@ argument-hint: <话题> [--group <预设组>] [--depth shallow|normal|deep] [--s
 - 跳过探索阶段直接给出结论
 - 压制专家之间的合理分歧
 - 在缺乏信息时强行达成共识
+
+---
+
+## 核心约束
+
+**必须做**：
+- 使用 AskUserQuestion 让用户选择参与专家
+- 通过 Task tool 调用 `ideation:debate-moderator` 主持讨论
+- 通过 Task tool 并行调用选定的专家 agents
+- 等待所有专家 agents 返回结果后再汇总
+- 使用固定格式输出结论
+- 每个阶段都要等待前一阶段完成后再进行
+
+**禁止做**：
+- 自己模拟专家观点（必须调用专家 agents）
+- 跳过专家选择步骤
+- 不经主持人协调直接汇总结论
+- 在主进程中进行深度分析（应委托给专家）
+- 跳过交叉质疑阶段
+- 伪造专家观点或虚构讨论内容

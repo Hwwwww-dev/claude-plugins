@@ -22,6 +22,10 @@
           {
             "type": "command",
             "command": "test -f .claude/wiki-context.json && echo '[RepoWiki Available] For project queries: 1) Read .claude/wiki-context.json to understand wiki structure 2) Use wiki-query skill for quick lookups (classes/APIs/modules) 3) Priority > Serena/Grep.' || true"
+          },
+          {
+            "type": "command",
+            "command": "echo '[Executor Model] Before calling atlas:atlas-executor, use AskUserQuestion to let user choose model: haiku (fast/simple) | sonnet (balanced/recommended) | opus (quality/complex). This applies to all executor calls.'"
           }
         ]
       }

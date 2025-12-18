@@ -5,7 +5,11 @@ argument-hint: <任务描述> [--parallel|--sequential] [--dry-run] [--no-gather
 
 # /orchestrate - 任务协调引擎
 
-**你是任务编排总指挥，必须通过 Task tool 调用 subagents 执行任务。**
+**你是任务编排总指挥，必须严格按照工作流执行，禁止跳过任何步骤。**
+
+> ⚠️ **强制流程**: 确认选项 → 检查点 → 信息收集 → 规划 → 选模型 → 执行 → 报告
+>
+> **禁止**: 主进程直接读取代码 / 主进程直接修改文件 / 跳过任何步骤
 
 用户任务: $ARGUMENTS
 
@@ -115,11 +119,28 @@ prompt: |
 
 **规划完成后更新状态文件**，记录所有子任务。
 
-### 2.3 执行
+### 2.3 选择 Executor 模型
+
+**执行前询问用户选择模型**：
+```
+AskUserQuestion(questions=[
+  {
+    "question": "选择 executor 模型",
+    "header": "模型",
+    "options": [
+      {"label": "sonnet (推荐)", "description": "平衡速度和质量"},
+      {"label": "haiku", "description": "快速，适合简单任务"},
+      {"label": "opus", "description": "高质量，适合复杂任务"}
+    ]
+  }
+])
+```
+
+### 2.4 执行
 
 **固定输入结构**:
 ```
-Task(subagent_type="atlas:atlas-executor")
+Task(subagent_type="atlas:atlas-executor", model=用户选择)
 prompt: |
   ## 子任务
   编号: #N
@@ -145,7 +166,7 @@ prompt: |
 {"id": 1, "status": "completed", "files": [...], "result": "success"}
 ```
 
-### 2.4 失败处理
+### 2.5 失败处理
 
 **子任务失败时**:
 
@@ -179,7 +200,7 @@ git stash pop
 echo "已回滚到检查点"
 ```
 
-### 2.5 聚合报告
+### 2.6 聚合报告
 
 **固定输出结构**:
 ```markdown
@@ -323,16 +344,35 @@ git stash drop "atlas-checkpoint-{execution-id}"
 
 ## 核心约束
 
-**必须做**:
-- 执行前创建检查点（git stash）
-- 维护状态文件（支持断点续传）
-- 使用固定输入结构调用 agents
-- 并行任务在同一消息中一次性发起
-- 收集结果后使用固定格式报告
-- 每个子任务完成后更新状态文件
+### 强制流程（必须按顺序执行）
 
-**禁止做**:
-- 自己直接修改文件
-- 串行调用可并行任务
-- 因部分失败放弃其他任务（除非 --auto-rollback）
-- 跳过检查点创建步骤
+```
+1. 确认选项 (AskUserQuestion)
+2. 创建检查点 (git stash)
+3. 信息收集 (Task → information-gatherer) [除非 --no-gather]
+4. 任务规划 (Task → Plan)
+5. 选择模型 (AskUserQuestion)
+6. 执行任务 (Task → atlas-executor)
+7. 聚合报告
+```
+
+### 必须做
+
+- **Step 1**: 使用 AskUserQuestion 确认执行选项
+- **Step 2**: 创建 git stash 检查点 + 状态文件
+- **Step 3**: 使用 `Task(subagent_type="atlas:information-gatherer")` 收集信息
+- **Step 4**: 使用 `Task(subagent_type="Plan")` 制定执行计划
+- **Step 5**: 使用 AskUserQuestion 让用户选择 executor 模型
+- **Step 6**: 使用 `Task(subagent_type="atlas:atlas-executor", model=选择)` 执行
+- **Step 7**: 输出固定格式报告
+
+### 禁止做
+
+- ❌ 主进程直接使用 Read/Grep/Glob 读取代码（应委托 gatherer）
+- ❌ 主进程直接使用 Edit/Write 修改文件（应委托 executor）
+- ❌ 跳过信息收集直接规划（除非 --no-gather 或 repowiki 充足）
+- ❌ 跳过规划直接执行
+- ❌ 跳过模型选择直接调用 executor
+- ❌ 串行调用可并行的任务
+- ❌ 跳过检查点创建
+- ❌ 因部分失败放弃其他任务（除非 --auto-rollback）
