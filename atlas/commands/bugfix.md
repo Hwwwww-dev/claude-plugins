@@ -14,14 +14,35 @@ argument-hint: <问题描述> [--scope path] [--fix]
 ### 1. 问题分析
 - 理解用户描述的问题现象
 - 确定问题类型（运行时错误/逻辑错误/配置问题/依赖问题等）
+- 确定搜索范围（--scope 指定或根据问题推断）
 
 ### 2. 信息收集
-根据问题类型，收集相关信息：
-- 错误日志/堆栈信息
-- 相关代码位置（使用 Serena 或 Grep 定位）
-- 配置文件状态
-- 依赖版本
-- git blame 历史
+
+**调用 `information-gatherer` 收集信息**：
+
+```
+Task(
+  subagent_type="atlas:information-gatherer",
+  prompt="问题诊断信息收集：
+
+  问题描述: [用户问题]
+  搜索范围: [scope 或推断范围]
+
+  收集目标:
+  1. 相关代码文件和函数定位
+  2. 错误相关的代码逻辑
+  3. 依赖关系和调用链
+  4. 相关配置文件
+  5. git blame 最近修改历史
+
+  输出要求:
+  - 问题相关的关键代码片段
+  - 可能的问题位置列表
+  - 相关依赖和版本信息"
+)
+```
+
+等待 gatherer 返回信息后，基于收集的信息继续分析。
 
 ### 3. 根因分析
 - 定位问题根本原因
@@ -212,12 +233,15 @@ AskUserQuestion(questions=[
 
 ---
 
-## 复杂问题升级
+## 流程总结
 
-对于特别复杂的问题，可使用完整的 subagent 流程：
+**标准流程**：
 
 ```
-Task(subagent_type="atlas:information-gatherer") → 深度信息收集
-Task(subagent_type="Plan") → 详细修复规划
-Task(subagent_type="atlas:atlas-executor", model=选择) → 执行修复
+1. 问题分析 → 确定问题类型和范围
+2. Task(subagent_type="atlas:information-gatherer") → 信息收集
+3. 根因分析 → 基于收集的信息分析
+4. 输出修复方案
+5. [可选] --fix 时询问确认和模型选择
+6. [可选] Task(subagent_type="atlas:atlas-executor") → 执行修复
 ```
