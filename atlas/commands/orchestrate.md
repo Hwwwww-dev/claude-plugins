@@ -80,7 +80,7 @@ git stash push -m "atlas-checkpoint-{execution-id}"
 
 **固定输入结构**:
 ```
-Task(subagent_type="atlas:information-gatherer")
+Task(subagent_type="atlas:information-gatherer", model="haiku")
 prompt: |
   ## 任务
   任务 ID: <task-id>
@@ -297,6 +297,7 @@ git stash drop "atlas-checkpoint-{execution-id}"
 1. information-gatherer:
    收集目标: 所有 React 组件位置和现有类型情况
    → docs/information/add-types-20240115.md
+   (模型: haiku - 固定)
 
 2. Plan agent:
    上下文: docs/information/add-types-20240115.md
@@ -360,7 +361,7 @@ git stash drop "atlas-checkpoint-{execution-id}"
 
 - **Step 1**: 使用 AskUserQuestion 确认执行选项
 - **Step 2**: 创建 git stash 检查点 + 状态文件
-- **Step 3**: 使用 `Task(subagent_type="atlas:information-gatherer")` 收集信息
+- **Step 3**: 使用 `Task(subagent_type="atlas:information-gatherer", model="haiku")` 收集信息
 - **Step 4**: 使用 `Task(subagent_type="Plan")` 制定执行计划
 - **Step 5**: 使用 AskUserQuestion 让用户选择 executor 模型
 - **Step 6**: 使用 `Task(subagent_type="atlas:atlas-executor", model=选择)` 执行

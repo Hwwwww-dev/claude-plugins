@@ -343,7 +343,7 @@ Phase 0 环境检测 → Phase 1 依赖扫描 → Phase 2 问题分析 → Phase
 
 **执行约束**:
 - Phase 2 必须使用 `atlas:dependency-analyzer` agent
-- Phase 4 必须使用 `atlas:atlas-executor` agent
+- Phase 4 必须使用 `atlas:atlas-executor` agent (询问用户选择模型)
 - 不同分析类型必须并行执行
 - 每个 analyzer 只处理单一类型
 

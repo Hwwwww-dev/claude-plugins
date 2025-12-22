@@ -25,7 +25,7 @@
           },
           {
             "type": "command",
-            "command": "echo '[Executor Model] Before calling atlas:atlas-executor, use AskUserQuestion to let user choose model: haiku (fast/simple) | sonnet (balanced/recommended) | opus (quality/complex). This applies to all executor calls.'"
+            "command": "echo '[Executor Model] Before calling `atlas:atlas-executor`, use AskUserQuestion to let user choose model: haiku (fast/simple) | sonnet (balanced/recommended) | opus (quality/complex).`atlas:information-gatherer` always use haiku. This applies to all executor calls.'"
           }
         ]
       }

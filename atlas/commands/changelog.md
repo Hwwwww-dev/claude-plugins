@@ -227,10 +227,10 @@ prompt: |
 
 ### 4.2 实际写入
 
-**调用 atlas:atlas-executor 执行文件更新**:
+**调用 atlas:atlas-executor 执行文件更新** (询问用户选择模型):
 
 ```
-Task(subagent_type="atlas:atlas-executor")
+Task(subagent_type="atlas:atlas-executor", model=用户选择)
 prompt: |
   ## 子任务
   编号: #1

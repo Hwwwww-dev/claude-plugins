@@ -37,7 +37,7 @@ argument-hint: <分析目标> [--scope path] [--depth N] [--output report|pkg]
 
 **固定输入结构**:
 ```
-Task(subagent_type="atlas:information-gatherer")
+Task(subagent_type="atlas:information-gatherer", model="haiku")
 prompt: |
   ## 任务
   任务 ID: <mode>-<target>-<date>

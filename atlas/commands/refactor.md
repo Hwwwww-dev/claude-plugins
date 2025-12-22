@@ -162,9 +162,9 @@ Phase 0 模式解析 → Phase 1 候选识别 → Phase 2 规划 → Phase 3 执
 - 不修改测试文件（除非明确要求）
 
 **执行约束**:
-- Phase 1 必须使用 information-gatherer
+- Phase 1 必须使用 information-gatherer (model="haiku")
 - Phase 2 必须使用 Plan agent
-- Phase 3 必须使用 atlas-executor（非 dry-run 时）
+- Phase 3 必须使用 atlas-executor（非 dry-run 时，询问用户选择模型）
 
 ---
 

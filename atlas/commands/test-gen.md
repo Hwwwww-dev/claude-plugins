@@ -189,9 +189,9 @@ Phase 0 环境检测 → Phase 1 目标分析 → Phase 2 用例规划 → Phase
 - 边界值测试必须覆盖关键边界
 
 **执行约束**:
-- Phase 1 必须使用 information-gatherer
+- Phase 1 必须使用 information-gatherer (model="haiku")
 - Phase 2 必须使用 Plan agent
-- Phase 3 必须使用 atlas-executor
+- Phase 3 必须使用 atlas-executor (询问用户选择模型)
 
 ---
 

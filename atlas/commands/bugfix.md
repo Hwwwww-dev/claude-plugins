@@ -23,6 +23,7 @@ argument-hint: <问题描述> [--scope path] [--fix]
 ```
 Task(
   subagent_type="atlas:information-gatherer",
+  model="haiku",
   prompt="问题诊断信息收集：
 
   问题描述: [用户问题]
@@ -239,7 +240,7 @@ AskUserQuestion(questions=[
 
 ```
 1. 问题分析 → 确定问题类型和范围
-2. Task(subagent_type="atlas:information-gatherer") → 信息收集
+2. Task(subagent_type="atlas:information-gatherer", model="haiku") → 信息收集
 3. 根因分析 → 基于收集的信息分析
 4. 输出修复方案
 5. [可选] --fix 时询问确认和模型选择

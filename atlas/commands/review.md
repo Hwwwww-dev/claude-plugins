@@ -230,8 +230,9 @@ Phase 0 范围确定 → Phase 1 代码分析 → Phase 2 并行审查 → Phase
 ## 约束
 
 **执行约束**:
+- Phase 1 必须使用 `atlas:information-gatherer` agent (model="haiku")
 - Phase 2 必须使用 `atlas:code-reviewer` agent
-- Phase 4 必须使用 `atlas:atlas-executor` agent
+- Phase 4 必须使用 `atlas:atlas-executor` agent (询问用户选择模型)
 - 不同审查维度必须并行执行
 - 每个 code-reviewer 只处理单一维度
 

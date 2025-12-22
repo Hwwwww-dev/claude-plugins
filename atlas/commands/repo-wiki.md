@@ -1022,12 +1022,12 @@ sequenceDiagram
 **Subagent 使用**（参见各 Phase 说明）:
 - P1: `atlas:repo-semantic-analyzer`（仅 INCREMENTAL）
 - P2: `Plan`（必须 TodoWrite）
-- P3: `atlas:information-gatherer`（并行推荐，必须按 todos 执行）
-- P4: `atlas:atlas-executor`（并行推荐，必须按 todos 执行）
+- P3: `atlas:information-gatherer`（model="haiku"，并行推荐，必须按 todos 执行）
+- P4: `atlas:atlas-executor`（并行推荐，必须按 todos 执行，询问用户选择模型）
 - P5: `atlas:repo-context-indexer`
 - P6: 主进程
-- P7.1: `atlas:information-gatherer`（必须4并行）
-- P7.3: `atlas:atlas-executor`
+- P7.1: `atlas:information-gatherer`（model="haiku"，必须4并行）
+- P7.3: `atlas:atlas-executor`（询问用户选择模型）
 - P7.4: 主进程
 
 **执行约束**: 阶段顺序不可跳跃 | symbols等待modules | PKG是唯一数据媒介 | 优先Serena MCP | 格式-必需章节不可省略/表格列数一致/Mermaid语法正确/相对路径链接 | 命名-严格遵守规范 | 验证-文档≥10行/符号覆盖≥90%(警告)/链接100%有效/Mermaid无错误/必须4验证器并行 | 清理-验证通过后必删.scripts/.tmp/v*.json/validation-issues.json，失败需人工介入时保留

@@ -118,7 +118,7 @@ prompt: |
 
 #### Subagent 2: 代码质量扫描
 ```
-Task(subagent_type="atlas:information-gatherer")
+Task(subagent_type="atlas:information-gatherer", model="haiku")
 prompt: |
   ## 任务
   任务 ID: health-quality-<timestamp>
