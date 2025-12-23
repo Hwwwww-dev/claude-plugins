@@ -59,11 +59,11 @@ A multi-expert brainstorming framework that explores problems through Socratic d
 
 ```bash
 # 1. Add marketplace
-/plugin marketplace add Hwwwww-dev/claude-plugins
+/plugin marketplace add Hwwwww-dev/cc-plugins
 
 # 2. Install plugins
-/plugin install atlas@claude-plugins
-/plugin install ideation@claude-plugins
+/plugin install atlas@cc-plugins
+/plugin install ideation@cc-plugins
 
 # 3. Restart Claude Code
 ```
@@ -72,11 +72,11 @@ A multi-expert brainstorming framework that explores problems through Socratic d
 
 ```bash
 # Add local marketplace
-/plugin marketplace add ./claude-plugins
+/plugin marketplace add ./cc-plugins
 
 # Install plugins locally
-/plugin install atlas@claude-plugins
-/plugin install ideation@claude-plugins
+/plugin install atlas@cc-plugins
+/plugin install ideation@cc-plugins
 ```
 
 ## Usage
@@ -172,7 +172,7 @@ Atlas provides 9 commands, 7 specialized agents, and 3 query skills:
 ## Plugin Structure
 
 ```
-claude-plugins/
+cc-plugins/
 ├── .claude-plugin/
 │   └── marketplace.json            # Marketplace configuration
 ├── atlas/                           # Atlas plugin (v2.9.1)
@@ -227,8 +227,8 @@ Contributions are welcome! Please feel free to submit issues or pull requests.
 
 ## Support
 
-- 📝 Report Issues: [GitHub Issues](https://github.com/Hwwwww-dev/claude-plugins/issues)
-- 💬 Discussions: [GitHub Discussions](https://github.com/Hwwwww-dev/claude-plugins/discussions)
+- 📝 Report Issues: [GitHub Issues](https://github.com/Hwwwww-dev/cc-plugins/issues)
+- 💬 Discussions: [GitHub Discussions](https://github.com/Hwwwww-dev/cc-plugins/discussions)
 
 ## License
 

@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### 目录结构
 
 ```
-claude-plugins/
+cc-plugins/
 ├── .claude-plugin/
 │   └── marketplace.json          # 市场配置,定义插件列表和元数据
 ├── atlas/                         # Atlas 任务协调框架插件
@@ -207,17 +207,17 @@ git push origin main --tags
 
 ```bash
 # 1. 添加本地市场
-/plugin marketplace add ./claude-plugins
+/plugin marketplace add ./cc-plugins
 
 # 2. 安装插件
-/plugin install atlas@claude-plugins
+/plugin install atlas@cc-plugins
 
 # 3. 测试命令
 /atlas 测试任务
 
 # 4. 修改后需要重新加载
-/plugin uninstall atlas@claude-plugins
-/plugin install atlas@claude-plugins
+/plugin uninstall atlas@cc-plugins
+/plugin install atlas@cc-plugins
 ```
 
 ### 添加新的 Agent
