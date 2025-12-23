@@ -64,8 +64,8 @@
 /plugin marketplace add Hwwwww-dev/claude-plugins
 
 # 2. 安装插件
-/plugin install atlas@claude-code-marketplace
-/plugin install ideation@claude-code-marketplace
+/plugin install atlas@claude-plugins
+/plugin install ideation@claude-plugins
 
 # 3. 重启 Claude Code
 ```
@@ -74,11 +74,11 @@
 
 ```bash
 # 添加本地 marketplace
-/plugin marketplace add ./claude-code-marketplace
+/plugin marketplace add ./claude-plugins
 
 # 本地安装插件
-/plugin install atlas@claude-code-marketplace
-/plugin install ideation@claude-code-marketplace
+/plugin install atlas@claude-plugins
+/plugin install ideation@claude-plugins
 ```
 
 ## 使用方法
@@ -248,7 +248,7 @@ Atlas 提供 9 个命令和 3 个快速查询 Skill：
 ## 插件结构
 
 ```
-claude-code-marketplace/
+claude-plugins/
 ├── .claude-plugin/
 │   └── marketplace.json            # Marketplace 配置
 ├── atlas/                           # Atlas 插件
