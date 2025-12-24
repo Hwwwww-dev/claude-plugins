@@ -53,6 +53,25 @@ A multi-expert brainstorming framework that explores problems through Socratic d
 
 **Documentation**: See [ideation/](./ideation/) directory
 
+### 🧠 Mnemosyne - Context Memory Management
+
+Named after the Greek goddess of memory, this plugin manages session context so your work progress is never lost.
+
+**Features**:
+- 💾 **One-Click Save**: Intelligently extract key information from current session (requirements, decisions, code changes, progress)
+- 📥 **Quick Restore**: Load historical context in new sessions, seamlessly continue work
+- 🔍 **Full-Text Search**: Search historical sessions by title, tags, or content
+- 🏷️ **Auto Tagging**: Automatically generate tags for tech stack, task type, etc.
+- ✅ **Quality Check**: Built-in 8-section completeness check ensures context is recoverable
+
+**Use Cases**:
+- Save and restore progress for long-term projects
+- Continue complex tasks across sessions
+- Team knowledge transfer and handover
+- Work logs and decision records
+
+**Documentation**: See [mnemosyne/](./mnemosyne/) directory
+
 ## Installation
 
 ### Quick Start
@@ -64,6 +83,7 @@ A multi-expert brainstorming framework that explores problems through Socratic d
 # 2. Install plugins
 /plugin install atlas@cc-plugins
 /plugin install ideation@cc-plugins
+/plugin install mnemosyne@cc-plugins
 
 # 3. Restart Claude Code
 ```
@@ -77,6 +97,7 @@ A multi-expert brainstorming framework that explores problems through Socratic d
 # Install plugins locally
 /plugin install atlas@cc-plugins
 /plugin install ideation@cc-plugins
+/plugin install mnemosyne@cc-plugins
 ```
 
 ## Usage
@@ -169,6 +190,66 @@ Atlas provides 9 commands, 7 specialized agents, and 3 query skills:
 | business | PM, Market Analyst, Legal, Data Analyst | Business feasibility, compliance |
 | all | All 13 experts | Complex decisions, full evaluation |
 
+### Mnemosyne Plugin
+
+Mnemosyne provides 7 commands for session context management:
+
+#### Commands
+
+| Command | Description |
+|---------|-------------|
+| `/mnemosyne:save` | Save current session context |
+| `/mnemosyne:load` | Load historical context |
+| `/mnemosyne:list` | View all saved sessions |
+| `/mnemosyne:search` | Search historical sessions |
+| `/mnemosyne:delete` | Delete specified context |
+| `/mnemosyne:stats` | Display storage statistics |
+| `/mnemosyne:clean` | Clean up expired contexts |
+
+#### Example Usage
+
+```bash
+# Save current session (auto-extract key info)
+/mnemosyne:save
+
+# Save with tags
+/mnemosyne:save --tags feature,auth,React
+
+# Load most recent context
+/mnemosyne:load --latest
+
+# Load by ID
+/mnemosyne:load 20241225-103000
+
+# View all saved sessions
+/mnemosyne:list
+
+# Search historical sessions
+/mnemosyne:search auth
+/mnemosyne:search --tag feature --after 2024-12-01
+
+# View statistics
+/mnemosyne:stats
+
+# Clean contexts older than 30 days
+/mnemosyne:clean --before 30d
+```
+
+#### Context Structure (8 Sections)
+
+Saved context includes the following sections to ensure complete recoverability:
+
+| Section | Content |
+|---------|---------|
+| 1. Origin | User intent, core goals, constraints |
+| 2. Process | Key decisions, reasoning |
+| 3. Output | Code changes, new/modified files |
+| 4. Status | Task progress, completion rate |
+| 5. Obstacles | Problems encountered and solutions |
+| 6. Environment | Tech stack, project info |
+| 7. Map | Core files, dependencies |
+| 8. Signpost | Continuation guide, next steps |
+
 ## Plugin Structure
 
 ```
@@ -209,6 +290,17 @@ cc-plugins/
 │   │   └── debate-moderator.md     # Debate moderator agent
 │   └── commands/
 │       └── brainstorm.md           # /ideation:brainstorm command
+├── mnemosyne/                       # Mnemosyne plugin (v1.0.0)
+│   ├── .claude-plugin/
+│   │   └── plugin.json             # Plugin metadata
+│   └── commands/                   # Commands (7)
+│       ├── save.md                 # /mnemosyne:save - Save context
+│       ├── load.md                 # /mnemosyne:load - Load context
+│       ├── list.md                 # /mnemosyne:list - List sessions
+│       ├── search.md               # /mnemosyne:search - Search
+│       ├── delete.md               # /mnemosyne:delete - Delete
+│       ├── stats.md                # /mnemosyne:stats - Statistics
+│       └── clean.md                # /mnemosyne:clean - Cleanup
 ├── docs/                            # Reference documentation
 ├── README.md                        # This file (English)
 └── README_zh.md                     # Chinese documentation

@@ -55,6 +55,25 @@
 
 **文档**: 查看 [ideation/](./ideation/) 目录
 
+### 🧠 Mnemosyne - 上下文记忆管理
+
+希腊记忆女神命名的会话上下文管理插件，让你的工作进度永不丢失。
+
+**核心功能**:
+- 💾 **一键保存**: 智能提取当前会话的关键信息（需求、决策、代码变更、进度等）
+- 📥 **快速恢复**: 在新会话中加载历史上下文，无缝继续工作
+- 🔍 **全文搜索**: 按标题、标签、内容搜索历史会话
+- 🏷️ **自动标签**: 根据内容自动生成技术栈、任务类型等标签
+- ✅ **质量检查**: 内置 8 章节完整性检查，确保上下文可恢复
+
+**适用场景**:
+- 长期项目的进度保存与恢复
+- 跨会话的复杂任务延续
+- 团队知识传递与交接
+- 工作日志与决策记录
+
+**文档**: 查看 [mnemosyne/](./mnemosyne/) 目录
+
 ## 安装
 
 ### 快速开始
@@ -66,6 +85,7 @@
 # 2. 安装插件
 /plugin install atlas@cc-plugins
 /plugin install ideation@cc-plugins
+/plugin install mnemosyne@cc-plugins
 
 # 3. 重启 Claude Code
 ```
@@ -79,6 +99,7 @@
 # 本地安装插件
 /plugin install atlas@cc-plugins
 /plugin install ideation@cc-plugins
+/plugin install mnemosyne@cc-plugins
 ```
 
 ## 使用方法
@@ -245,6 +266,66 @@ Atlas 提供 9 个命令和 3 个快速查询 Skill：
 | business | 产品经理、市场分析师、法务、数据分析师 | 商业可行性、合规 |
 | all | 全部13位专家 | 复杂决策、全面评估 |
 
+### Mnemosyne 插件
+
+Mnemosyne 提供 7 个命令用于会话上下文管理：
+
+#### 命令列表
+
+| 命令 | 描述 |
+|------|------|
+| `/mnemosyne:save` | 保存当前会话上下文 |
+| `/mnemosyne:load` | 加载历史上下文 |
+| `/mnemosyne:list` | 查看所有保存的会话 |
+| `/mnemosyne:search` | 搜索历史会话 |
+| `/mnemosyne:delete` | 删除指定上下文 |
+| `/mnemosyne:stats` | 显示存储统计信息 |
+| `/mnemosyne:clean` | 清理过期上下文 |
+
+#### 使用示例
+
+```bash
+# 保存当前会话（自动提取关键信息）
+/mnemosyne:save
+
+# 带标签保存
+/mnemosyne:save --tags feature,auth,React
+
+# 加载最近的上下文
+/mnemosyne:load --latest
+
+# 按 ID 加载
+/mnemosyne:load 20241225-103000
+
+# 查看所有保存的会话
+/mnemosyne:list
+
+# 搜索历史会话
+/mnemosyne:search auth
+/mnemosyne:search --tag feature --after 2024-12-01
+
+# 查看统计信息
+/mnemosyne:stats
+
+# 清理 30 天前的上下文
+/mnemosyne:clean --before 30d
+```
+
+#### 上下文结构（8 章节）
+
+保存的上下文包含以下章节，确保完整可恢复：
+
+| 章节 | 内容 |
+|------|------|
+| 1. 起点 | 用户意图、核心目标、约束条件 |
+| 2. 过程 | 关键决策、选择理由 |
+| 3. 产出 | 代码变更、新建/修改文件 |
+| 4. 状态 | 任务进度、完成度 |
+| 5. 障碍 | 遇到的问题与解决方案 |
+| 6. 环境 | 技术栈、项目信息 |
+| 7. 地图 | 核心文件、依赖关系 |
+| 8. 路标 | 续作指引、下一步行动 |
+
 ## 插件结构
 
 ```
@@ -287,6 +368,17 @@ cc-plugins/
 │   │   └── brainstorm.md           # /ideation:brainstorm 命令
 │   └── skills/
 │       └── brainstorm/SKILL.md     # 头脑风暴工作流
+├── mnemosyne/                       # Mnemosyne 插件
+│   ├── .claude-plugin/
+│   │   └── plugin.json             # 插件元数据
+│   └── commands/                   # 命令 (7个)
+│       ├── save.md                 # /mnemosyne:save - 保存上下文
+│       ├── load.md                 # /mnemosyne:load - 加载上下文
+│       ├── list.md                 # /mnemosyne:list - 列表查看
+│       ├── search.md               # /mnemosyne:search - 搜索
+│       ├── delete.md               # /mnemosyne:delete - 删除
+│       ├── stats.md                # /mnemosyne:stats - 统计
+│       └── clean.md                # /mnemosyne:clean - 清理
 ├── docs/                            # 参考文档
 ├── README.md                        # 英文文档
 └── README_zh.md                     # 本文件（中文）
