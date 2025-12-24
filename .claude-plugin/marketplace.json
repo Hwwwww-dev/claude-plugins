@@ -65,6 +65,27 @@
         "decision-making"
       ],
       "category": "productivity"
+    },
+    {
+      "name": "mnemosyne",
+      "source": "./mnemosyne",
+      "description": "上下文记忆管理插件。一键保存会话上下文，快速恢复历史进度，支持智能标签和全文搜索。",
+      "version": "1.0.0",
+      "author": {
+        "name": "Hwwwww"
+      },
+      "homepage": "https://github.com/Hwwwww-dev/cc-plugins",
+      "repository": "https://github.com/Hwwwww-dev/cc-plugins.git",
+      "license": "MIT",
+      "keywords": [
+        "context",
+        "memory",
+        "session",
+        "save",
+        "load",
+        "search"
+      ],
+      "category": "productivity"
     }
   ]
 }
