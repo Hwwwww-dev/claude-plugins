@@ -235,7 +235,7 @@ Mnemosyne provides 7 commands for session context management:
 /mnemosyne:clean --before 30d
 ```
 
-#### Context Structure (8 Sections)
+#### Context Structure (15 Sections)
 
 Saved context includes the following sections to ensure complete recoverability:
 
@@ -249,6 +249,13 @@ Saved context includes the following sections to ensure complete recoverability:
 | 6. Environment | Tech stack, project info |
 | 7. Map | Core files, dependencies |
 | 8. Signpost | Continuation guide, next steps |
+| 9. Session Stats | Conversation size, tool usage, session duration |
+| 10. Code Quality | Code metrics, quality checks, style assessment |
+| 11. Code Snippets | Core functions/classes, important changes |
+| 12. Timeline | Key events, milestone moments |
+| 13. Learning Notes | New knowledge, pitfalls, best practices |
+| 14. Related Resources | Documentation links, references, search keywords |
+| 15. Impact Analysis | Scope of impact, risk assessment, testing suggestions |
 
 ## Plugin Structure
 
