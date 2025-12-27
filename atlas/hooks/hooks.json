@@ -17,6 +17,10 @@
         "hooks": [
           {
             "type": "command",
+            "command": "date '+Current system time: %Y-%m-%d %A %H:%M:%S'"
+          },
+          {
+            "type": "command",
             "command": "echo \"Keep responses concise, clear, and valuable. Follow 八荣八耻, Occam's Razor, Linus spirit. When uncertain, use AskUserQuestion to clarify before acting. Actively delegate to subagents [via Task tool] for complex tasks - they run in parallel and reduce main context consumption: atlas:information-gatherer for Project analysis, structure, dependencies; atlas:atlas-executor for General task execution, code modifications, file operations; atlas:code-reviewer for Code review, security/performance/style analysis; atlas:dependency-analyzer for Dependency analysis, vulnerability scan, version conflicts; atlas:commit-analyzer for Git history analysis, changelog generation. Skip delegation for: simple Q&A, single-file edits, explicit user request.\""
           },
           {
