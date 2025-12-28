@@ -84,7 +84,10 @@ Phase 0 模式解析 → Phase 1 候选识别 → Phase 2 规划 → Phase 3 执
 
 **输入**: 重构模式 + 范围 + `.claude/repowiki/` 现有信息（如果存在）
 
-**输出**: `.claude/refactor/.meta/candidates.pkg.json` - 包含候选项列表（id, file, symbol, line, reason, complexity, suggestedSplits）
+**输出目录**: `.claude/gather/refactor-<task-id>/`
+- `report.md`: 候选项的详细分析报告
+- `context.json`: 结构化候选项数据
+- `candidates.json`: 候选项列表（id, file, symbol, line, reason, complexity, suggestedSplits, codeSnippet）
 
 ### 各模式识别规则
 
@@ -105,7 +108,13 @@ Phase 0 模式解析 → Phase 1 候选识别 → Phase 2 规划 → Phase 3 执
 
 **Subagent**: `Plan`
 
-**输入**: `.claude/refactor/.meta/candidates.pkg.json`
+**输入**: `.claude/gather/refactor-<task-id>/`（Phase 1 输出目录）
+
+**信息传递原则**：gatherer 输出已包含完整候选项信息和代码片段，**直接基于此规划**，避免重复读取。
+
+- 优先使用 `context.json` 中的结构化数据
+- 如果候选项信息已足够制定计划，直接规划
+- 仅当信息明显缺失时，才补充读取特定文件
 
 **输出**: 重构执行计划 + TodoWrite todos
 

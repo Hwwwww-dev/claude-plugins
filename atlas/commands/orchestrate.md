@@ -94,10 +94,14 @@ prompt: |
   - 关注点: [结构/依赖/模式]
 
   ## 输出
-  写入: docs/information/<task-id>.md
+  写入目录: .claude/gather/<task-id>/
+  - report.md: 完整报告
+  - context.json: 结构化数据（含代码片段）
 ```
 
 ### 2.2 任务规划
+
+**信息传递原则**：gatherer 返回的信息**直接嵌入** Plan prompt，避免重复读取。
 
 **固定输入结构**:
 ```
@@ -106,8 +110,14 @@ prompt: |
   ## 任务
   [用户任务描述]
 
-  ## 上下文
-  信息文件: docs/information/<task-id>.md (请先读取)
+  ## 已收集信息（来自 information-gatherer）
+  <gatherer_output>
+  [直接嵌入 gatherer 返回的完整内容]
+  </gatherer_output>
+
+  ## 信息充足性判断
+  - 如果上述信息已足够制定计划，直接基于此规划
+  - 仅当信息明显缺失（如缺少关键文件列表、依赖关系不明）时，才补充读取
 
   ## 要求
   返回以下内容:
@@ -116,6 +126,8 @@ prompt: |
   3. 执行策略: parallel / sequential / mixed
   4. 依赖关系 (如有)
 ```
+
+**备份文件**：gatherer 输出保存在 `.claude/gather/<task-id>/`，用于断点续传。
 
 **规划完成后更新状态文件**，记录所有子任务。
 
@@ -138,6 +150,8 @@ AskUserQuestion(questions=[
 
 ### 2.4 执行
 
+**信息传递原则**：Plan 阶段的规划结果 + gatherer 的关键信息**直接嵌入** executor prompt。
+
 **固定输入结构**:
 ```
 Task(subagent_type="atlas:atlas-executor", model=用户选择)
@@ -150,11 +164,14 @@ prompt: |
   - path/to/file1.ts
   - path/to/file2.ts
 
-  ## 上下文
-  信息文件: docs/information/<task-id>.md (如需要可读取)
+  ## 关键上下文（来自 gatherer）
+  <context>
+  [嵌入与此子任务相关的 gatherer 信息片段]
+  </context>
 
   ## 要求
   严格按描述执行，不扩展范围
+  如上下文信息充足，无需额外读取文件
 ```
 
 **parallel**: 同一消息发起所有 executor
@@ -296,11 +313,11 @@ git stash drop "atlas-checkpoint-{execution-id}"
 
 1. information-gatherer:
    收集目标: 所有 React 组件位置和现有类型情况
-   → docs/information/add-types-20240115.md
+   → .claude/gather/add-types-20240115/
    (模型: haiku - 固定)
 
 2. Plan agent:
-   上下文: docs/information/add-types-20240115.md
+   上下文: .claude/gather/add-types-20240115/context.json
    → 返回: 3组并行任务, 策略: parallel
    更新状态文件（记录 3 个子任务）
 

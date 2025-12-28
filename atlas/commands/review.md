@@ -88,7 +88,10 @@ Phase 0 范围确定 → Phase 1 代码分析 → Phase 2 并行审查 → Phase
 
 **输入**: Phase 0 的目标文件列表 + `.claude/repowiki/` 现有信息（如果存在）
 
-**输出**: `.claude/review/.meta/targets.pkg.json`（包含文件路径、语言、行数、符号、导入导出、统计信息）
+**输出目录**: `.claude/gather/review-<task-id>/`
+- `report.md`: 目标代码的详细分析报告
+- `context.json`: 结构化数据（文件路径、语言、行数、符号、导入导出、统计信息）
+- `targets.json`: 审查目标列表和关键代码片段
 
 ---
 
@@ -97,8 +100,14 @@ Phase 0 范围确定 → Phase 1 代码分析 → Phase 2 并行审查 → Phase
 **Subagent**: `atlas:code-reviewer` (多个实例并行)
 
 **输入**:
-- `.claude/review/.meta/targets.pkg.json`
+- `.claude/gather/review-<task-id>/`（Phase 1 输出目录）
 - 审查类型（--type 参数）
+
+**信息传递原则**：gatherer 输出已包含目标代码信息和代码片段，**直接基于此审查**，避免重复读取。
+
+- 优先使用 `context.json` 中的结构化数据
+- 如果目标信息已足够进行审查，直接审查
+- 仅当需要追溯上下文时，才补充读取相关文件
 
 **输出**: 各维度审查结果 JSON
 
