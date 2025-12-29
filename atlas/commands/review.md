@@ -99,17 +99,41 @@ Phase 0 范围确定 → Phase 1 代码分析 → Phase 2 并行审查 → Phase
 
 **Subagent**: `atlas:code-reviewer` (多个实例并行)
 
-**输入**:
-- `.claude/gather/review-<task-id>/`（Phase 1 输出目录）
-- 审查类型（--type 参数）
+**核心原则**：code-reviewer 必须**优先使用 gatherer 输出**，最小化额外读取。
 
-**信息传递原则**：gatherer 输出已包含目标代码信息和代码片段，**直接基于此审查**，避免重复读取。
+**固定输入结构**:
+```
+Task(subagent_type="atlas:code-reviewer", model=用户选择)
+prompt: |
+  ## 审查任务
+  维度: [security/performance/style/architecture]
+  目标: [文件列表]
 
-- 优先使用 `context.json` 中的结构化数据
-- 如果目标信息已足够进行审查，直接审查
-- 仅当需要追溯上下文时，才补充读取相关文件
+  ## ⚠️ 强制信息源（必须先读取）
+  **gatherer 输出目录**: `.claude/gather/review-<task-id>/`
+  - `context.json`: 文件结构、符号、导入导出
+  - `targets.json`: 关键代码片段
 
-**输出**: 各维度审查结果 JSON
+  **你必须**:
+  1. 首先读取上述文件
+  2. 基于已有代码片段进行审查
+  3. 仅在以下情况补充读取:
+     - 需追溯跨文件调用链
+     - 代码片段上下文不足
+
+  ## 信息充足性检查
+  - [ ] 目标文件的代码片段
+  - [ ] 符号和导入导出关系
+  - [ ] 关键逻辑位置
+  - [ ] 文件统计信息
+
+  如 4 项均已获取 → **禁止额外读取**，直接审查
+  如缺失 < 5项 → 针对性补充
+  如缺失 5+ 项 → 标记 gatherer 信息不足，建议重新收集
+
+  ## 输出
+  审查结果 JSON（见规则表）
+```
 
 **并行策略**:
 - --type all: 启动 4 个 code-reviewer（security、performance、style、architecture）
