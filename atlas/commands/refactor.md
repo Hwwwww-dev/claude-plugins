@@ -35,7 +35,7 @@ argument-hint: <pattern> [--scope path] [--dry-run] [--interactive]
 
 ## 执行流程
 
-Phase 0 模式解析 → Phase 1 候选识别 → Phase 2 规划 → Phase 3 执行/预览 → Phase 4 验证
+Phase 0 模式解析 → Phase 1 候选识别 → Phase 2 选择规划器 → Phase 3 规划 → Phase 4 执行/预览 → Phase 5 验证
 
 ### Subagent 分配
 
@@ -43,9 +43,10 @@ Phase 0 模式解析 → Phase 1 候选识别 → Phase 2 规划 → Phase 3 执
 |:------|:-----|:---------|:-----|
 | 0 | 模式解析 | 主进程 | 验证模式有效性 |
 | 1 | 候选识别 | `atlas:information-gatherer` | 扫描符合模式的代码 |
-| 2 | 规划 | `Plan` | 生成重构计划 |
-| 3 | 执行 | `atlas:atlas-executor` | 并行执行重构 |
-| 4 | 验证 | 主进程 | 运行测试/类型检查 |
+| 2 | 选择规划器 | 主进程 | 询问用户选择规划器类型 |
+| 3 | 规划 | `atlas:planner` 或 `Plan` | 生成重构计划 |
+| 4 | 执行 | `atlas:atlas-executor` | 并行执行重构 |
+| 5 | 验证 | 主进程 | 运行测试/类型检查 |
 
 ---
 
@@ -104,13 +105,52 @@ Phase 0 模式解析 → Phase 1 候选识别 → Phase 2 规划 → Phase 3 执
 
 ---
 
-## Phase 2: 规划
+## Phase 2: 选择规划器
 
-**Subagent**: `Plan`
+**询问用户选择规划器类型**:
+```
+AskUserQuestion(questions=[
+  {
+    "question": "选择任务规划器",
+    "header": "Planner",
+    "options": [
+      {"label": "atlas:planner (推荐)", "description": "信任 gatherer 输出，最小化额外扫描，高效规划"},
+      {"label": "内置 Plan", "description": "Claude Code 内置规划器，会自行探索验证"}
+    ]
+  }
+])
+```
+
+---
+
+## Phase 3: 规划
 
 **核心原则**：Plan agent 必须**优先使用 gatherer 输出**，最小化额外读取。
 
-**固定输入结构**:
+### 选项 A: atlas:planner（推荐）
+
+**特点**: 信任 gatherer 输出，基于已有信息直接规划，≤3 次补充读取
+
+```
+Task(subagent_type="atlas:planner")
+prompt: |
+  ## 任务
+  重构模式: [pattern]
+  范围: [scope]
+
+  ## Gatherer 输出位置
+  `.claude/gather/refactor-<task-id>/`
+  - `report.md`: 候选项分析报告
+  - `context.json`: 结构化数据
+
+  ## 输出要求
+  按照 planner agent 定义的固定格式输出重构执行计划
+```
+
+### 选项 B: 内置 Plan
+
+**特点**: 会自行探索代码库，适合 gatherer 信息不足或需要深度验证的场景
+
 ```
 Task(subagent_type="Plan")
 prompt: |
@@ -151,7 +191,7 @@ prompt: |
 
 ---
 
-## Phase 3: 执行/预览
+## Phase 4: 执行/预览
 
 ### --dry-run 模式
 **执行者**: 主进程
@@ -172,7 +212,7 @@ prompt: |
 
 ---
 
-## Phase 4: 验证
+## Phase 5: 验证
 
 **执行者**: 主进程
 
@@ -201,8 +241,9 @@ prompt: |
 
 **执行约束**:
 - Phase 1 必须使用 information-gatherer (model="haiku")
-- Phase 2 必须使用 Plan agent
-- Phase 3 必须使用 atlas-executor（非 dry-run 时，询问用户选择模型）
+- Phase 2 必须询问用户选择规划器
+- Phase 3 必须使用选择的规划器（atlas:planner 或 Plan agent）
+- Phase 4 必须使用 atlas-executor（非 dry-run 时，询问用户选择模型）
 
 ---
 

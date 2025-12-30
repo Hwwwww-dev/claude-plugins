@@ -7,7 +7,7 @@ argument-hint: <任务描述> [--parallel|--sequential] [--dry-run] [--no-gather
 
 **你是任务编排总指挥，必须严格按照工作流执行，禁止跳过任何步骤。**
 
-> ⚠️ **强制流程**: 确认选项 → 检查点 → 信息收集 → 规划 → 选模型 → 执行 → 报告
+> ⚠️ **强制流程**: 确认选项 → 检查点 → 信息收集 → 选规划器 → 规划 → 选模型 → 执行 → 报告
 >
 > **禁止**: 主进程直接读取代码 / 主进程直接修改文件 / 跳过任何步骤
 
@@ -99,11 +99,49 @@ prompt: |
   - context.json: 结构化数据（含代码片段）
 ```
 
-### 2.2 任务规划
+### 2.2 选择规划器
 
-**核心原则**：Plan agent 必须**优先使用已收集信息**，最小化额外读取。
+**询问用户选择规划器类型**:
+```
+AskUserQuestion(questions=[
+  {
+    "question": "选择任务规划器",
+    "header": "Planner",
+    "options": [
+      {"label": "atlas:planner (推荐)", "description": "信任 gatherer 输出，最小化额外扫描，高效规划"},
+      {"label": "内置 Plan", "description": "Claude Code 内置规划器，会自行探索验证"}
+    ]
+  }
+])
+```
 
-**固定输入结构**:
+### 2.3 任务规划
+
+**根据用户选择调用对应的规划器**:
+
+#### 选项 A: atlas:planner（推荐）
+
+**特点**: 信任 gatherer 输出，基于已有信息直接规划，≤3 次补充读取
+
+```
+Task(subagent_type="atlas:planner")
+prompt: |
+  ## 任务
+  [用户任务描述]
+
+  ## Gatherer 输出位置
+  `.claude/gather/<task-id>/`
+  - `report.md`: 完整分析报告
+  - `context.json`: 结构化数据
+
+  ## 输出要求
+  按照 planner agent 定义的固定格式输出执行计划
+```
+
+#### 选项 B: 内置 Plan
+
+**特点**: 会自行探索代码库，适合 gatherer 信息不足或需要深度验证的场景
+
 ```
 Task(subagent_type="Plan")
 prompt: |
@@ -146,7 +184,7 @@ prompt: |
 
 **规划完成后更新状态文件**，记录所有子任务。
 
-### 2.3 选择 Executor 模型
+### 2.4 选择 Executor 模型
 
 **执行前询问用户选择模型**：
 ```
@@ -163,7 +201,7 @@ AskUserQuestion(questions=[
 ])
 ```
 
-### 2.4 执行
+### 2.5 执行
 
 **信息传递原则**：Plan 阶段的规划结果 + gatherer 的关键信息**直接嵌入** executor prompt。
 
@@ -198,7 +236,7 @@ prompt: |
 {"id": 1, "status": "completed", "files": [...], "result": "success"}
 ```
 
-### 2.5 失败处理
+### 2.6 失败处理
 
 **子任务失败时**:
 
@@ -232,7 +270,7 @@ git stash pop
 echo "已回滚到检查点"
 ```
 
-### 2.6 聚合报告
+### 2.7 聚合报告
 
 **固定输出结构**:
 ```markdown
@@ -331,18 +369,21 @@ git stash drop "atlas-checkpoint-{execution-id}"
    → .claude/gather/add-types-20240115/
    (模型: haiku - 固定)
 
-2. Plan agent:
-   上下文: .claude/gather/add-types-20240115/context.json
+2. 选择规划器:
+   用户选择 atlas:planner (推荐，最小化扫描)
+
+3. planner:
+   读取: .claude/gather/add-types-20240115/context.json
    → 返回: 3组并行任务, 策略: parallel
    更新状态文件（记录 3 个子任务）
 
-3. 同时发起 3 个 executor (同一条消息):
+4. 同时发起 3 个 executor (同一条消息):
    - #1: auth 组件, 文件: [Login.tsx, Register.tsx]
    - #2: dashboard 组件, 文件: [Overview.tsx, Analytics.tsx]
    - #3: shared 组件, 文件: [Button.tsx, Input.tsx]
    每个完成后更新状态文件
 
-4. 聚合结果并报告，清理检查点
+5. 聚合结果并报告，清理检查点
 ```
 
 ### 失败场景
@@ -383,10 +424,11 @@ git stash drop "atlas-checkpoint-{execution-id}"
 1. 确认选项 (AskUserQuestion)
 2. 创建检查点 (git stash)
 3. 信息收集 (Task → information-gatherer) [除非 --no-gather]
-4. 任务规划 (Task → Plan)
-5. 选择模型 (AskUserQuestion)
-6. 执行任务 (Task → atlas-executor)
-7. 聚合报告
+4. 选择规划器 (AskUserQuestion) → atlas:planner 或 内置 Plan
+5. 任务规划 (Task → 选择的规划器)
+6. 选择模型 (AskUserQuestion)
+7. 执行任务 (Task → atlas-executor)
+8. 聚合报告
 ```
 
 ### 必须做
@@ -394,10 +436,11 @@ git stash drop "atlas-checkpoint-{execution-id}"
 - **Step 1**: 使用 AskUserQuestion 确认执行选项
 - **Step 2**: 创建 git stash 检查点 + 状态文件
 - **Step 3**: 使用 `Task(subagent_type="atlas:information-gatherer", model="haiku")` 收集信息
-- **Step 4**: 使用 `Task(subagent_type="Plan")` 制定执行计划
-- **Step 5**: 使用 AskUserQuestion 让用户选择 executor 模型
-- **Step 6**: 使用 `Task(subagent_type="atlas:atlas-executor", model=选择)` 执行
-- **Step 7**: 输出固定格式报告
+- **Step 4**: 使用 AskUserQuestion 让用户选择规划器 (atlas:planner / 内置 Plan)
+- **Step 5**: 使用选择的规划器制定执行计划
+- **Step 6**: 使用 AskUserQuestion 让用户选择 executor 模型
+- **Step 7**: 使用 `Task(subagent_type="atlas:atlas-executor", model=选择)` 执行
+- **Step 8**: 输出固定格式报告
 
 ### 禁止做
 

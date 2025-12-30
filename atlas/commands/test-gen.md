@@ -33,7 +33,7 @@ argument-hint: [--scope path] [--framework jest|vitest|pytest|go] [--type unit|i
 
 ## 执行流程
 
-Phase 0 环境检测 → Phase 1 目标分析 → Phase 2 用例规划 → Phase 3 测试生成 → Phase 4 验证
+Phase 0 环境检测 → Phase 1 目标分析 → Phase 1.5 选择规划器 → Phase 2 用例规划 → Phase 3 测试生成 → Phase 4 验证
 
 ### Subagent 分配
 
@@ -41,7 +41,8 @@ Phase 0 环境检测 → Phase 1 目标分析 → Phase 2 用例规划 → Phase
 |:------|:-----|:---------|:-----|
 | 0 | 环境检测 | 主进程 | 检测测试框架和现有覆盖率 |
 | 1 | 目标分析 | `atlas:information-gatherer` | 分析目标代码 |
-| 2 | 用例规划 | `Plan` | 规划测试用例 |
+| 1.5 | 选择规划器 | 用户选择 | 选择 atlas:planner 或内置 Plan |
+| 2 | 用例规划 | `atlas:planner` 或 `Plan` | 规划测试用例 |
 | 3 | 测试生成 | `atlas:atlas-executor` | 并行生成测试文件 |
 | 4 | 验证 | 主进程 | 运行测试，报告覆盖率 |
 
@@ -105,13 +106,52 @@ Phase 0 环境检测 → Phase 1 目标分析 → Phase 2 用例规划 → Phase
 
 ---
 
+## Phase 1.5: 选择规划器
+
+**询问用户选择规划器类型**:
+```
+AskUserQuestion(questions=[
+  {
+    "question": "选择用例规划器",
+    "header": "Planner",
+    "options": [
+      {"label": "atlas:planner (推荐)", "description": "信任 gatherer 输出，最小化额外扫描，高效规划"},
+      {"label": "内置 Plan", "description": "Claude Code 内置规划器，会自行探索验证"}
+    ]
+  }
+])
+```
+
+---
+
 ## Phase 2: 用例规划
 
-**Subagent**: `Plan`
+**Subagent**: 根据用户选择调用对应的规划器
 
-**核心原则**：Plan agent 必须**优先使用 Phase 1 输出**，最小化额外读取。
+**核心原则**：优先使用 Phase 1 输出，最小化额外读取。
 
-**固定输入结构**:
+### 选项 A: atlas:planner（推荐）
+
+**特点**: 信任 gatherer 输出，基于已有信息直接规划，≤3 次补充读取
+
+```
+Task(subagent_type="atlas:planner")
+prompt: |
+  ## 任务
+  为目标代码生成测试用例规划
+
+  ## Gatherer 输出位置
+  `.claude/gather/test-gen-<task-id>/`
+  - `context.json`: 目标分析数据（函数签名、分支路径、依赖项）
+
+  ## 输出要求
+  按照 planner agent 定义的固定格式输出用例规划
+```
+
+### 选项 B: 内置 Plan
+
+**特点**: 会自行探索代码，适合 gatherer 信息不足的场景
+
 ```
 Task(subagent_type="Plan")
 prompt: |
@@ -226,7 +266,8 @@ prompt: |
 
 **执行约束**:
 - Phase 1 必须使用 information-gatherer (model="haiku")
-- Phase 2 必须使用 Plan agent
+- Phase 1.5 必须询问用户选择规划器（atlas:planner 或内置 Plan）
+- Phase 2 必须使用选择的规划器
 - Phase 3 必须使用 atlas-executor (询问用户选择模型)
 
 ---
