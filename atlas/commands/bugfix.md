@@ -116,17 +116,25 @@ Task(
 ```
 AskUserQuestion(questions=[
   {
-    "question": "确认执行修复？",
     "header": "确认",
+    "question": "确认执行修复？",
     "options": [
       {"label": "执行修复", "description": "按方案执行"},
       {"label": "仅查看方案", "description": "不执行"}
+    ]
+  },
+  {
+    "header": "检查点",
+    "question": "是否创建 Git 检查点？",
+    "options": [
+      {"label": "创建（推荐）", "description": "失败可回滚，更安全"},
+      {"label": "跳过", "description": "不创建检查点"}
     ]
   }
 ])
 ```
 
-**用户确认执行后**，在调用 `atlas:atlas-executor` 前选择模型：
+**用户确认执行后**，选择模型：
 
 ```
 AskUserQuestion(questions=[
@@ -134,8 +142,9 @@ AskUserQuestion(questions=[
     "question": "选择 executor 模型",
     "header": "模型",
     "options": [
-      {"label": "sonnet (推荐)", "description": "平衡速度和质量"},
+      {"label": "跟随主对话（推荐）", "description": "使用当前对话的模型"},
       {"label": "haiku", "description": "快速，适合简单修复"},
+      {"label": "sonnet", "description": "平衡速度和质量"},
       {"label": "opus", "description": "高质量，适合复杂修复"}
     ]
   }
@@ -144,9 +153,10 @@ AskUserQuestion(questions=[
 
 执行流程：
 ```
-1. 创建检查点: git stash push -m "bugfix-checkpoint-{timestamp}"
+1. [如用户选择创建检查点] 创建检查点: git stash push -m "bugfix-checkpoint-{timestamp}"
 2. Task(subagent_type="atlas:atlas-executor", model=用户选择的模型)
-3. 报告结果，提供回滚命令: git stash pop
+3. 报告结果
+4. [如创建了检查点] 提供回滚命令: git stash pop
 ```
 
 ---
@@ -213,8 +223,8 @@ AskUserQuestion(questions=[
 - 中等风险，需要数据库迁移添加版本字段
 
 ---
-[AskUserQuestion: 确认执行? 选择模型?]
-→ 用户选择: 执行 + opus
+[AskUserQuestion: 确认执行? 创建检查点? 选择模型?]
+→ 用户选择: 执行 + 创建检查点 + opus
 → 创建检查点: git stash
 → 执行修复
 → 报告结果，提供回滚命令
@@ -252,15 +262,72 @@ AskUserQuestion(questions=[
 
 ---
 
+## 核心约束
+
+### 主进程职责（严格限制）
+
+**主进程只做协调，不做实际工作。**
+
+**允许的操作**:
+- ✅ 使用 AskUserQuestion 与用户交互
+- ✅ 使用 Task 工具调用 agent
+- ✅ 读取 agent 输出结果（`.claude/gather/` 下的报告）
+- ✅ 聚合分析并展示给用户
+- ✅ Git 检查点操作（stash/pop）
+
+**禁止的操作**:
+- ❌ 使用 Read/Grep/Glob 读取代码文件
+- ❌ 使用 Edit/Write 修改代码文件
+- ❌ 直接分析代码逻辑
+- ❌ 直接执行修复
+
+### Agent 调用规范
+
+**信息收集阶段**:
+```
+Task(subagent_type="atlas:information-gatherer", model="haiku")
+```
+→ 输出位置: `.claude/gather/bugfix-<timestamp>/`
+→ 包含: 问题相关代码、调用链、修改历史
+
+**执行阶段** (--fix):
+```
+Task(subagent_type="atlas:atlas-executor", model=用户选择)
+```
+→ 输入: 修复方案 + 相关 gatherer 信息片段（直接嵌入 prompt）
+→ 输出: 执行报告
+
+### 信息传递链
+
+```
+gatherer → 文件输出 → 主进程读取报告
+                   ↓
+          主进程 → 根因分析（基于报告，不读代码）
+                   ↓
+          [--fix] → 提取修复信息 → 嵌入 executor prompt
+```
+
+**原则**：主进程基于 gatherer 报告做分析，不直接读取代码文件。
+
+---
+
 ## 流程总结
 
 **标准流程**：
 
 ```
-1. 问题分析 → 确定问题类型和范围
+1. 问题分析 → 确定问题类型和范围（基于用户描述）
 2. Task(subagent_type="atlas:information-gatherer", model="haiku") → 信息收集
-3. 根因分析 → 基于收集的信息分析
+3. 根因分析 → 基于 gatherer 报告分析（禁止直接读代码）
 4. 输出修复方案
-5. [可选] --fix 时询问确认和模型选择
-6. [可选] Task(subagent_type="atlas:atlas-executor") → 执行修复
+5. [可选] --fix 时询问确认、检查点选项和模型选择
+6. [可选] 根据用户选择创建检查点
+7. [可选] Task(subagent_type="atlas:atlas-executor") → 执行修复
 ```
+
+### 禁止做
+
+- ❌ 主进程直接使用 Read/Grep/Glob 读取代码（应委托 gatherer）
+- ❌ 主进程直接使用 Edit/Write 修改文件（应委托 executor）
+- ❌ 跳过信息收集直接分析
+- ❌ 基于推测而非 gatherer 报告做根因分析

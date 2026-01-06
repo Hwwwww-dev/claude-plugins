@@ -17,7 +17,80 @@ argument-hint: <任务描述> [--parallel|--sequential] [--dry-run] [--no-gather
 
 ## 第一步：确认执行选项
 
-**如果用户未指定选项，询问**: 执行策略(auto/parallel/sequential) | 执行模式(execute/dry-run) | 是否收集信息(yes/no) | 失败处理(auto-rollback/manual)
+**如果用户未指定选项，首先询问执行模式**:
+
+```
+AskUserQuestion(questions=[
+  {
+    "header": "执行模式",
+    "question": "选择执行模式",
+    "options": [
+      {"label": "自动模式（推荐）", "description": "全流程使用推荐选项，不再询问确认"},
+      {"label": "交互模式", "description": "每步确认，控制更精细"},
+      {"label": "dry-run", "description": "只规划不执行，先看计划"}
+    ]
+  }
+])
+```
+
+### 模式行为定义
+
+| 步骤 | 自动模式 | 交互模式 | dry-run |
+|------|---------|---------|---------|
+| 执行策略 | auto | 询问用户 | auto |
+| 信息收集 | 是（除非 repowiki 充足） | 询问用户 | 是 |
+| 检查点 | 创建 | 询问用户 | 跳过 |
+| 规划器选择 | atlas:planner | 询问用户 | atlas:planner |
+| Executor 模型 | sonnet | 询问用户 | - |
+| 失败处理 | **询问用户** | 询问用户 | - |
+
+**自动模式默认值**:
+- 执行策略: auto（由 planner 决定并行/串行）
+- 规划器: atlas:planner
+- Executor 模型: 跟随主对话，或按任务复杂度选择（简单-haiku / 中等-sonnet / 复杂-opus）
+- 信息收集: 是（除非 repowiki 充足）
+- 检查点: 创建
+- 失败处理: **仍然询问用户**（危险操作不自动决策）
+
+**交互模式详细选项**（仅交互模式时询问）:
+
+```
+AskUserQuestion(questions=[
+  {
+    "header": "执行策略",
+    "question": "选择执行策略",
+    "options": [
+      {"label": "auto（推荐）", "description": "根据任务特性自动选择并行或串行"},
+      {"label": "parallel", "description": "强制并行执行所有子任务"},
+      {"label": "sequential", "description": "强制串行执行所有子任务"}
+    ]
+  },
+  {
+    "header": "信息收集",
+    "question": "是否收集项目信息？",
+    "options": [
+      {"label": "是（推荐）", "description": "调用 gatherer 收集项目上下文"},
+      {"label": "否", "description": "跳过信息收集，直接规划"}
+    ]
+  },
+  {
+    "header": "失败处理",
+    "question": "子任务失败时如何处理？",
+    "options": [
+      {"label": "manual（推荐）", "description": "失败时询问处理方式"},
+      {"label": "auto-rollback", "description": "失败时自动回滚所有修改"}
+    ]
+  },
+  {
+    "header": "检查点",
+    "question": "是否创建 Git 检查点？",
+    "options": [
+      {"label": "创建（推荐）", "description": "失败可回滚，更安全"},
+      {"label": "跳过", "description": "不创建检查点"}
+    ]
+  }
+])
+```
 
 **如果用户已指定选项或使用 `--resume <id>`，跳过询问。**
 
@@ -25,14 +98,19 @@ argument-hint: <任务描述> [--parallel|--sequential] [--dry-run] [--no-gather
 
 ## 第二步：执行工作流
 
-### 2.0 检查点创建
+### 2.0 检查点创建（根据用户选择）
 
-**在执行任何修改前，自动创建检查点：**
+**如果用户选择"创建"检查点**：
 
 ```bash
 # 创建 git stash 作为检查点
 git stash push -m "atlas-checkpoint-{execution-id}"
 ```
+
+**如果用户选择"跳过"检查点**：
+- 跳过 git stash 步骤
+- 状态文件中记录 `"checkpoint": {"created": false}`
+- 失败时无法自动回滚，需手动处理
 
 **初始化执行状态文件：**
 ```
@@ -45,9 +123,11 @@ git stash push -m "atlas-checkpoint-{execution-id}"
   "executionId": "task-20240115-103000",
   "timestamp": "2024-01-15T10:30:00Z",
   "task": "给所有 React 组件添加 TypeScript 类型",
+  "mode": "auto",
   "options": {
     "strategy": "auto",
-    "autoRollback": false
+    "autoRollback": false,
+    "checkpoint": true
   },
   "checkpoint": {
     "stashId": "atlas-checkpoint-task-20240115-103000",
@@ -101,7 +181,10 @@ prompt: |
 
 ### 2.2 选择规划器
 
-**询问用户选择规划器类型**:
+**根据执行模式决定**:
+- **自动模式/dry-run**: 直接使用 atlas:planner（跳过询问）
+- **交互模式**: 询问用户选择规划器类型
+
 ```
 AskUserQuestion(questions=[
   {
@@ -186,15 +269,20 @@ prompt: |
 
 ### 2.4 选择 Executor 模型
 
-**执行前询问用户选择模型**：
+**根据执行模式决定**:
+- **自动模式**: 直接使用 sonnet（跳过询问）
+- **交互模式**: 询问用户选择模型
+- **dry-run**: 跳过此步骤（不执行）
+
 ```
 AskUserQuestion(questions=[
   {
     "question": "选择 executor 模型",
     "header": "模型",
     "options": [
-      {"label": "sonnet (推荐)", "description": "平衡速度和质量"},
+      {"label": "跟随主对话（推荐）", "description": "使用当前对话的模型"},
       {"label": "haiku", "description": "快速，适合简单任务"},
+      {"label": "sonnet", "description": "平衡速度和质量"},
       {"label": "opus", "description": "高质量，适合复杂任务"}
     ]
   }
@@ -418,29 +506,83 @@ git stash drop "atlas-checkpoint-{execution-id}"
 
 ## 核心约束
 
+### 主进程职责（严格限制）
+
+**主进程只做协调，不做实际工作。**
+
+**允许的操作**:
+- ✅ 使用 AskUserQuestion 与用户交互
+- ✅ 使用 Task 工具调用 agent
+- ✅ 读取 agent 输出结果
+- ✅ 聚合报告并展示给用户
+- ✅ 简单的状态文件读写（`.claude/orchestrate/.state/`）
+- ✅ Git 检查点操作（stash/pop）
+
+**禁止的操作**:
+- ❌ 使用 Read/Grep/Glob 读取代码文件
+- ❌ 使用 Edit/Write 修改代码文件
+- ❌ 直接分析代码逻辑
+- ❌ 直接执行修复或重构
+
+### Agent 调用规范
+
+**信息收集阶段**:
+```
+Task(subagent_type="atlas:information-gatherer", model="haiku")
+```
+→ 输出位置: `.claude/gather/<task-id>/`
+
+**任务规划阶段**:
+```
+Task(subagent_type="atlas:planner")  # 推荐
+# 或
+Task(subagent_type="Plan")  # 内置规划器
+```
+→ 输入: gatherer 输出位置
+→ 输出: 结构化执行计划
+
+**执行阶段**:
+```
+Task(subagent_type="atlas:atlas-executor", model=用户选择)
+```
+→ 输入: 子任务描述 + 相关 gatherer 信息片段（直接嵌入 prompt）
+→ 输出: 执行报告
+
+### 信息传递链
+
+```
+gatherer → 文件输出 → planner 读取
+                   ↓
+          planner → 提取关键信息 → 嵌入 executor prompt
+```
+
+**原则**：每个阶段的输出是下一阶段的输入，主进程负责传递位置/内容。
+
 ### 强制流程（必须按顺序执行）
 
 ```
-1. 确认选项 (AskUserQuestion)
-2. 创建检查点 (git stash)
-3. 信息收集 (Task → information-gatherer) [除非 --no-gather]
-4. 选择规划器 (AskUserQuestion) → atlas:planner 或 内置 Plan
-5. 任务规划 (Task → 选择的规划器)
-6. 选择模型 (AskUserQuestion)
-7. 执行任务 (Task → atlas-executor)
-8. 聚合报告
+1. 确认执行模式 (AskUserQuestion) - 自动/交互/dry-run
+2. [交互模式] 确认详细选项 (AskUserQuestion)
+3. 创建检查点 (git stash) [除非 dry-run 或选择跳过]
+4. 信息收集 (Task → information-gatherer) [除非 --no-gather 或 repowiki 充足]
+5. 选择规划器 [交互模式询问，自动/dry-run 使用 atlas:planner]
+6. 任务规划 (Task → 选择的规划器)
+7. [非 dry-run] 选择模型 [交互模式询问，自动模式使用 sonnet]
+8. [非 dry-run] 执行任务 (Task → atlas-executor)
+9. 聚合报告
 ```
 
 ### 必须做
 
-- **Step 1**: 使用 AskUserQuestion 确认执行选项
-- **Step 2**: 创建 git stash 检查点 + 状态文件
-- **Step 3**: 使用 `Task(subagent_type="atlas:information-gatherer", model="haiku")` 收集信息
-- **Step 4**: 使用 AskUserQuestion 让用户选择规划器 (atlas:planner / 内置 Plan)
-- **Step 5**: 使用选择的规划器制定执行计划
-- **Step 6**: 使用 AskUserQuestion 让用户选择 executor 模型
-- **Step 7**: 使用 `Task(subagent_type="atlas:atlas-executor", model=选择)` 执行
-- **Step 8**: 输出固定格式报告
+- **Step 1**: 使用 AskUserQuestion 确认执行模式（自动/交互/dry-run）
+- **Step 2**: 交互模式时询问详细选项；自动/dry-run 使用默认值
+- **Step 3**: 根据模式创建 git stash 检查点 + 状态文件
+- **Step 4**: 使用 `Task(subagent_type="atlas:information-gatherer", model="haiku")` 收集信息
+- **Step 5**: 交互模式询问规划器；自动/dry-run 直接用 atlas:planner
+- **Step 6**: 使用选择的规划器制定执行计划
+- **Step 7**: 交互模式询问模型；自动模式直接用主对话默认模型
+- **Step 8**: 使用 `Task(subagent_type="atlas:atlas-executor", model=选择)` 执行
+- **Step 9**: 输出固定格式报告
 
 ### 禁止做
 
@@ -448,7 +590,7 @@ git stash drop "atlas-checkpoint-{execution-id}"
 - ❌ 主进程直接使用 Edit/Write 修改文件（应委托 executor）
 - ❌ 跳过信息收集直接规划（除非 --no-gather 或 repowiki 充足）
 - ❌ 跳过规划直接执行
-- ❌ 跳过模型选择直接调用 executor
+- ❌ 自动模式下询问规划器/模型选择（应使用默认值）
 - ❌ 串行调用可并行的任务
-- ❌ 跳过检查点创建
+- ❌ 用户选择创建检查点时跳过检查点创建
 - ❌ 因部分失败放弃其他任务（除非 --auto-rollback）

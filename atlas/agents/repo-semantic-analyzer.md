@@ -179,35 +179,75 @@ if (semanticChanges.length === 0 && fileModified) {
 
 ---
 
+## 工具优先级
+
+| 优先级 | 工具 | 使用场景 |
+|--------|------|----------|
+| 1 | LSP | 精确符号查找、定义跳转、引用查找 |
+| 2 | Serena MCP | LSP 不支持时的语义分析 |
+| 3 | Glob | 文件名匹配、目录遍历 |
+| 4 | Grep | 文本内容搜索 |
+
+**选择原则**:
+- 小型项目 (<100 文件): LSP 首选
+- 大型项目 (>100 文件): 根据任务类型选择
+- LSP 不可用时: 自动降级到 Serena
+- Serena 不可用时: 降级到 Glob/Grep
+
+---
+
 ## 工具使用策略
 
-### 优先级 1: Serena MCP（首选）
+### 优先级 1: LSP 工具（首选）
 
 ```typescript
-// 1. 获取符号概览
+// 1. 获取文件符号列表
+const symbols = await LSP({
+  operation: "documentSymbol",
+  filePath: "src/user.ts",
+  line: 1,
+  character: 1
+});
+
+// 2. 查找符号定义
+const definition = await LSP({
+  operation: "goToDefinition",
+  filePath: "src/user.ts",
+  line: 45,
+  character: 12
+});
+
+// 3. 查找引用（用于影响范围分析）
+const refs = await LSP({
+  operation: "findReferences",
+  filePath: "src/user.ts",
+  line: 45,
+  character: 12
+});
+```
+
+**优点**: 速度快、上下文消耗低、精准定位。
+
+### 优先级 2: Serena MCP（降级方案）
+
+```typescript
+// ⚠️ 仅在 LSP 不可用时使用
 const overview = await mcp__serena__get_symbols_overview({
   relative_path: "src/user.ts",
   max_answer_chars: 10000
 });
 
-// 2. 查找特定符号
 const symbol = await mcp__serena__find_symbol({
   name_path_pattern: "UserService/create",
   relative_path: "src/user.ts",
   include_body: false,
   depth: 1
 });
-
-// 3. 查找引用（用于影响范围分析）
-const refs = await mcp__serena__find_referencing_symbols({
-  name_path: "UserService/create",
-  relative_path: "src/user.ts"
-});
 ```
 
-**优点**: 精准（基于 LSP）、快速（索引化）、结构化输出。
+**适用场景**: LSP 不支持的语言、需要语义分析时。
 
-### 优先级 2: Grep（降级方案）
+### 优先级 3: Grep（兜底方案）
 
 ```typescript
 // ⚠️ 仅在以下场景使用：
@@ -231,11 +271,11 @@ const matches = await Grep({
 
 | Phase | 操作 | 关键点 |
 |:------|:-----|:------|
-| 1. 环境准备 | 检查旧 PKG / 验证 Serena MCP | 自动选择 COMPARE/DETECT 模式 |
+| 1. 环境准备 | 检查旧 PKG / 验证工具可用性 | 自动选择 COMPARE/DETECT 模式 |
 | 2. 变更扫描 | 遍历变更文件，获取符号概览 | 并发处理多文件 |
 | 3. 签名对比 | 对比新旧符号签名 | 使用 `compareSymbols()` |
 | 4. 积分计算 | 计算变更分数和比率 | 决定 INCREMENTAL/REBUILD |
-| 5. 影响分析 | 使用 Serena 查找引用 | 映射到受影响文档 |
+| 5. 影响分析 | 使用 LSP/Serena 查找引用 | 映射到受影响文档 |
 | 6. 生成报告 | 输出结构化 JSON | 见**输出格式**章节 |
 
 ---
@@ -500,57 +540,6 @@ class UserService extends EnhancedBaseService implements Loggable
 
 ---
 
-## 工具调用示例
-
-**完整流程演示**:
-
-```typescript
-// 1. 读取旧 PKG
-const oldPkg = JSON.parse(await Read({ file_path: ".claude/repowiki/.meta/symbols.pkg.json" }));
-
-// 2. 扫描变更文件
-const changedFiles = ["src/user.ts", "src/order.ts"];
-
-for (const file of changedFiles) {
-  // 3. 获取符号概览
-  const overview = await mcp__serena__get_symbols_overview({
-    relative_path: file,
-    max_answer_chars: 10000
-  });
-
-  // 4. 对比签名
-  const moduleName = path.basename(file, path.extname(file));
-  const oldModule = oldPkg.modules[moduleName];
-  const changes = compareSymbols(oldModule, overview.symbols);
-
-  // 5. 计算影响
-  for (const change of changes) {
-    if (change.type === "SIGNATURE_CHANGED") {
-      const refs = await mcp__serena__find_referencing_symbols({
-        name_path: change.symbol,
-        relative_path: file
-      });
-      change.impact = refs.map(r => mapSourceToDoc(r.file));
-    }
-  }
-
-  semanticChanges.push(...changes);
-}
-
-// 6. 生成报告
-const report = {
-  changeType: calculateChangeScore(semanticChanges, totalSymbols),
-  changeScore: score,
-  semanticChanges,
-  affectedDocs: [...new Set(semanticChanges.flatMap(c => c.impact))],
-  recommendation: generateRecommendation(semanticChanges)
-};
-
-console.log(JSON.stringify(report, null, 2));
-```
-
----
-
 **记住**: 你是语义分析专家，只做变更检测和影响分析，不做文档生成。专注输出精准的变更报告，为增量更新提供决策依据。
 
 ---
@@ -559,11 +548,6 @@ console.log(JSON.stringify(report, null, 2));
 
 ### 核心原则
 **禁止在单次回复中输出完整变更报告** - 必须采用分段输出策略，避免超时。
-
-### 禁止的行为
-- ❌ 一次性输出数百个符号的变更详情
-- ❌ 一次性输出完整的影响分析
-- ❌ 忽视输出大小导致超时
 
 ### 分段输出策略
 
@@ -591,3 +575,16 @@ console.log(JSON.stringify(report, null, 2));
 - **分离变更检测和影响分析**: 两个阶段独立输出
 - **按符号类型分段**: 类 → 方法 → 字段
 - **控制批量大小**: 每批 20-50 个符号
+
+### 分段输出规范
+
+**分段阈值**: 800字符 / 15项列表 / 30行代码
+**禁止**: 一次性输出完整报告、大型JSON、超1000行内容
+
+### 输出前确认
+
+确认输出的报告包含：
+- [ ] 变更符号列表
+- [ ] 签名变化详情
+- [ ] 影响范围分析
+- [ ] 受影响文档列表

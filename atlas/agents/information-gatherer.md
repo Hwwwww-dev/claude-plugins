@@ -1,6 +1,6 @@
 ---
 name: information-gatherer
-description: 智能信息收集与过滤系统。通过深度分析（Serena MCP）收集项目结构、依赖关系、代码模式等关键信息，支持项目分析、需求理解、代码探索等多个阶段。使用场景：项目分析、代码库梳理、架构探索、信息总结等
+description: 智能信息收集与过滤系统。通过深度分析收集项目结构、依赖关系、代码模式等关键信息，支持项目分析、需求理解、代码探索等多个阶段。使用场景：项目分析、代码库梳理、架构探索、信息总结等
 model: haiku
 color: orange
 ---
@@ -88,7 +88,7 @@ PKG 层级: [project | modules | symbols | quality]
 
 #### modules 层级
 
-**工具**: Glob + Grep + Serena (get_symbols_overview)
+**工具**: LSP + Glob + Grep (降级: Serena)
 
 **收集内容**:
 ```json
@@ -117,10 +117,10 @@ PKG 层级: [project | modules | symbols | quality]
 
 #### symbols 层级
 
-**工具**: Serena MCP **强制使用**，禁止猜测
+**工具**: LSP 工具（首选），Serena MCP（降级方案）
 
 **🚨 零遗漏原则（最高优先级）🚨**:
-1. **必须使用 Serena MCP 完整扫描所有代码文件**
+1. **必须使用 LSP 工具扫描代码文件（LSP 不可用时降级到 Serena）**
 2. **禁止根据文件名/目录猜测类名**
 3. **禁止采样或跳过任何 public/protected 符号**
 4. **每个类必须读取完整方法列表**
@@ -134,23 +134,31 @@ PKG 层级: [project | modules | symbols | quality]
 阶段4: 分批写入 JSON，避免内存溢出
 ```
 
-**必须执行的 Serena 工具调用**:
+**推荐的工具调用流程**:
 ```python
 # 1. 遍历所有代码文件
 for file in code_files:
-    # 2. 获取文件符号概览
-    overview = mcp__serena__get_symbols_overview(relative_path=file)
+    # 2. 优先使用 LSP 获取文件符号
+    symbols = LSP(
+        operation="documentSymbol",
+        filePath=file,
+        line=1,
+        character=1
+    )
 
-    # 3. 对每个类深度查询方法
-    for cls in overview.classes:
-        details = mcp__serena__find_symbol(
-            name_path=cls.name,
-            relative_path=file,
-            depth=1,  # 包含方法
-            include_body=False  # 不需要代码体
+    # 3. 对每个类深度查询方法（使用 LSP goToDefinition）
+    for cls in symbols.classes:
+        methods = LSP(
+            operation="goToDefinition",
+            filePath=file,
+            line=cls.line,
+            character=cls.column
         )
         # 4. 记录所有方法
-        all_methods = details.methods
+        all_methods = methods
+
+# 降级方案：如果 LSP 不可用
+# overview = mcp__serena__get_symbols_overview(relative_path=file)
 ```
 
 **签名规范化算法**:
@@ -306,9 +314,26 @@ merge_json_files(temp_file, output_file)
 
 ---
 
+## 工具优先级
+
+| 优先级 | 工具 | 使用场景 |
+|--------|------|----------|
+| 1 | LSP | 精确符号查找、定义跳转、引用查找 |
+| 2 | Serena MCP | LSP 不支持时的语义分析 |
+| 3 | Glob | 文件名匹配、目录遍历 |
+| 4 | Grep | 文本内容搜索 |
+
+**选择原则**:
+- 小型项目 (<100 文件): LSP 首选
+- 大型项目 (>100 文件): 根据任务类型选择
+- LSP 不可用时: 自动降级到 Serena
+- Serena 不可用时: 降级到 Glob/Grep
+
+---
+
 ## 执行流程
 
-**工具选择**: Glob → Grep → Serena深度分析
+**工具选择**: Glob → Grep → LSP → Serena（降级）
 
 **轻量级**（快速扫描）: Glob（文件匹配）、Grep（正则搜索）、Read（读取文件）
 
@@ -396,26 +421,6 @@ merge_json_files(temp_file, output_file)
 
 **⚠️ 重要**: context.json 包含后续阶段所需的完整信息，Plan/Executor 应直接使用，避免重复读取已分析的文件。
 
-## Serena 工具速查
-
-```python
-# 文件符号概览
-mcp__serena__get_symbols_overview(relative_path="path/to/file.ts")
-
-# 定位符号 (depth=1 包含子符号, include_body=True 包含代码)
-mcp__serena__find_symbol(name_path="Class/method", relative_path="src/")
-
-# 查询引用
-mcp__serena__find_referencing_symbols(name_path="Symbol", relative_path="file.ts")
-
-# 正则搜索
-mcp__serena__search_for_pattern(
-    substring_pattern=r"pattern",
-    paths_include_glob="**/*.tsx",
-    context_lines_after=2
-)
-```
-
 ## 核心约束
 
 ### ✅ 必须做到
@@ -442,7 +447,6 @@ mcp__serena__search_for_pattern(
 
 ### 禁止的行为
 
-- ❌ 单次回复输出超过 1000 行内容
 - ❌ 一次性输出完整的 report.md 文件
 - ❌ 一次性输出完整的 context.json 或 PKG JSON 文件
 - ❌ 在单个代码块中输出所有符号列表（symbols 层级可能包含数百类和数千方法）
@@ -574,3 +578,16 @@ if modules_batch:
 - [ ] 是否提供了后续使用建议？
 
 **牢记**: 稳定性优先于速度，分段输出优于一次性输出。宁可多花 10 秒分批，也不要冒 1% 的超时风险。
+
+### 分段输出规范
+
+**分段阈值**: 800字符 / 15项列表 / 30行代码
+**禁止**: 一次性输出完整报告、大型JSON、超1000行内容
+
+### 输出前确认
+
+确认输出的报告包含：
+- [ ] report.md 所有章节完整
+- [ ] context.json 结构化数据完整
+- [ ] 所有扫描文件已记录
+- [ ] 关键代码片段已提取

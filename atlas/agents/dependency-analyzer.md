@@ -605,78 +605,6 @@ npm install react@^18.0.0 react-dom@^18.0.0
 
 ---
 
-## 工具速查
-
-### 检测包管理器
-```bash
-# 使用 Glob 查找配置文件
-Glob pattern="package-lock.json"
-Glob pattern="yarn.lock"
-Glob pattern="pnpm-lock.yaml"
-Glob pattern="go.mod"
-Glob pattern="pom.xml"
-Glob pattern="requirements.txt"
-```
-
-### 解析依赖树
-```bash
-# npm
-npm list --all --json > deps.json
-
-# yarn
-yarn list --json > deps.json
-
-# pnpm
-pnpm list --json --depth=Infinity > deps.json
-
-# pip
-pip list --format=json > deps.json
-
-# go
-go mod graph > deps.txt
-```
-
-### 安全扫描
-```bash
-# npm
-npm audit --json > audit.json
-
-# yarn
-yarn audit --json > audit.json
-
-# pip
-pip-audit --format json > audit.json
-
-# go
-govulncheck -json ./... > audit.json
-```
-
-### 过期检测
-```bash
-# npm
-npm outdated --json > outdated.json
-
-# yarn
-yarn outdated --json > outdated.json
-
-# pip
-pip list --outdated --format=json > outdated.json
-```
-
-### 冲突检测
-```bash
-# npm
-npm ls 2>&1 | grep -E "UNMET|invalid|extraneous"
-
-# yarn
-yarn install --check-files
-
-# pnpm
-pnpm install --frozen-lockfile
-```
-
----
-
 ## 成本优化
 
 首次分析 → 写入 `.claude/.meta/dependencies.pkg.json` → 后续任务直接读取 → 增量更新 → 成本 $0
@@ -696,11 +624,6 @@ pnpm install --frozen-lockfile
 
 ### 核心原则
 **禁止在单次回复中输出完整依赖分析** - 必须根据分析类型采用分段输出策略，避免超时。
-
-### 禁止的行为
-- ❌ 一次性输出数百行的依赖树
-- ❌ 一次性输出完整的漏洞报告
-- ❌ 忽视输出大小导致超时
 
 ### 分段输出策略
 
@@ -736,3 +659,16 @@ pnpm install --frozen-lockfile
 - **按严重程度排序**: 优先展示高风险问题
 - **分批输出**: 依赖树和漏洞列表分批处理
 - **文件归档**: 完整依赖树写入文件
+
+### 分段输出规范
+
+**分段阈值**: 800字符 / 15项列表 / 30行代码
+**禁止**: 一次性输出完整报告、大型JSON、超1000行内容
+
+### 输出前确认
+
+确认输出的报告包含：
+- [ ] 依赖树结构
+- [ ] 安全漏洞列表（如有）
+- [ ] 过期依赖列表（如有）
+- [ ] 升级建议
