@@ -3,331 +3,200 @@ description: 问题诊断与修复建议。分析问题根因，提供修复方�
 argument-hint: <问题描述> [--scope path] [--fix]
 ---
 
-# /bugfix - 问题诊断与修复建议
+# /bugfix - 问题诊断与修复
 
-用户问题: $ARGUMENTS
+## 一、涉及的 Agent 和工具
+
+### 1.1 Agent 说明
+
+| Agent | 职责 | 模型 | 输出位置 |
+|-------|------|------|---------|
+| `atlas:information-gatherer` | 收集问题相关信息 | haiku | `.claude/gather/bugfix-<ts>/` |
+| `atlas:planner` | 制定修复方案 | inherit | `.claude/plan/bugfix-<ts>/` |
+| `atlas:atlas-executor` | 执行修复 | 用户选择 | 直接修改文件 |
+
+### 1.2 工具说明
+
+| 工具 | 用途 |
+|------|------|
+| `AskUserQuestion` | 确认选项 |
+| `Task` | 调用 subagent |
+| `git stash` | 创建检查点 |
+
+### 1.3 信息传递链
+
+```
+gatherer → .claude/gather/bugfix-<ts>/context.json
+    ↓
+planner → .claude/plan/bugfix-<ts>/plan.json
+    ↓
+executor → 直接修复（无需重新扫描）
+```
 
 ---
 
-## 诊断流程
+## 二、编排计划
 
-### 1. 问题分析
-- 理解用户描述的问题现象
-- 确定问题类型（运行时错误/逻辑错误/配置问题/依赖问题等）
-- 确定搜索范围（--scope 指定或根据问题推断）
-
-### 2. 信息收集
-
-**调用 `information-gatherer` 收集信息**：
+### 2.1 强制流程
 
 ```
-Task(
-  subagent_type="atlas:information-gatherer",
-  model="haiku",
-  prompt="问题诊断信息收集：
+问题分析 → 确认选项 → 信息收集 → 根因分析 → 规划 → [--fix] 执行 → 测试 → 报告
+```
 
+### 2.2 模式行为定义
+
+| 步骤 | 默认值 | --fix 时 | 可选值 |
+|------|--------|---------|--------|
+| 信息收集 | 是 | 是 | 是 / 否 |
+| 检查点 | - | 询问 | 创建 / 跳过 |
+| 规划器 | atlas:planner | 询问 | atlas:planner / 内置 Plan |
+| Executor 模型 | - | 询问 | haiku / sonnet / opus |
+| 测试节点 | - | 询问 | 修复后 / 不测试 |
+| 测试模式 | - | 询问 | 编译测试 / 单元测试 / 编译+单元 |
+
+### 2.3 执行步骤
+
+**Step 1: 问题分析**
+- 理解问题现象
+- 确定问题类型（运行时/逻辑/配置/依赖）
+- 确定搜索范围
+
+**Step 2: (--fix) 确认选项**
+```
+AskUserQuestion: 确认执行修复？
+- 执行修复: 诊断后执行
+- 仅诊断: 只输出方案
+
+AskUserQuestion: 是否创建检查点？
+- 创建（推荐）: 失败可回滚
+- 跳过: 不创建
+
+AskUserQuestion: 选择规划器
+- atlas:planner（推荐）: 信任 gatherer 输出
+- 内置 Plan: 会自行探索
+
+AskUserQuestion: 选择 Executor 模型
+- haiku: 快速，简单修复
+- sonnet（推荐）: 平衡
+- opus: 复杂修复
+
+AskUserQuestion: 选择测试节点
+- 修复后（推荐）: 修复完成后测试
+- 不测试: 跳过
+
+AskUserQuestion: 选择测试模式
+- 编译测试（推荐）: tsc --noEmit
+- 单元测试: npm test
+- 编译+单元: 完整验证
+```
+
+**Step 3: 信息收集**
+```
+Task(subagent_type="atlas:information-gatherer", model="haiku")
+prompt: |
   任务 ID: bugfix-<timestamp>
   问题描述: [用户问题]
-  搜索范围: [scope 或推断范围]
-
-  收集目标:
-  1. 相关代码文件和函数定位
-  2. 错误相关的代码逻辑
-  3. 依赖关系和调用链
-  4. 相关配置文件
-  5. git blame 最近修改历史
-
+  搜索范围: [scope]
   输出目录: .claude/gather/bugfix-<timestamp>/
-  - report.md: 问题相关的完整分析
-  - context.json: 关键代码片段和位置信息"
-)
 ```
 
-**信息传递原则**：gatherer 输出保存在 `.claude/gather/`，后续分析**直接使用**，无需再次读取文件。
+**Step 4: 根因分析**（基于 gatherer 报告）
 
-### 3. 根因分析
+**Step 5: 制定修复方案**
+```
+Task(subagent_type="atlas:planner" 或 "Plan")
+prompt: |
+  任务: 修复 [问题描述]
+  Gatherer 输出: .claude/gather/bugfix-<timestamp>/
+  输出目录: .claude/plan/bugfix-<timestamp>/
+```
 
-**核心原则**：必须**优先使用 gatherer 输出**，最小化额外读取。
+**Step 6: (--fix) 执行修复**
+```
+Task(subagent_type="atlas:atlas-executor", model=用户选择)
+prompt: |
+  修复任务: [描述]
+  修改点: [从 plan.json 提取]
+```
 
-**强制信息源**:
-- `.claude/gather/bugfix-<timestamp>/report.md`: 问题分析报告
-- `.claude/gather/bugfix-<timestamp>/context.json`: 关键代码片段
+**Step 7: (--fix) 验证测试**（根据 Step 2 选择执行）
 
-**信息充足性检查**:
-- [ ] 错误相关代码片段
-- [ ] 调用链/依赖关系
-- [ ] 最近修改历史
-- [ ] 相关配置信息
-
-如 4 项均已获取 → **禁止额外读取**，直接分析
-如缺失 < 5项 → 针对性补充
-如缺失 5+ 项 → 标记 gatherer 信息不足，建议重新收集
-
-**分析内容**：
-- 定位问题根本原因
-- 分析影响范围
-- 评估复杂度（simple/moderate/complex）
-
-### 4. 修复方案
-提供具体的修复建议：
-- 修复策略（直接修复/防御性修复/重构）
-- 修改位置和内容
-- 验证方法
-- 潜在风险
+**Step 8: 输出报告**
 
 ---
 
-## 输出格式
+## 三、细节要点
+
+### 3.1 主进程职责
+
+**允许**: AskUserQuestion / Task 调用 / 读取 agent 输出 / Git 操作
+
+**禁止**: Read/Grep/Glob 读代码 / Edit/Write 修改文件 / 直接分析代码
+
+### 3.2 根因分析输出格式
 
 ```markdown
 ## 问题诊断
-
 **问题描述**: [用户描述]
 **问题类型**: [错误类型]
 **复杂度**: simple | moderate | complex
 
 ## 根因分析
-
 **定位**: [文件:行号]
 **原因**: [具体原因]
 **影响**: [影响范围]
 
 ## 修复方案
-
-**策略**: [修复策略]
-
-**步骤**:
-1. [步骤1] - [文件:位置]
-2. [步骤2] - [文件:位置]
-
-**验证**:
-- [验证方法]
-
-**风险**:
-- [潜在风险及应对]
+**策略**: [直接修复/防御性修复/重构]
+**步骤**: 1. [步骤] - [文件:位置]
+**验证**: [验证方法]
+**风险**: [潜在风险]
 ```
 
 ---
 
-## --fix 执行修复
+## 四、示例
 
-当用户指定 `--fix` 时，诊断完成后询问是否执行：
-
-```
-AskUserQuestion(questions=[
-  {
-    "header": "确认",
-    "question": "确认执行修复？",
-    "options": [
-      {"label": "执行修复", "description": "按方案执行"},
-      {"label": "仅查看方案", "description": "不执行"}
-    ]
-  },
-  {
-    "header": "检查点",
-    "question": "是否创建 Git 检查点？",
-    "options": [
-      {"label": "创建（推荐）", "description": "失败可回滚，更安全"},
-      {"label": "跳过", "description": "不创建检查点"}
-    ]
-  }
-])
-```
-
-**用户确认执行后**，选择模型：
-
-```
-AskUserQuestion(questions=[
-  {
-    "question": "选择 executor 模型",
-    "header": "模型",
-    "options": [
-      {"label": "跟随主对话（推荐）", "description": "使用当前对话的模型"},
-      {"label": "haiku", "description": "快速，适合简单修复"},
-      {"label": "sonnet", "description": "平衡速度和质量"},
-      {"label": "opus", "description": "高质量，适合复杂修复"}
-    ]
-  }
-])
-```
-
-执行流程：
-```
-1. [如用户选择创建检查点] 创建检查点: git stash push -m "bugfix-checkpoint-{timestamp}"
-2. Task(subagent_type="atlas:atlas-executor", model=用户选择的模型)
-3. 报告结果
-4. [如创建了检查点] 提供回滚命令: git stash pop
-```
-
----
-
-## 示例
-
-### 示例 1: 简单问题诊断
+### 示例 1: 仅诊断
 
 ```
 用户: /bugfix 登录按钮点击无反应
 
-## 问题诊断
-**问题描述**: 登录按钮点击无反应
-**问题类型**: 事件绑定问题
-**复杂度**: simple
-
-## 根因分析
-**定位**: src/components/Login.tsx:45
-**原因**: onClick 事件处理函数未正确绑定 this
-**影响**: 登录功能完全不可用
-
-## 修复方案
-**策略**: 直接修复
-
-**步骤**:
-1. 将 `onClick={this.handleLogin}` 改为 `onClick={() => this.handleLogin()}`
-   或使用箭头函数定义 handleLogin
-
-**验证**:
-- 点击登录按钮，确认触发登录逻辑
-
-**风险**:
-- 低风险，仅影响事件绑定
-```
-
-### 示例 2: 复杂问题诊断 + 执行
-
-```
-用户: /bugfix 用户数据偶发性丢失 --fix
-
-## 问题诊断
-**问题描述**: 用户数据偶发性丢失
-**问题类型**: 并发/竞态条件
-**复杂度**: complex
-
-## 根因分析
-**定位**: src/services/UserService.ts:120-145
-**原因**: 多个异步操作同时写入，缺少锁机制
-**影响**: 数据完整性受损，影响所有用户
-
-## 修复方案
-**策略**: 防御性修复 + 重构
-
-**步骤**:
-1. 添加乐观锁字段 - src/models/User.ts
-2. 修改更新逻辑添加版本检查 - src/services/UserService.ts
-3. 添加重试机制 - src/utils/retry.ts
-
-**验证**:
-- 并发写入测试
-- 压力测试验证数据一致性
-
-**风险**:
-- 中等风险，需要数据库迁移添加版本字段
-
----
-[AskUserQuestion: 确认执行? 创建检查点? 选择模型?]
-→ 用户选择: 执行 + 创建检查点 + opus
-→ 创建检查点: git stash
-→ 执行修复
-→ 报告结果，提供回滚命令
-```
-
-### 示例 3: 指定范围诊断
-
-```
-用户: /bugfix API 返回 500 --scope src/api
-
-## 问题诊断
-**问题描述**: API 返回 500 错误
-**问题类型**: 服务端异常
-**复杂度**: moderate
-
-## 根因分析
-**定位**: src/api/handlers/order.ts:89
-**原因**: 数据库查询未处理 null 情况，导致 NPE
-**影响**: 订单相关 API 全部不可用
-
-## 修复方案
-**策略**: 防御性修复
-
-**步骤**:
-1. 添加 null 检查 - src/api/handlers/order.ts:89
-2. 添加错误边界处理 - src/api/middleware/error.ts
-
-**验证**:
-- 测试空数据场景
-- 检查错误日志格式
-
-**风险**:
-- 低风险，添加防御性代码
-```
-
----
-
-## 核心约束
-
-### 主进程职责（严格限制）
-
-**主进程只做协调，不做实际工作。**
-
-**允许的操作**:
-- ✅ 使用 AskUserQuestion 与用户交互
-- ✅ 使用 Task 工具调用 agent
-- ✅ 读取 agent 输出结果（`.claude/gather/` 下的报告）
-- ✅ 聚合分析并展示给用户
-- ✅ Git 检查点操作（stash/pop）
-
-**禁止的操作**:
-- ❌ 使用 Read/Grep/Glob 读取代码文件
-- ❌ 使用 Edit/Write 修改代码文件
-- ❌ 直接分析代码逻辑
-- ❌ 直接执行修复
-
-### Agent 调用规范
-
-**信息收集阶段**:
-```
-Task(subagent_type="atlas:information-gatherer", model="haiku")
-```
-→ 输出位置: `.claude/gather/bugfix-<timestamp>/`
-→ 包含: 问题相关代码、调用链、修改历史
-
-**执行阶段** (--fix):
-```
-Task(subagent_type="atlas:atlas-executor", model=用户选择)
-```
-→ 输入: 修复方案 + 相关 gatherer 信息片段（直接嵌入 prompt）
-→ 输出: 执行报告
-
-### 信息传递链
-
-```
-gatherer → 文件输出 → 主进程读取报告
-                   ↓
-          主进程 → 根因分析（基于报告，不读代码）
-                   ↓
-          [--fix] → 提取修复信息 → 嵌入 executor prompt
-```
-
-**原则**：主进程基于 gatherer 报告做分析，不直接读取代码文件。
-
----
-
-## 流程总结
-
-**标准流程**：
-
-```
-1. 问题分析 → 确定问题类型和范围（基于用户描述）
-2. Task(subagent_type="atlas:information-gatherer", model="haiku") → 信息收集
-3. 根因分析 → 基于 gatherer 报告分析（禁止直接读代码）
+1. 问题分析: 事件绑定问题
+2. Gatherer: 收集登录组件代码
+3. 根因分析: src/components/Login.tsx:45 onClick 未绑定
 4. 输出修复方案
-5. [可选] --fix 时询问确认、检查点选项和模型选择
-6. [可选] 根据用户选择创建检查点
-7. [可选] Task(subagent_type="atlas:atlas-executor") → 执行修复
 ```
+
+### 示例 2: 诊断+修复
+
+```
+用户: /bugfix 用户数据丢失 --fix
+
+1. 确认选项: 执行 + 创建检查点 + opus + 编译+单元测试
+2. Gatherer: 收集 UserService 代码
+3. 根因分析: 并发竞态条件
+4. Planner: 生成修复计划
+5. Executor: 执行修复
+6. 测试: tsc --noEmit && npm test ✅
+7. 报告
+```
+
+---
+
+## 五、核心约束
+
+### 必须做
+
+- ✅ 使用 gatherer 收集信息
+- ✅ 基于 gatherer 报告做根因分析
+- ✅ --fix 时询问规划器选择
+- ✅ --fix 时询问测试选项
+- ✅ 使用 planner 输出精确修改点
 
 ### 禁止做
 
-- ❌ 主进程直接使用 Read/Grep/Glob 读取代码（应委托 gatherer）
-- ❌ 主进程直接使用 Edit/Write 修改文件（应委托 executor）
+- ❌ 主进程直接读取代码
+- ❌ 主进程直接修改文件
 - ❌ 跳过信息收集直接分析
-- ❌ 基于推测而非 gatherer 报告做根因分析
+- ❌ executor 重新扫描文件

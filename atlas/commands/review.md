@@ -3,330 +3,211 @@ description: 代码审查命令。对指定范围的代码进行多维度自动�
 argument-hint: [--scope path] [--type security|performance|style|architecture|all] [--fix] [--severity critical|warning|all]
 ---
 
-# 代码审查命令
+# /review - 代码审查
 
-对代码进行多维度自动化审查，发现潜在问题并提供修复建议。
+## 一、涉及的 Agent 和工具
 
-## 参数
+### 1.1 Agent 说明
 
-| 参数 | 说明 | 默认值 |
-|:-----|:-----|:-------|
-| `--scope` | 审查范围（目录/文件/git diff） | git diff（未提交变更） |
-| `--type` | 审查类型 | all |
-| `--fix` | 自动修复可修复的问题 | false |
-| `--severity` | 报告的最低严重性级别 | all |
+| Agent | 职责 | 模型 | 输出位置 |
+|-------|------|------|---------|
+| `atlas:information-gatherer` | 收集目标代码信息 | haiku | `.claude/gather/review-<ts>/` |
+| `atlas:code-reviewer` | 执行单维度审查 | 用户选择 | 返回审查结果 JSON |
+| `atlas:atlas-executor` | 执行自动修复 | 用户选择 | 直接修改文件 |
 
----
+### 1.2 工具说明
 
-## 审查类型
+| 工具 | 用途 |
+|------|------|
+| `AskUserQuestion` | 确认选项 |
+| `Task` | 调用 subagent |
+| `tsc` / `npm test` | 验证结果 |
 
-| 类型 | 说明 | 检查项 |
-|:-----|:-----|:-------|
-| `security` | 安全审查 | SQL 注入、XSS、硬编码密钥、敏感信息泄露、不安全的依赖 |
-| `performance` | 性能审查 | N+1 查询、内存泄漏、不必要的重渲染、复杂度过高 |
-| `style` | 风格审查 | 命名规范、代码结构、一致性、注释质量 |
-| `architecture` | 架构审查 | 分层违规、循环依赖、耦合度、模块边界 |
-| `all` | 全部审查 | 以上所有类型 |
+### 1.3 信息传递链
 
----
-
-## 执行流程
-
-Phase 0 范围确定 → Phase 1 代码分析 → Phase 2 并行审查 → Phase 3 报告聚合 → Phase 4 自动修复（可选）
-
-### Subagent 分配
-
-| Phase | 功能 | Subagent | 说明 |
-|:------|:-----|:---------|:-----|
-| 0 | 范围确定 | 主进程 | 解析参数，确定审查范围 |
-| 1 | 代码分析 | `atlas:information-gatherer` | 收集目标代码信息 |
-| 2 | 并行审查 | `atlas:code-reviewer` | 多个实例并行审查不同维度 |
-| 3 | 报告聚合 | 主进程 | 合并结果，生成统一报告 |
-| 4 | 自动修复 | `atlas:atlas-executor` | 执行可自动修复的问题 |
+```
+gatherer → .claude/gather/review-<ts>/context.json
+    ↓
+code-reviewer → 读取 context.json → 输出审查结果 JSON
+    ↓
+主进程 → 聚合报告 → .claude/review/report-<date>.md
+    ↓
+[--fix] executor → 修复 autoFixable 问题
+```
 
 ---
 
-## Phase 0: 范围确定
+## 二、编排计划
 
-**输入**: 命令参数
+### 2.1 强制流程
 
-**输出**: 审查目标列表
+```
+范围确定 → 确认选项 → 代码分析 → 并行审查 → 报告聚合 → [--fix] 修复 → 测试 → 输出
+```
 
-**范围确定规则**:
-| 场景 | 范围 |
-|:-----|:-----|
-| 无 --scope | git diff（未提交的变更文件） |
-| --scope . | 全项目（排除 node_modules、.git 等） |
-| --scope src | 指定目录 |
-| --scope src/user.ts | 指定文件 |
+### 2.2 模式行为定义
 
-**操作**:
-1. 解析 --scope 参数
-2. 如果未指定，获取 git diff 变更文件列表
-3. 过滤非代码文件
-4. 输出目标文件列表
+| 步骤 | 默认值 | --fix 时 | 可选值 |
+|------|--------|---------|--------|
+| 审查类型 | all | all | security / performance / style / architecture / all |
+| 严重性过滤 | all | all | critical / warning / all |
+| 规划器 | - | 询问 | atlas:planner / 内置 Plan |
+| Reviewer 模型 | 询问 | 询问 | haiku / sonnet / opus |
+| Executor 模型 | - | 询问 | haiku / sonnet / opus |
+| 测试节点 | - | 询问 | 修复后 / 不测试 |
+| 测试模式 | - | 询问 | 编译测试 / 单元测试 / 编译+单元 |
 
----
+### 2.3 审查类型
 
-## 项目知识库
+| 类型 | 检查项 |
+|------|--------|
+| `security` | SQL 注入、XSS、硬编码密钥、敏感信息泄露 |
+| `performance` | N+1 查询、内存泄漏、不必要重渲染 |
+| `style` | 命名规范、代码结构、一致性 |
+| `architecture` | 分层违规、循环依赖、耦合度 |
 
-**优先从 `.claude/repowiki/` 获取项目信息**（如果存在）：
+### 2.4 执行步骤
 
-| 文件 | 用途 |
-|:-----|:-----|
-| `.claude/repowiki/.meta/modules.pkg.json` | 模块结构、依赖关系（用于架构审查） |
-| `.claude/repowiki/.meta/api.pkg.json` | API 端点信息（用于安全审查） |
-| `.claude/repowiki/.meta/symbols.pkg.json` | 符号索引（加速代码定位） |
+**Step 1: 范围确定**
+- 无 --scope: git diff（未提交变更）
+- --scope .: 全项目
+- --scope src: 指定目录
 
-**使用方式**：Phase 1 分析前先检查这些文件是否存在，优先利用现有信息。
+**Step 2: 确认选项**
+```
+AskUserQuestion: 选择 Reviewer 模型
+- haiku: 快速审查
+- sonnet（推荐）: 平衡
+- opus: 深度审查
 
----
+AskUserQuestion: (--fix) 选择规划器
+- atlas:planner（推荐）: 信任 gatherer 输出
+- 内置 Plan: 会自行探索
 
-## Phase 1: 代码分析
+AskUserQuestion: (--fix) 选择 Executor 模型
+- haiku / sonnet / opus
 
-**Subagent**: `atlas:information-gatherer`
+AskUserQuestion: (--fix) 选择测试节点
+- 修复后（推荐）: 修复完成后测试
+- 不测试: 跳过
 
-**输入**: Phase 0 的目标文件列表 + `.claude/repowiki/` 现有信息（如果存在）
+AskUserQuestion: (--fix) 选择测试模式
+- 编译测试 / 单元测试 / 编译+单元
+```
 
-**输出目录**: `.claude/gather/review-<task-id>/`
-- `report.md`: 目标代码的详细分析报告
-- `context.json`: 结构化数据（文件路径、语言、行数、符号、导入导出、统计信息）
-- `targets.json`: 审查目标列表和关键代码片段
+**Step 3: 代码分析**
+```
+Task(subagent_type="atlas:information-gatherer", model="haiku")
+prompt: |
+  任务 ID: review-<timestamp>
+  目标文件: [文件列表]
+  输出目录: .claude/gather/review-<timestamp>/
+```
 
----
-
-## Phase 2: 并行审查
-
-**Subagent**: `atlas:code-reviewer` (多个实例并行)
-
-**核心原则**：code-reviewer 必须**优先使用 gatherer 输出**，最小化额外读取。
-
-**固定输入结构**:
+**Step 4: 并行审查**
 ```
 Task(subagent_type="atlas:code-reviewer", model=用户选择)
 prompt: |
-  ## 审查任务
-  维度: [security/performance/style/architecture]
-  目标: [文件列表]
-
-  ## ⚠️ 强制信息源（必须先读取）
-  **gatherer 输出目录**: `.claude/gather/review-<task-id>/`
-  - `context.json`: 文件结构、符号、导入导出
-  - `targets.json`: 关键代码片段
-
-  **你必须**:
-  1. 首先读取上述文件
-  2. 基于已有代码片段进行审查
-  3. 仅在以下情况补充读取:
-     - 需追溯跨文件调用链
-     - 代码片段上下文不足
-
-  ## 信息充足性检查
-  - [ ] 目标文件的代码片段
-  - [ ] 符号和导入导出关系
-  - [ ] 关键逻辑位置
-  - [ ] 文件统计信息
-
-  如 4 项均已获取 → **禁止额外读取**，直接审查
-  如缺失 < 5项 → 针对性补充
-  如缺失 5+ 项 → 标记 gatherer 信息不足，建议重新收集
-
-  ## 输出
-  审查结果 JSON（见规则表）
+  审查维度: [security/performance/style/architecture]
+  Gatherer 输出: .claude/gather/review-<timestamp>/
 ```
 
-**并行策略**:
-- --type all: 启动 4 个 code-reviewer（security、performance、style、architecture）
-- --type security: 启动 1 个 code-reviewer
-- 多个类型: 按指定类型启动对应数量
+--type all: 并行启动 4 个 code-reviewer
 
-**Subagent Prompt 必须包含**:
-1. 审查维度（单一维度）
-2. 目标文件路径列表
-3. 审查规则参考（见下方规则表）
-4. 输出格式要求
+**Step 5: 报告聚合**
+- 合并各维度结果
+- 按严重性排序
+- 输出 `.claude/review/report-<date>.md`
 
-### 审查规则
+**Step 6: (--fix) 自动修复**
+```
+Task(subagent_type="atlas:atlas-executor", model=用户选择)
+prompt: |
+  修复任务: autoFixable=true 的问题
+  修改点: [从审查结果提取]
+```
 
-#### Security（安全）
+**Step 7: (--fix) 验证测试**（根据 Step 2 选择执行）
 
-| 规则 ID | 检查项 | 严重性 |
-|:--------|:-------|:-------|
-| SEC001 | SQL 注入 | 🔴 critical |
-| SEC002 | XSS 漏洞 | 🔴 critical |
-| SEC003 | 硬编码密钥 | 🔴 critical |
-| SEC004 | 敏感信息日志 | 🟠 warning |
-| SEC005 | 不安全的随机数 | 🟡 info |
-| SEC006 | eval/Function 使用 | 🟠 warning |
-| SEC007 | 路径遍历 | 🔴 critical |
-| SEC008 | CORS 配置 | 🟠 warning |
-
-#### Performance（性能）
-
-| 规则 ID | 检查项 | 严重性 |
-|:--------|:-------|:-------|
-| PERF001 | N+1 查询 | 🟠 warning |
-| PERF002 | 未优化循环 | 🟡 info |
-| PERF003 | 内存泄漏风险 | 🟠 warning |
-| PERF004 | 不必要的重渲染 | 🟡 info |
-| PERF005 | 同步阻塞 | 🟠 warning |
-| PERF006 | 正则回溯 | 🟠 warning |
-| PERF007 | 大对象拷贝 | 🟡 info |
-
-#### Style（风格）
-
-| 规则 ID | 检查项 | 严重性 |
-|:--------|:-------|:-------|
-| STYLE001 | 函数过长 | 🟠 warning |
-| STYLE002 | 嵌套过深 | 🟠 warning |
-| STYLE003 | 命名不规范 | 🟡 info |
-| STYLE004 | 魔法数字 | 🟡 info |
-| STYLE005 | 重复代码 | 🟠 warning |
-| STYLE006 | TODO/FIXME | 🟡 info |
-| STYLE007 | 无用代码 | 🟡 info |
-| STYLE008 | 参数过多 | 🟡 info |
-
-#### Architecture（架构）
-
-| 规则 ID | 检查项 | 严重性 |
-|:--------|:-------|:-------|
-| ARCH001 | 循环依赖 | 🟠 warning |
-| ARCH002 | 分层违规 | 🟠 warning |
-| ARCH003 | 模块边界 | 🟡 info |
-| ARCH004 | 耦合度高 | 🟡 info |
-| ARCH005 | 缺少抽象 | 🟡 info |
-| ARCH006 | 单例滥用 | 🟡 info |
-
-### 输出格式
-
-每个 code-reviewer 实例输出 JSON，包含：
-- `dimension`: 审查维度
-- `timestamp`: 时间戳
-- `issues[]`: 问题列表（ruleId, severity, file, line, column, code, message, suggestion, autoFixable, fixedCode）
-- `summary`: 统计信息（critical, warning, info, total）
+**Step 8: 输出报告**
 
 ---
 
-## Phase 3: 报告聚合
+## 三、细节要点
 
-**执行者**: 主进程
+### 3.1 主进程职责
 
-**输入**: Phase 2 各维度的审查结果 JSON
+**允许**: AskUserQuestion / Task 调用 / 读取 agent 输出 / 聚合报告
 
-**输出**: `.claude/review/report-{date}.md`
+**禁止**: Read/Grep/Glob 读代码 / Edit/Write 修改文件 / 直接分析代码
 
-**报告包含**:
-- 概览（审查范围、类型、总问题数、严重问题、警告、提示）
-- 问题分布（按维度和严重性）
-- 严重问题详情（文件、代码、建议、是否可自动修复）
-- 警告和提示问题列表
-- 修复建议（自动修复和手动修复分组）
+### 3.2 审查结果格式
 
----
-
-## Phase 4: 自动修复（可选）
-
-**条件**: 仅当 --fix 参数存在时执行
-
-**Subagent**: `atlas:atlas-executor`
-
-**输入**: Phase 3 报告中 autoFixable=true 的问题列表
-
-**输出**: 修复后的文件 + 修复报告
-
-**执行策略**:
-1. 按文件分组，每个文件一个子任务
-2. 并行执行各子任务
-3. 每个修复保持原有代码风格
-
-**修复原则**:
-- 只修复 autoFixable=true 的问题
-- 保持代码格式一致
-- 不引入新问题
-- 修复后验证语法正确性
-
-**修复报告**包含：修复统计、修复详情、后续建议
-
----
-
-## 条件执行
-
-| 条件 | 行为 |
-|:-----|:-----|
-| 无变更文件 | 提示无需审查，退出 |
-| 目标文件 >100 | 建议使用 --scope 缩小范围 |
-| --fix 但无可修复问题 | 报告无可自动修复的问题 |
-| 审查类型无问题 | 报告该维度通过 |
-
----
-
-## 约束
-
-**执行约束**:
-- Phase 1 必须使用 `atlas:information-gatherer` agent (model="haiku")
-- Phase 2 必须使用 `atlas:code-reviewer` agent
-- Phase 4 必须使用 `atlas:atlas-executor` agent (询问用户选择模型)
-- 不同审查维度必须并行执行
-- 每个 code-reviewer 只处理单一维度
-
-**审查约束**:
-- 只报告问题，不擅自修复（除非 --fix）
-- 严格按规则判断严重性
-- 提供可操作的修复建议
-- autoFixable 必须谨慎判断
-
-**报告约束**:
-- 问题必须包含文件路径和行号
-- 必须提供代码片段上下文
-- 必须按严重性排序
-- 必须说明是否可自动修复
-
----
-
-## 示例
-
-### 基础用法
-```bash
-# 审查未提交的变更
-/atlas:review
-
-# 审查指定目录
-/atlas:review --scope src/services
-
-# 仅安全审查
-/atlas:review --type security
-
-# 审查并自动修复
-/atlas:review --fix
-
-# 只看严重问题
-/atlas:review --severity critical
+每个 code-reviewer 输出：
+```json
+{
+  "dimension": "security",
+  "issues": [
+    {
+      "ruleId": "SEC001",
+      "severity": "critical",
+      "file": "src/api.ts",
+      "line": 45,
+      "message": "SQL 注入风险",
+      "suggestion": "使用参数化查询",
+      "autoFixable": true,
+      "fixedCode": "..."
+    }
+  ],
+  "summary": {"critical": 1, "warning": 2, "info": 0}
+}
 ```
 
 ---
 
-## 输出前确认流程
+## 四、示例
 
-**在生成最终审查报告前，必须执行以下确认步骤**:
+### 示例 1: 基础审查
 
-1. **列出将要输出的所有内容项**
-2. **确认没有遗漏关键信息**
-3. **如有不确定项，明确标注或询问**
-
-**输出确认清单格式**:
-```markdown
-📋 审查报告确认清单
-- [ ] 审查概览 (范围、类型、总问题数)
-- [ ] 问题分布 (按维度和严重性)
-- [ ] 严重问题详情:
-  - [ ] 每个问题有文件路径和行号
-  - [ ] 每个问题有代码片段
-  - [ ] 每个问题有修复建议
-  - [ ] 每个问题标注是否可自动修复
-- [ ] 警告问题列表
-- [ ] 提示问题列表
-- [ ] 修复建议 (自动修复/手动修复分组)
-- [ ] Phase 4 修复报告 (如启用 --fix)
-
-确认无遗漏后开始输出报告
 ```
+用户: /review --scope src/services
+
+1. 范围确定: src/services (12 文件)
+2. 确认选项: sonnet
+3. Gatherer: 收集代码信息
+4. 并行审查: 4 个 code-reviewer
+5. 报告: 发现 3 critical, 5 warning
+```
+
+### 示例 2: 安全审查+修复
+
+```
+用户: /review --type security --fix
+
+1. 范围确定: git diff (5 文件)
+2. 确认选项: opus + 创建检查点 + 编译测试
+3. Gatherer: 收集代码信息
+4. 审查: 1 个 security reviewer
+5. 报告: 2 个可自动修复的问题
+6. Executor: 执行修复
+7. 测试: tsc --noEmit ✅
+```
+
+---
+
+## 五、核心约束
+
+### 必须做
+
+- ✅ 询问 Reviewer 模型选择
+- ✅ --fix 时询问规划器和测试选项
+- ✅ 使用 gatherer 收集代码信息
+- ✅ 不同维度并行审查
+- ✅ 问题包含文件路径和行号
+
+### 禁止做
+
+- ❌ 主进程直接读取代码
+- ❌ 主进程直接修改文件
+- ❌ 不使用 --fix 时自动修复
+- ❌ autoFixable 判断不谨慎

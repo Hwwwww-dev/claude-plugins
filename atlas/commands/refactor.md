@@ -3,319 +3,228 @@ description: 智能重构命令。识别代码问题并执行特定模式的自�
 argument-hint: <pattern> [--scope path] [--dry-run] [--interactive]
 ---
 
-# 智能重构命令
+# /refactor - 智能重构命令
 
-识别符合特定模式的代码问题，并执行自动化重构。
+## 一、涉及的 Agent 和工具
 
-## 参数
+### 1.1 Agent 说明
 
-| 参数 | 说明 | 默认值 |
-|:-----|:-----|:-------|
-| `pattern` | 重构模式（必填） | - |
-| `--scope` | 重构范围 | . (全项目) |
-| `--dry-run` | 仅预览，不实际修改 | false |
-| `--interactive` | 交互式逐个确认 | false |
+| Agent | 职责 | 模型 | 输出位置 |
+|-------|------|------|---------|
+| `atlas:information-gatherer` | 识别符合模式的候选项 | haiku | `.claude/gather/refactor-<ts>/` |
+| `atlas:planner` | 制定重构计划 | inherit | `.claude/plan/refactor-<ts>/` |
+| `atlas:atlas-executor` | 执行重构 | 用户选择 | 直接修改文件 |
 
----
+### 1.2 工具说明
 
-## 重构模式
+| 工具 | 用途 |
+|------|------|
+| `AskUserQuestion` | 确认选项 |
+| `Task` | 调用 subagent |
+| `tsc` / `npm test` | 验证结果 |
 
-| 模式 | 说明 | 识别条件 | 示例 |
-|:-----|:-----|:---------|:-----|
-| `extract-method` | 提取长函数为小函数 | 函数体 >50 行 | 拆分 processOrder 为多个子函数 |
-| `extract-component` | 提取大组件为子组件 | JSX/模板 >100 行 | 拆分 Dashboard 为 Header/Content/Sidebar |
-| `consolidate-duplicate` | 合并重复代码 | 相似度 >80%，≥3 处 | 提取公共函数 |
-| `modernize-js` | JavaScript 现代化 | var/callback/传统语法 | var→const, callback→async/await |
-| `add-types` | 添加 TypeScript 类型 | any/缺失类型 | any→具体类型, 添加接口定义 |
-| `rename-convention` | 统一命名规范 | 命名不一致 | snake_case→camelCase |
-| `simplify-conditions` | 简化条件逻辑 | 复杂 if-else | 提前返回, 三元表达式 |
-| `remove-dead-code` | 移除死代码 | 未使用的导出/变量 | 删除无引用代码 |
+### 1.3 信息传递链
 
----
-
-## 执行流程
-
-Phase 0 模式解析 → Phase 1 候选识别 → Phase 2 选择规划器 → Phase 3 规划 → Phase 4 执行/预览 → Phase 5 验证
-
-### Subagent 分配
-
-| Phase | 功能 | Subagent | 说明 |
-|:------|:-----|:---------|:-----|
-| 0 | 模式解析 | 主进程 | 验证模式有效性 |
-| 1 | 候选识别 | `atlas:information-gatherer` | 扫描符合模式的代码 |
-| 2 | 选择规划器 | 主进程 | 询问用户选择规划器类型 |
-| 3 | 规划 | `atlas:planner` 或 `Plan` | 生成重构计划 |
-| 4 | 执行 | `atlas:atlas-executor` | 并行执行重构 |
-| 5 | 验证 | 主进程 | 运行测试/类型检查 |
-
----
-
-## Phase 0: 模式解析
-
-**输入**: 命令参数
-
-**操作**:
-1. 验证 pattern 是否为支持的模式
-2. 解析 --scope 确定范围
-3. 记录执行选项（dry-run/interactive）
-
-**失败场景**:
-- 未知模式 → 列出支持的模式，终止
-- 范围不存在 → 报错，终止
-
----
-
-## 项目知识库
-
-**优先从 `.claude/repowiki/` 获取项目信息**（如果存在）：
-
-| 文件 | 用途 |
-|:-----|:-----|
-| `.claude/repowiki/.meta/modules.pkg.json` | 模块结构（用于依赖分析） |
-| `.claude/repowiki/.meta/symbols.pkg.json` | 符号索引（加速候选识别） |
-| `.claude/repowiki/.meta/quality.pkg.json` | 质量分析（已识别的问题点） |
-
-**使用方式**：Phase 1 识别前先检查这些文件是否存在，可加速候选识别过程。
-
----
-
-## Phase 1: 候选识别
-
-**Subagent**: `atlas:information-gatherer`
-
-**输入**: 重构模式 + 范围 + `.claude/repowiki/` 现有信息（如果存在）
-
-**输出目录**: `.claude/gather/refactor-<task-id>/`
-- `report.md`: 候选项的详细分析报告
-- `context.json`: 结构化候选项数据
-- `candidates.json`: 候选项列表（id, file, symbol, line, reason, complexity, suggestedSplits, codeSnippet）
-
-### 各模式识别规则
-
-| 模式 | 识别条件 | 输出内容 |
-|:-----|:---------|:---------|
-| `extract-method` | 函数体 >50 行或圈复杂度 >10 | 函数位置、拆分点、命名建议 |
-| `extract-component` | JSX/模板 >100 行或 props >10 | 组件位置、子组件建议、props 分析 |
-| `consolidate-duplicate` | 相似度 >80%，≥3 处 | 重复位置列表、相似度、合并建议 |
-| `modernize-js` | 使用 var/callback/arguments/with | 旧语法位置、现代替代方案 |
-| `add-types` | any/缺失类型 | 类型缺失位置、推断的类型建议 |
-| `rename-convention` | 命名不符合项目约定 | 不规范命名列表、建议的新命名 |
-| `simplify-conditions` | if-else >3 层或条件 >3 运算符 | 复杂条件位置、简化建议 |
-| `remove-dead-code` | 未被引用的导出 | 死代码位置、引用分析结果 |
-
----
-
-## Phase 2: 选择规划器
-
-**询问用户选择规划器类型**:
 ```
-AskUserQuestion(questions=[
-  {
-    "question": "选择任务规划器",
-    "header": "Planner",
-    "options": [
-      {"label": "atlas:planner (推荐)", "description": "信任 gatherer 输出，最小化额外扫描，高效规划"},
-      {"label": "内置 Plan", "description": "Claude Code 内置规划器，会自行探索验证"}
-    ]
-  }
-])
+gatherer → .claude/gather/refactor-<ts>/context.json
+    ↓
+planner → .claude/plan/refactor-<ts>/plan.json
+    ↓
+executor → 直接重构（无需重新扫描）
 ```
 
 ---
 
-## Phase 3: 规划
+## 二、编排计划
 
-**核心原则**：Plan agent 必须**优先使用 gatherer 输出**，最小化额外读取。
-
-### 选项 A: atlas:planner（推荐）
-
-**特点**: 信任 gatherer 输出，基于已有信息直接规划，≤3 次补充读取
+### 2.1 强制流程
 
 ```
-Task(subagent_type="atlas:planner")
+模式解析 → 确认选项 → 候选识别 → 规划 → 执行/预览 → 测试 → 报告
+```
+
+### 2.2 模式行为定义
+
+| 步骤 | 默认值 | --dry-run | --interactive | 可选值 |
+|------|--------|-----------|---------------|--------|
+| 候选识别 | 是 | 是 | 是 | 是 / 否 |
+| 规划器 | 询问 | atlas:planner | 询问 | atlas:planner / 内置 Plan |
+| Executor 模型 | 询问 | - | 询问 | haiku / sonnet / opus |
+| 测试节点 | 询问 | - | 询问 | 每个候选后 / 统一测试 / 不测试 |
+| 测试模式 | 询问 | - | 询问 | 编译测试 / 单元测试 / 编译+单元 |
+
+### 2.3 支持的重构模式
+
+| 模式 | 说明 | 识别条件 |
+|------|------|---------|
+| `extract-method` | 提取长函数 | 函数体 >50 行 |
+| `extract-component` | 提取大组件 | JSX >100 行 |
+| `consolidate-duplicate` | 合并重复代码 | 相似度 >80% |
+| `modernize-js` | JS 现代化 | var/callback |
+| `add-types` | 添加 TS 类型 | any/缺失类型 |
+| `rename-convention` | 统一命名 | 命名不一致 |
+| `simplify-conditions` | 简化条件 | if-else >3 层 |
+| `remove-dead-code` | 移除死代码 | 未使用的导出 |
+
+### 2.4 执行步骤
+
+**Step 1: 模式解析**
+- 验证 pattern 是否支持
+- 解析 --scope 确定范围
+
+**Step 2: 确认选项**
+```
+AskUserQuestion: 选择规划器
+- atlas:planner（推荐）: 信任 gatherer 输出
+- 内置 Plan: 会自行探索
+
+AskUserQuestion: 选择 Executor 模型
+- haiku: 快速，简单重构
+- sonnet（推荐）: 平衡
+- opus: 复杂重构
+
+AskUserQuestion: 选择测试节点
+- 每个候选后: 每个重构完成后立即测试
+- 统一测试（推荐）: 全部完成后测试
+- 不测试: 跳过
+
+AskUserQuestion: 选择测试模式
+- 编译测试（推荐）: tsc --noEmit
+- 单元测试: npm test
+- 编译+单元: 完整验证
+```
+
+**Step 3: 候选识别**
+```
+Task(subagent_type="atlas:information-gatherer", model="haiku")
 prompt: |
-  ## 任务
+  任务 ID: refactor-<timestamp>
   重构模式: [pattern]
   范围: [scope]
-
-  ## Gatherer 输出位置
-  `.claude/gather/refactor-<task-id>/`
-  - `report.md`: 候选项分析报告
-  - `context.json`: 结构化数据
-
-  ## 输出要求
-  按照 planner agent 定义的固定格式输出重构执行计划
+  输出目录: .claude/gather/refactor-<timestamp>/
 ```
 
-### 选项 B: 内置 Plan
-
-**特点**: 会自行探索代码库，适合 gatherer 信息不足或需要深度验证的场景
-
+**Step 4: 规划**
 ```
-Task(subagent_type="Plan")
+Task(subagent_type="atlas:planner" 或 "Plan")
 prompt: |
-  ## 任务
-  重构模式: [pattern]
-  范围: [scope]
-
-  ## ⚠️ 强制信息源（必须先读取）
-  **gatherer 输出目录**: `.claude/gather/refactor-<task-id>/`
-  - `report.md`: 候选项分析报告
-  - `context.json`: 结构化数据（候选位置、代码片段、依赖关系）
-
-  **你必须**:
-  1. 首先读取上述文件
-  2. 基于已有候选项信息制定规划
-  3. 仅在以下情况补充读取:
-     - 依赖链不完整（无法确定重构顺序）
-     - 跨文件影响不明（需确认调用关系）
-
-  ## 信息充足性检查
-  - [ ] 候选项完整列表（位置、代码片段）
-  - [ ] 依赖/引用关系
-  - [ ] 重构建议
-  - [ ] 代码风格示例
-
-  如 4 项均已获取 → **禁止额外读取**，直接规划
-  如缺失 < 5项 → 针对性补充
-  如缺失 5+ 项 → 标记 gatherer 信息不足，建议重新收集
-
-  ## 输出
-  1. **信息来源声明**
-  2. 按依赖排序的候选项
-  3. 子任务分配
-  4. 执行策略: parallel / sequential
+  任务: 重构模式 [pattern]
+  Gatherer 输出: .claude/gather/refactor-<timestamp>/
+  输出目录: .claude/plan/refactor-<timestamp>/
 ```
 
-**输出**: 重构执行计划 + TodoWrite todos
+**Step 5: 执行/预览**
+
+| 模式 | 行为 |
+|------|------|
+| --dry-run | 输出预览报告，不修改 |
+| --interactive | 逐个确认后执行 |
+| 默认 | 并行执行所有子任务 |
+
+```
+Task(subagent_type="atlas:atlas-executor", model=用户选择)
+prompt: |
+  重构子任务: #N
+  修改点: [从 plan.json 提取]
+```
+
+**Step 6: 验证测试**（根据 Step 2 选择执行）
+
+**Step 7: 输出报告**
 
 ---
 
-## Phase 4: 执行/预览
+## 三、细节要点
 
-### --dry-run 模式
-**执行者**: 主进程
-**输出**: 预览报告（不修改文件），展示变更概要和预计影响
+### 3.1 主进程职责
 
-### --interactive 模式
-**执行者**: 主进程 + atlas:atlas-executor
-**流程**: 逐个展示变更预览 → 询问 [执行/跳过/终止] → 根据选择执行
+**允许**: AskUserQuestion / Task 调用 / 读取 agent 输出 / 运行验证命令
 
-### 默认模式（直接执行）
-**Subagent**: `atlas:atlas-executor` (并行多个)
+**禁止**: Read/Grep/Glob 读代码 / Edit/Write 修改文件 / 直接分析代码
 
-**执行策略**:
-- 无依赖冲突：并行执行所有子任务
-- 有依赖冲突：按依赖顺序串行执行
+### 3.2 候选识别输出
 
-**子任务 Prompt 必须包含**: 重构模式和规则 + 目标文件和符号 + 候选项详细信息 + 代码风格一致性要求
+gatherer 的 context.json 必须包含：
+```json
+{
+  "candidates": [
+    {
+      "id": 1,
+      "file": "src/services/UserService.ts",
+      "symbol": "processOrder",
+      "line": 45,
+      "reason": "函数体 89 行",
+      "codeSnippet": "..."
+    }
+  ]
+}
+```
 
----
+### 3.3 模式约束
 
-## Phase 5: 验证
-
-**执行者**: 主进程
-
-**操作**: 检测测试框架 → 运行相关测试 → 运行类型检查 → 报告验证结果
-
-**验证命令检测**:
-| 检测 | 命令 |
-|:-----|:-----|
-| package.json test script | `npm test` / `yarn test` |
-| TypeScript | `tsc --noEmit` |
-| ESLint | `eslint --fix` |
-
----
-
-## 约束
-
-**模式约束**:
 - 只执行指定模式的重构
 - 不"顺便"做其他优化
 - 保持现有代码风格
 
-**安全约束**:
-- 重构前记录原始代码
-- 验证失败时提供回滚建议
-- 不修改测试文件（除非明确要求）
-
-**执行约束**:
-- Phase 1 必须使用 information-gatherer (model="haiku")
-- Phase 2 必须询问用户选择规划器
-- Phase 3 必须使用选择的规划器（atlas:planner 或 Plan agent）
-- Phase 4 必须使用 atlas-executor（非 dry-run 时，询问用户选择模型）
-
 ---
 
-## 示例
+## 四、示例
 
-### 基础用法
-```bash
-/atlas:refactor extract-method              # 提取长函数
-/atlas:refactor extract-method --dry-run    # 仅预览
-/atlas:refactor extract-method --interactive # 交互式确认
-/atlas:refactor add-types --scope src/services # 限定范围
-/atlas:refactor modernize-js --scope src    # JS 现代化
+### 示例 1: 预览模式
+
+```
+用户: /refactor extract-method --dry-run
+
+1. 模式解析: extract-method
+2. Gatherer: 识别长函数候选项
+3. Planner: 生成重构计划
+4. 输出预览:
+   📋 重构预览
+   模式: extract-method | 候选数: 5
+   变更预览: processOrder → 拆分为 3 个函数
 ```
 
-### 输出示例
+### 示例 2: 交互模式
 
-**预览模式**:
 ```
-📋 重构预览
-模式: extract-method | 范围: src/services | 候选数: 5
+用户: /refactor add-types --scope src/services --interactive
 
-变更预览:
-1. processOrder (order.service.ts:45) → 拆分为 3 个函数
-2. handleRegistration (user.service.ts:23) → 拆分为 2 个函数
-...
-
-预计影响: 修改 3 个文件，新增 7 个私有函数
+1. 确认选项: atlas:planner + sonnet + 编译测试
+2. Gatherer: 识别缺少类型的位置
+3. Planner: 生成计划
+4. 逐个确认执行
+5. 测试: tsc --noEmit ✅
 ```
 
-**执行完成**:
+### 示例 3: 直接执行
+
 ```
-✅ 重构完成
-模式: extract-method | 执行: 5/5 候选项
+用户: /refactor modernize-js --scope src
 
-修改文件:
-- src/order/order.service.ts (+3 函数)
-- src/user/user.service.ts (+2 函数)
-
-验证结果:
-- ✅ 类型检查通过
-- ✅ 测试通过 (42/42)
+1. 确认选项: atlas:planner + sonnet + 统一测试 + 编译+单元
+2. Gatherer: 识别旧语法
+3. Planner: 生成计划
+4. Executor: 并行执行
+5. 测试: tsc --noEmit && npm test ✅
+6. 报告
 ```
 
 ---
 
-## 输出前确认流程
+## 五、核心约束
 
-**在生成最终重构报告前，必须执行以下确认步骤**:
+### 必须做
 
-1. **列出将要输出的所有内容项**
-2. **确认没有遗漏关键信息**
-3. **如有不确定项，明确标注或询问**
+- ✅ 询问规划器选择
+- ✅ 询问测试选项（节点+模式）
+- ✅ 使用 gatherer 识别候选项
+- ✅ 使用 planner 输出精确修改点
+- ✅ 按选择执行测试
 
-**输出确认清单格式**:
-```markdown
-📋 重构报告确认清单
-- [ ] 重构模式和范围
-- [ ] 候选项识别结果:
-  - [ ] 候选项数量
-  - [ ] 每个候选项的位置和原因
-- [ ] 规划结果:
-  - [ ] 子任务列表
-  - [ ] 执行策略
-- [ ] 执行结果 (非 dry-run):
-  - [ ] 修改的文件列表
-  - [ ] 每个文件的变更摘要
-- [ ] 验证结果:
-  - [ ] 类型检查结果
-  - [ ] 测试运行结果
-- [ ] 预览报告 (dry-run 模式):
-  - [ ] 变更预览
-  - [ ] 预计影响
+### 禁止做
 
-确认无遗漏后开始输出报告
-```
+- ❌ 主进程直接读取代码
+- ❌ 主进程直接修改文件
+- ❌ 跳过候选识别直接规划
+- ❌ executor 重新扫描文件
+- ❌ "顺便"做其他优化
