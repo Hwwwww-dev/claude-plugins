@@ -35,17 +35,17 @@ gatherer → .claude/gather/<task-id>/
 ### 2.1 强制流程
 
 ```
-确认选项 → 调用 gatherer → 输出摘要
+确认执行模式 → 确认收集配置（交互模式） → 调用 gatherer → 输出摘要
 ```
 
 ### 2.2 模式行为定义
 
-| 步骤 | 默认值 | 可选值 |
-|------|--------|--------|
-| 收集模式 | 询问 | project-structure / dependencies / code-patterns / impact |
-| 分析深度 | normal | normal / deep |
-| 分析范围 | 询问 | all / specific |
-| 输出格式 | report | report / PKG |
+| 步骤 | 自动模式 | 交互模式 |
+|------|---------|---------|
+| 收集模式 | 智能推断（默认 project-structure） | 询问用户 |
+| 分析深度 | normal | 询问用户 |
+| 分析范围 | all | 询问用户 |
+| 输出格式 | report | report |
 
 ### 2.3 收集模式说明
 
@@ -58,24 +58,42 @@ gatherer → .claude/gather/<task-id>/
 
 ### 2.4 执行步骤
 
-**Step 1: 确认收集选项**
+**Step 1: 分阶段确认选项**
+
+**第一个 AskUserQuestion: 执行模式选择**
+
 ```
-AskUserQuestion: 选择收集模式
+问题: 执行模式
+- 自动模式（推荐）: 使用推荐选项，减少交互
+- 交互模式: 每个选项都需要确认
+```
+
+**第二个 AskUserQuestion: 收集配置（仅交互模式）**
+
+如果用户选择了**交互模式**，询问收集配置：
+
+```
+问题 1: 收集模式
 - project-structure: 项目结构分析
 - dependencies: 依赖关系梳理
 - code-patterns: 代码模式搜索
 - impact: 修改影响分析
 
-AskUserQuestion: 选择分析深度
+问题 2: 分析深度
 - normal（推荐）: 标准分析
 - deep: 深度分析，更详细
 
-AskUserQuestion: 选择分析范围
-- all: 整个项目
+问题 3: 分析范围
+- all（推荐）: 整个项目
 - specific: 指定目录/文件
 ```
 
-如用户已指定参数（如 `/gather dependencies UserAPI --deep`），跳过询问。
+**自动模式行为**（跳过第二个 AskUserQuestion）：
+- 收集模式: 根据用户任务描述智能推断（如未明确，默认 project-structure）
+- 分析深度: normal
+- 分析范围: all
+
+**注意**: 如用户已指定参数（如 `/gather dependencies UserAPI --deep`），跳过所有询问。
 
 **Step 2: 调用 information-gatherer**
 ```
@@ -135,12 +153,19 @@ gatherer 会自动检查并复用这些文件。
 
 ## 四、示例
 
-### 示例 1: 项目结构分析
+### 示例 1: 自动模式 - 项目结构分析
 
 ```
 用户: /gather project-structure
 
-1. 确认选项: project-structure + normal + all
+1. 第一个 AskUserQuestion - 执行模式:
+   - 执行模式: 自动模式（推荐）✓
+
+   [自动使用推荐配置，跳过第二个 AskUserQuestion]
+   - 收集模式: project-structure（从命令参数推断）
+   - 分析深度: normal
+   - 分析范围: all
+
 2. Gatherer: 分析项目结构
 3. 输出:
    📊 信息收集完成
@@ -149,12 +174,39 @@ gatherer 会自动检查并复用这些文件。
    核心发现: src/services 包含 12 个服务类
 ```
 
-### 示例 2: 依赖分析
+### 示例 2: 交互模式 - 依赖分析
+
+```
+用户: /gather dependencies UserAPI
+
+1. 第一个 AskUserQuestion - 执行模式:
+   - 执行模式: 交互模式 ✓
+
+2. 第二个 AskUserQuestion - 收集配置:
+   - 收集模式: dependencies（从命令参数推断）✓
+   - 分析深度: deep ✓
+   - 分析范围: all ✓
+
+3. Gatherer: 深度分析 UserAPI 依赖
+4. 输出:
+   📊 信息收集完成
+   模式: dependencies
+   目标: UserAPI
+   统计: 23 个引用点, 8 个文件
+```
+
+### 示例 3: 参数完整指定（跳过所有询问）
 
 ```
 用户: /gather dependencies UserAPI --deep
 
-1. 跳过询问（参数已指定）
+1. 跳过所有询问（参数已完整指定）
+   - 执行模式: auto（默认）
+   - 收集模式: dependencies
+   - 目标: UserAPI
+   - 分析深度: deep
+   - 分析范围: all（默认）
+
 2. Gatherer: 深度分析 UserAPI 依赖
 3. 输出:
    📊 信息收集完成
@@ -163,10 +215,10 @@ gatherer 会自动检查并复用这些文件。
    统计: 23 个引用点, 8 个文件
 ```
 
-### 示例 3: 与 /orchestrate 配合
+### 示例 4: 与 /orchestrate 配合
 
 ```bash
-/gather dependencies UserAPI           # 1. 分析引用点
+/gather dependencies UserAPI           # 1. 分析引用点（自动模式）
 /orchestrate 更新所有 UserAPI 调用    # 2. 基于收集结果批量执行
 ```
 
@@ -176,7 +228,10 @@ gatherer 会自动检查并复用这些文件。
 
 ### 必须做
 
-- ✅ 确认收集选项（或使用参数）
+- ✅ **Step 1**: 首先确认执行模式（自动/交互）
+- ✅ **Step 1**: 自动模式跳过第二个 AskUserQuestion，使用推荐配置
+- ✅ **Step 1**: 交互模式需要确认所有收集配置
+- ✅ **Step 1**: 参数完整指定时跳过所有询问
 - ✅ 使用 gatherer agent 执行收集
 - ✅ 输出包含文件路径和行号
 - ✅ 结果写入 `.claude/gather/`
@@ -187,3 +242,4 @@ gatherer 会自动检查并复用这些文件。
 - ❌ 主进程直接分析
 - ❌ 修改任何文件
 - ❌ 跳过 gatherer 直接输出
+- ❌ 在自动模式下仍然询问收集配置

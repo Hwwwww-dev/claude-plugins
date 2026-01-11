@@ -9,33 +9,54 @@ argument-hint: [--scope path] [--quick] [--export json|html] [--ci]
 
 ---
 
-## 第一步：确认检查选项
+## 第一步:分阶段确认检查选项
 
-**如果用户未指定选项，使用 AskUserQuestion 询问：**
+**如果用户已指定完整选项(如 `/health --quick --scope src/ --export json`),跳过所有询问。**
+
+**第一个 AskUserQuestion: 执行模式选择**
+
+```
+问题: 执行模式
+- 自动模式(推荐): 使用推荐配置,完整检查整个项目
+- 交互模式: 自定义检查范围和详细配置
+```
+
+**第二个 AskUserQuestion: 检查配置(仅交互模式)**
+
+如果用户选择了**交互模式**,询问详细配置:
 
 ```
 问题1: 检查模式
-- full (默认): 完整检查（5个维度）
-- quick: 快速检查（仅安全性和代码质量）
+- full (默认): 完整检查(5个维度)
+- quick: 快速检查(仅安全性和代码质量)
 - security: 仅安全检查
 - quality: 仅代码质量检查
 
 问题2: 检查范围
-- all: 整个项目
+- all (默认): 整个项目
 - scope: 指定目录/模块
 
 问题3: 导出格式
 - markdown (默认): Markdown 报告
-- json: JSON 格式（适合 CI）
+- json: JSON 格式(适合 CI)
 - html: HTML 可视化报告
 
-问题4: CI 模式
+问题4: 报告详细度
+- full (默认): 包含所有问题详情
+- summary: 仅摘要和关键问题
+- minimal: 仅评分和统计
+
+问题5: CI 模式
 - no (默认): 正常模式
-- yes: CI 模式（包含阈值检查）
+- yes: CI 模式(包含阈值检查)
 ```
 
-**如果用户已指定（如 `/health --quick --scope src/`），跳过询问。**
-
+**自动模式行为**(跳过第二个 AskUserQuestion):
+- 检查模式: full (完整检查5个维度)
+- 检查范围: all (整个项目)
+- 导出格式: markdown
+- 报告详细度: full
+- CI 模式: no
 ---
 
 ## 第二步：环境检测（P0）

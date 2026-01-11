@@ -73,27 +73,50 @@ code-reviewer → 读取 context.json → 输出审查结果 JSON
 - --scope .: 全项目
 - --scope src: 指定目录
 
-**Step 2: 确认选项**
+**Step 2: 分阶段确认选项**
+
+**第一个 AskUserQuestion: Reviewer 模型选择**
+
 ```
-AskUserQuestion: 选择 Reviewer 模型
-- haiku: 快速审查
-- sonnet（推荐）: 平衡
-- opus: 深度审查
+问题: Reviewer 模型
+- haiku: 快速审查，适合简单检查
+- sonnet（推荐）: 平衡性能与成本
+- opus: 深度审查，复杂代码质量要求高
+```
 
-AskUserQuestion: (--fix) 选择规划器
-- atlas:planner（推荐）: 信任 gatherer 输出
-- 内置 Plan: 会自行探索
+**第二个 AskUserQuestion: 修复配置（仅 --fix 时）**
 
-AskUserQuestion: (--fix) 选择 Executor 模型
-- haiku / sonnet / opus
+如果用户使用了 **--fix** 参数，询问修复配置：
 
-AskUserQuestion: (--fix) 选择测试节点
+```
+问题 1: 规划器选择
+- atlas:planner（推荐）: 信任 gatherer 输出，最小化扫描
+- 内置 Plan: 会自行探索验证
+
+问题 2: Executor 模型
+- haiku: 快速简单修复
+- sonnet（推荐）: 平衡性能与成本
+- opus: 复杂修复质量要求高
+```
+
+**第三个 AskUserQuestion: 测试配置（仅 --fix 时）**
+
+如果用户使用了 **--fix** 参数，询问测试配置：
+
+```
+问题 1: 测试节点
 - 修复后（推荐）: 修复完成后测试
-- 不测试: 跳过
+- 不测试: 跳过验证
 
-AskUserQuestion: (--fix) 选择测试模式
-- 编译测试 / 单元测试 / 编译+单元
+问题 2: 测试模式
+- 编译测试（推荐）: tsc --noEmit 确保语法正确
+- 单元测试: npm test 确保功能正常
+- 编译+单元: 完整验证
 ```
+
+**注意**:
+- 只有使用 --fix 时才会询问第二个和第三个 AskUserQuestion
+- 如果不使用 --fix，只询问 Reviewer 模型，直接进入审查流程
 
 **Step 3: 代码分析**
 ```

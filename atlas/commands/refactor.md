@@ -68,38 +68,60 @@ executor → 直接重构（无需重新扫描）
 
 ### 2.4 执行步骤
 
-**Step 1: 一次性确认所有选项**（开始时全部询问）
+**Step 1: 分阶段确认选项**
 
-使用 `AskUserQuestion` 一次性收集所有配置：
+**第一个 AskUserQuestion: 执行模式选择**
 
 ```
-问题 1: 执行模式
-- 执行重构: 识别候选并执行重构
-- 预览模式 (dry-run): 只识别候选，不执行
+问题: 执行模式
+- 自动模式（推荐）: 使用推荐选项，减少交互
+- 交互模式: 每个关键步骤都需要确认
+- dry-run: 只规划不执行
+```
 
-问题 2: 是否创建检查点（执行重构时）
-- 创建（推荐）: 失败可回滚
-- 跳过: 不创建
+**第二个 AskUserQuestion: 重构配置（仅交互模式和 dry-run）**
 
-问题 3: 规划器选择
-- atlas:planner（推荐）: 信任 gatherer 输出
-- 内置 Plan: 会自行探索
+如果用户选择了**交互模式**或 **dry-run**，询问重构配置：
 
-问题 4: Executor 模型（执行重构时）
+```
+问题 1: 检查点
+- 创建（推荐）: 创建 git stash 检查点，支持回滚
+- 跳过: 不创建检查点（dry-run 默认跳过）
+
+问题 2: 规划器选择
+- atlas:planner（推荐）: 信任 gatherer 输出，最小化扫描
+- 内置 Plan: 会自行探索验证
+
+问题 3: Executor 模型（仅执行模式）
 - sonnet（推荐）: 平衡性能与质量
 - haiku: 快速简单重构
 - opus: 复杂质量要求高
+```
 
-问题 5: 测试节点
-- 统一测试（推荐）: 全部完成后测试
+**自动模式行为**（跳过第二个 AskUserQuestion）：
+- 检查点: 创建
+- 规划器: atlas:planner
+- Executor 模型: sonnet
+
+**第三个 AskUserQuestion: 测试配置**
+
+询问测试配置：
+
+```
+问题 1: 测试节点
+- 统一测试（推荐）: 全部执行完成后统一验证
 - 每个候选后: 每个重构完成后立即测试
-- 不测试: 跳过
+- 不测试: 跳过验证
 
-问题 6: 测试模式
-- 编译测试（推荐）: tsc --noEmit
-- 单元测试: npm test
+问题 2: 测试模式
+- 编译测试（推荐）: tsc --noEmit 确保语法正确
+- 单元测试: npm test 确保功能正常
 - 编译+单元: 完整验证
 ```
+
+**注意**:
+- 自动模式和交互模式都会询问测试配置
+- 仅 dry-run 模式跳过测试配置询问
 
 **Step 2: 创建执行环境**（执行重构时）
 
@@ -116,8 +138,8 @@ echo '{
   "scope": "<scope>",
   "status": "initializing",
   "currentStage": "initialization",
-  "mode": "<execute/dry-run>",
   "config": {
+    "mode": "<auto/interactive/dry-run>",
     "planner": "<atlas:planner/Plan>",
     "executorModel": "<haiku/sonnet/opus>",
     "testNode": "<unified/per-candidate/none>",
@@ -378,43 +400,122 @@ gatherer 的 context.json 必须包含：
 
 ## 四、示例
 
-### 示例 1: 预览模式
+### 示例 1: 自动模式
 
 ```
-用户: /refactor extract-method --dry-run
+用户: /refactor extract-method
 
-1. 模式解析: extract-method
-2. Gatherer: 识别长函数候选项
-3. Planner: 生成重构计划
-4. 输出预览:
-   📋 重构预览
-   模式: extract-method | 候选数: 5
-   变更预览: processOrder → 拆分为 3 个函数
+1. 第一个 AskUserQuestion - 执行模式:
+   - 执行模式: 自动模式（推荐）✓
+
+   [自动使用推荐配置，跳过第二个 AskUserQuestion]
+   - 检查点: 创建
+   - 规划器: atlas:planner
+   - Executor 模型: sonnet
+
+2. 创建执行环境:
+   - mkdir -p .claude/refactor/.state
+   - 创建 refactor-20240115.json
+   - git stash push -m "atlas-checkpoint-refactor-20240115"
+
+3. Gatherer: 识别长函数候选项
+   → .claude/gather/refactor-20240115/context.json
+   → 更新状态: currentStage="candidates_identified"
+
+4. Planner: 生成重构计划
+   → .claude/plan/refactor-20240115/plan.json
+   → 展示重构计划给用户
+   → 用户确认: 继续执行 ✓
+   → 更新状态: currentStage="planning_approved"
+
+5. Executor: 并行执行重构
+   → 全部成功
+   → 用户确认: 继续验证 ✓
+   → 更新状态: currentStage="refactoring_completed"
+
+6. 第三个 AskUserQuestion - 测试配置:
+   - 测试节点: 统一测试（推荐）✓
+   - 测试模式: 编译测试（推荐）✓
+
+   验证测试: tsc --noEmit
+   → 通过 ✓
+   → 更新状态: currentStage="testing_completed"
+
+7. 报告: 成功重构 5 个函数
+   → 更新状态: status="completed", currentStage="finished"
 ```
 
 ### 示例 2: 交互模式
 
 ```
-用户: /refactor add-types --scope src/services --interactive
+用户: /refactor add-types --scope src/services
 
-1. 确认选项: atlas:planner + sonnet + 编译测试
-2. Gatherer: 识别缺少类型的位置
-3. Planner: 生成计划
-4. 逐个确认执行
-5. 测试: tsc --noEmit ✅
+1. 连续询问配置:
+   第一个 AskUserQuestion - 执行模式:
+   - 执行模式: 交互模式 ✓
+
+   第二个 AskUserQuestion - 重构配置:
+   - 检查点: 创建 ✓
+   - 规划器: atlas:planner ✓
+   - Executor 模型: opus ✓
+
+   第三个 AskUserQuestion - 测试配置:
+   - 测试节点: 统一测试 ✓
+   - 测试模式: 编译测试 ✓
+
+2-3. 创建环境 + 候选识别
+   → .claude/gather/refactor-20240115/
+
+4. Planner: 生成计划
+   → 展示: 8 个缺少类型的位置
+   → 用户: 继续执行 ✓
+
+5. Executor: 执行重构
+   → 7 个成功, 1 个失败
+   → 用户: "修复失败任务"
+   → 重新执行: 成功 ✓
+   → 用户: 继续验证 ✓
+
+6. 验证测试: tsc --noEmit
+   → 通过 ✓
+
+7. 报告: 成功为 8 个位置添加类型
 ```
 
-### 示例 3: 直接执行
+### 示例 3: dry-run 模式
 
 ```
-用户: /refactor modernize-js --scope src
+用户: /refactor modernize-js --scope src --dry-run
 
-1. 确认选项: atlas:planner + sonnet + 统一测试 + 编译+单元
-2. Gatherer: 识别旧语法
-3. Planner: 生成计划
-4. Executor: 并行执行
-5. 测试: tsc --noEmit && npm test ✅
-6. 报告
+1. 连续询问配置:
+   第一个 AskUserQuestion - 执行模式:
+   - 执行模式: dry-run ✓
+
+   第二个 AskUserQuestion - 重构配置:
+   - 检查点: 跳过（dry-run 默认）✓
+   - 规划器: atlas:planner ✓
+   - Executor 模型: （dry-run 不执行，跳过）
+
+   [跳过第三个 AskUserQuestion - dry-run 不需要测试配置]
+
+2. 跳过检查点创建
+   → 创建状态文件（标记为 dry-run）
+
+3. Gatherer: 识别旧语法
+   → .claude/gather/refactor-20240115/
+
+4. Planner: 生成重构计划
+   → .claude/plan/refactor-20240115/plan.json
+   → 展示完整计划给用户
+
+5. 输出预览报告（不执行）:
+   📋 重构预览
+   模式: modernize-js | 候选数: 12
+   - var → const/let: 8 处
+   - callback → async/await: 4 处
+   - 影响文件: 6 个
+
+6. 提示: 如需执行，使用 /refactor modernize-js --scope src
 ```
 
 ---
@@ -423,7 +524,9 @@ gatherer 的 context.json 必须包含：
 
 ### 必须做
 
-- ✅ **Step 1**: 开始时一次性确认所有配置（模式、规划器、模型、测试选项）
+- ✅ **Step 1**: 分阶段确认配置（执行模式 → 重构配置 → 测试配置）
+- ✅ **Step 1**: 自动模式跳过第二个 AskUserQuestion，直接使用推荐配置
+- ✅ **Step 1**: dry-run 模式跳过第三个 AskUserQuestion，不需要测试配置
 - ✅ **Step 2**: 创建状态目录 `.claude/refactor/.state/` 和状态文件（执行重构时）
 - ✅ **Step 2**: 在每个关键步骤完成后更新状态文件的 `currentStage` 字段
 - ✅ **Step 3**: 使用 `Task(subagent_type="atlas:information-gatherer", model="haiku")`

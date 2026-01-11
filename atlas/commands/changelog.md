@@ -31,30 +31,50 @@ argument-hint: [--from tag|commit] [--to tag|commit] [--version X.Y.Z] [--format
 | `feat:` | Minor (x.Y.0) | 新功能 |
 | `fix:` / `docs:` / `perf:` | Patch (x.y.Z) | 修复和优化 |
 
-### 如果用户未指定选项
+### 分阶段确认选项
 
-**使用 AskUserQuestion 询问：**
+**第一个 AskUserQuestion: 执行模式选择**
 
 ```
-问题1: 输出格式
-- keep-a-changelog: Added/Changed/Fixed/Security（推荐）
+问题: 执行模式
+- 自动模式（推荐）: 使用推荐选项，减少交互
+- 交互模式: 每个配置选项都需要确认
+- dry-run: 仅预览，不写入文件
+```
+
+**第二个 AskUserQuestion: 生成配置（仅交互模式和 dry-run）**
+
+如果用户选择了**交互模式**或 **dry-run**，询问生成配置：
+
+```
+问题 1: 输出格式
+- keep-a-changelog（推荐）: Added/Changed/Fixed/Security
 - conventional: Features/Bug Fixes/BREAKING CHANGES
 - github: GitHub Release 风格（What's Changed）
 
-问题2: 版本号
-- auto: 自动推断（基于提交类型）
+问题 2: 版本号
+- auto（推荐）: 自动推断（基于提交类型）
 - manual: 手动指定（输入 X.Y.Z）
 
-问题3: 分析范围
-- last-tag: 从上一个 tag 到 HEAD
+问题 3: 分析范围
+- last-tag（推荐）: 从上一个 tag 到 HEAD
 - custom: 自定义范围（--from X --to Y）
 
-问题4: 追加模式
-- append: 追加到现有 CHANGELOG（保留历史）
+问题 4: 追加模式
+- append（推荐）: 追加到现有 CHANGELOG（保留历史）
 - overwrite: 覆盖整个文件
 ```
 
-**如果用户已指定（如 `/changelog --version 2.0.0 --format conventional`），跳过询问。**
+**自动模式行为**（跳过第二个 AskUserQuestion）：
+- 输出格式: keep-a-changelog
+- 版本号: auto（自动推断）
+- 分析范围: last-tag（从上一个 tag 到 HEAD）
+- 追加模式: append
+- 失败处理: 询问用户
+
+**注意**:
+- 如果用户已通过参数指定选项（如 `/changelog --version 2.0.0 --format conventional`），跳过所有询问
+- dry-run 模式会询问生成配置但不会实际写入文件
 
 ---
 
@@ -291,12 +311,15 @@ prompt: |
 
 ## 执行示例
 
-### 示例 1: 自动生成（默认选项）
+### 示例 1: 自动生成（自动模式）
 
 ```
 用户: /changelog
 
-1. 询问用户选项:
+1. 第一个 AskUserQuestion - 执行模式:
+   - 执行模式: 自动模式（推荐）✓
+
+   [自动使用推荐配置，跳过第二个 AskUserQuestion]
    - 格式: keep-a-changelog
    - 版本: auto (推断为 1.3.0)
    - 范围: last-tag (v1.2.3..HEAD)
@@ -322,12 +345,44 @@ prompt: |
 6. 输出摘要
 ```
 
-### 示例 2: 指定版本和格式
+### 示例 2: 交互模式
+
+```
+用户: /changelog
+
+1. 第一个 AskUserQuestion - 执行模式:
+   - 执行模式: 交互模式 ✓
+
+2. 第二个 AskUserQuestion - 生成配置:
+   - 输出格式: conventional ✓
+   - 版本号: manual ✓
+   - 分析范围: custom ✓
+   - 追加模式: append ✓
+
+3. 用户输入:
+   - 版本号: 2.0.0
+   - 起始点: v1.5.0
+   - 结束点: HEAD
+
+4. 提交分析:
+   git log v1.5.0..HEAD
+   → 发现 BREAKING CHANGE 提交
+   → 验证版本号 2.0.0 符合 Major bump 规范
+
+5. 内容生成 (conventional 格式):
+   ## [2.0.0] (2024-01-15)
+   ### BREAKING CHANGES
+   - 移除旧版 API...
+
+6. 文件更新并输出摘要
+```
+
+### 示例 3: 指定参数（跳过所有询问）
 
 ```
 用户: /changelog --version 2.0.0 --format conventional --from v1.5.0
 
-1. 跳过询问（已指定参数）
+1. 跳过所有询问（已指定参数）
 
 2. 提交分析:
    git log v1.5.0..HEAD
@@ -342,14 +397,22 @@ prompt: |
 4. 文件更新并输出摘要
 ```
 
-### 示例 3: Dry-run 预览
+### 示例 4: Dry-run 预览
 
 ```
 用户: /changelog --dry-run
 
-1. 执行分析和内容生成
+1. 第一个 AskUserQuestion - 执行模式:
+   - 执行模式: dry-run ✓
 
-2. 输出预览:
+2. 第二个 AskUserQuestion - 生成配置:
+   - 输出格式: keep-a-changelog ✓
+   - 版本号: auto ✓
+   - 分析范围: last-tag ✓
+
+3. 执行分析和内容生成
+
+4. 输出预览:
    📄 预览生成的变更日志:
    ────────────────────────────────────
    ## [1.3.0] - 2024-01-15

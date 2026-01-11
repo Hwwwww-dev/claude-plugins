@@ -45,50 +45,83 @@ executor → 直接修复（无需重新扫描）
 
 ### 2.2 模式行为定义
 
-| 步骤 | 默认值 | --fix 时 | 可选值 |
-|------|--------|---------|--------|
-| 信息收集 | 是 | 是 | 是 / 否 |
-| 检查点 | - | 询问 | 创建 / 跳过 |
-| 规划器 | atlas:planner | 询问 | atlas:planner / 内置 Plan |
-| Executor 模型 | - | 询问 | haiku / sonnet / opus |
-| 测试节点 | - | 询问 | 修复后 / 不测试 |
-| 测试模式 | - | 询问 | 编译测试 / 单元测试 / 编译+单元 |
+| 步骤 | 仅诊断 | 执行修复（交互） | 自动模式 |
+|------|--------|------------------|----------|
+| 执行策略 | 不执行 | 手动确认 | auto |
+| 信息收集 | 询问 | 询问 | 是 |
+| 诊断深度 | 询问 | 询问 | 快速 |
+| 检查点 | - | 询问 | 创建 |
+| 规划器 | 询问 | 询问 | atlas:planner |
+| Executor 模型 | - | 询问 | sonnet |
+| 测试节点 | - | 询问 | 修复后 |
+| 测试模式 | - | 询问 | 编译测试 |
+| 失败处理 | - | 询问用户 | 询问用户 |
 
 ### 2.3 执行步骤
 
-**Step 1: 一次性确认所有选项**（开始时全部询问）
+**Step 1: 分阶段确认选项**
 
-使用 `AskUserQuestion` 一次性收集所有配置：
+**第一个 AskUserQuestion: 执行模式选择**
 
 ```
-问题 1: 执行模式
+问题: 执行模式
 - 仅诊断（推荐）: 只分析问题，输出修复方案
 - 执行修复: 诊断后自动执行修复
+- 自动模式: 使用推荐选项，减少交互
+```
 
-问题 2: 是否创建检查点（仅执行修复时）
+**第二个 AskUserQuestion: 诊断配置**
+
+```
+问题 1: 信息收集
+- 是（推荐）: 使用 gatherer 收集问题相关信息
+- 否: 跳过信息收集（适用于问题范围明确的情况）
+
+问题 2: 规划器选择
+- atlas:planner（推荐）: 信任 gatherer 输出，最小化扫描
+- 内置 Plan: 会自行探索验证
+
+问题 3: 诊断深度
+- 快速（推荐）: 聚焦问题本身
+- 深度: 分析影响范围和潜在连锁问题
+- 完整: 全面诊断（包括代码质量、安全等）
+```
+
+**自动模式行为**（跳过第二个 AskUserQuestion）：
+- 信息收集: 是
+- 规划器: atlas:planner
+- 诊断深度: 快速
+- 失败处理: 询问用户
+
+**第三个 AskUserQuestion: 修复和测试配置**（仅执行修复模式和自动模式）
+
+如果用户选择了**执行修复**或**自动模式**，询问修复和测试配置：
+
+```
+问题 1: 是否创建检查点
 - 创建（推荐）: 失败可回滚
 - 跳过: 不创建
 
-问题 3: 规划器选择
-- atlas:planner（推荐）: 信任 gatherer 输出
-- 内置 Plan: 会自行探索验证
-
-问题 4: Executor 模型（仅执行修复时）
+问题 2: Executor 模型
 - sonnet（推荐）: 平衡性能与质量
 - haiku: 快速简单修复
 - opus: 复杂质量要求高
 
-问题 5: 测试节点（仅执行修复时）
+问题 3: 测试节点
 - 修复后（推荐）: 修复完成后测试
 - 不测试: 跳过验证
 
-问题 6: 测试模式（仅执行修复时）
+问题 4: 测试模式
 - 编译测试（推荐）: tsc --noEmit
 - 单元测试: npm test
 - 编译+单元: 完整验证
 ```
 
-**Step 2: 创建执行环境**（仅执行修复时）
+**注意**:
+- 仅诊断模式跳过第三个 AskUserQuestion
+- 自动模式和执行修复模式都需要第三个 AskUserQuestion
+
+**Step 2: 创建执行环境**（仅执行修复和自动模式时）
 
 ```bash
 # 创建状态目录
@@ -101,9 +134,11 @@ echo '{
   "task": "<问题描述>",
   "status": "initializing",
   "currentStage": "initialization",
-  "mode": "<diagnose-only/execute-fix>",
+  "mode": "<diagnose-only/execute-fix/auto>",
   "config": {
+    "gatherInfo": "<yes/no>",
     "planner": "<atlas:planner/Plan>",
+    "diagnosisDepth": "<quick/deep/full>",
     "executorModel": "<haiku/sonnet/opus>",
     "testNode": "<after-fix/none>",
     "testMode": "<compile/unit/both>"
@@ -325,23 +360,107 @@ prompt: |
 ```
 用户: /bugfix 登录按钮点击无反应
 
-1. 问题分析: 事件绑定问题
+1. 分阶段确认配置:
+   第一个 AskUserQuestion - 执行模式:
+   - 执行模式: 仅诊断（推荐）✓
+
+   第二个 AskUserQuestion - 诊断配置:
+   - 信息收集: 是 ✓
+   - 规划器: atlas:planner ✓
+   - 诊断深度: 快速 ✓
+
+   [跳过第三个 AskUserQuestion - 仅诊断模式不需要修复和测试配置]
+
 2. Gatherer: 收集登录组件代码
+   → .claude/gather/bugfix-20240115/context.json
+
 3. 根因分析: src/components/Login.tsx:45 onClick 未绑定
-4. 输出修复方案
+   → .claude/plan/bugfix-20240115/plan.json
+
+4. 输出修复方案:
+   - 问题类型: 事件绑定问题
+   - 复杂度: simple
+   - 修复策略: 添加 onClick 事件处理器
 ```
 
-### 示例 2: 诊断+修复
+### 示例 2: 诊断+修复（交互模式）
 
 ```
 用户: /bugfix 用户数据丢失 --fix
 
-1. 确认选项: 执行 + 创建检查点 + opus + 编译+单元测试
-2. Gatherer: 收集 UserService 代码
-3. 根因分析: 并发竞态条件
-4. Planner: 生成修复计划
+1. 分阶段确认配置:
+   第一个 AskUserQuestion - 执行模式:
+   - 执行模式: 执行修复 ✓
+
+   第二个 AskUserQuestion - 诊断配置:
+   - 信息收集: 是 ✓
+   - 规划器: atlas:planner ✓
+   - 诊断深度: 深度 ✓
+
+   第三个 AskUserQuestion - 修复和测试配置:
+   - 是否创建检查点: 创建 ✓
+   - Executor 模型: opus ✓
+   - 测试节点: 修复后 ✓
+   - 测试模式: 编译+单元 ✓
+
+2. 创建执行环境:
+   - mkdir -p .claude/bugfix/.state
+   - 创建 bugfix-20240115.json
+   - git stash push -m "atlas-checkpoint-bugfix-20240115"
+
+3. Gatherer: 收集 UserService 代码
+   → .claude/gather/bugfix-20240115/context.json
+
+4. 根因分析: 并发竞态条件
+   → .claude/plan/bugfix-20240115/plan.json
+   → 用户确认: 继续执行 ✓
+
 5. Executor: 执行修复
-6. 测试: tsc --noEmit && npm test ✅
+   → 成功 ✓
+   → 用户确认: 继续验证 ✓
+
+6. 测试: tsc --noEmit && npm test
+   → 全部通过 ✓
+
+7. 报告
+```
+
+### 示例 3: 自动模式
+
+```
+用户: /bugfix 导入路径错误 --auto
+
+1. 分阶段确认配置:
+   第一个 AskUserQuestion - 执行模式:
+   - 执行模式: 自动模式 ✓
+
+   [自动使用推荐配置，跳过第二个 AskUserQuestion]
+   - 信息收集: 是
+   - 规划器: atlas:planner
+   - 诊断深度: 快速
+
+   第三个 AskUserQuestion - 修复和测试配置:
+   - 是否创建检查点: 创建 ✓
+   - Executor 模型: sonnet ✓
+   - 测试节点: 修复后 ✓
+   - 测试模式: 编译测试 ✓
+
+2. 创建执行环境并创建检查点
+
+3. Gatherer: 收集导入相关代码
+   → .claude/gather/bugfix-20240115/context.json
+
+4. 根因分析: 相对路径错误
+   → .claude/plan/bugfix-20240115/plan.json
+   → 用户确认: 继续执行 ✓
+
+5. Executor: 执行修复
+   → 成功 ✓
+   → 用户确认: 继续验证 ✓
+
+6. 测试: tsc --noEmit
+   → 通过 ✓
+
 7. 报告
 ```
 
@@ -351,13 +470,13 @@ prompt: |
 
 ### 必须做
 
-- ✅ **Step 1**: 开始时一次性确认所有配置（模式、规划器、模型、测试选项）
-- ✅ **Step 2**: 创建状态目录 `.claude/bugfix/.state/` 和状态文件（执行修复模式）
+- ✅ **Step 1**: 分阶段确认配置（第一个询问执行模式，第二个询问诊断配置，第三个询问修复和测试配置）
+- ✅ **Step 2**: 创建状态目录 `.claude/bugfix/.state/` 和状态文件（执行修复模式和自动模式）
 - ✅ **Step 2**: 在每个关键步骤完成后更新状态文件的 `currentStage` 字段
 - ✅ **Step 3**: 使用 `Task(subagent_type="atlas:information-gatherer", model="haiku")`
 - ✅ **Step 4**: 使用用户选择的规划器，输出到 `.claude/plan/bugfix-<ts>/`
 - ✅ **Step 4.2-4.4**: 展示诊断给用户，支持循环修改直到用户确认
-- ✅ **Step 5**: 从 plan.json 提取修改点嵌入 executor prompt（执行修复模式）
+- ✅ **Step 5**: 从 plan.json 提取修改点嵌入 executor prompt（执行修复模式和自动模式）
 - ✅ **Step 5.2-5.4**: 展示修复结果，支持用户重新修复或调整
 - ✅ **Step 6**: 根据 Step 1 的选择执行验证测试
 - ✅ **Step 7**: 更新最终状态并输出报告

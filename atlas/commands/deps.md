@@ -11,7 +11,11 @@ argument-hint: [--scope path] [--type security|outdated|conflicts|tree|all] [--f
 
 ## 第一步:确认执行选项
 
-**如果用户未指定选项,使用 AskUserQuestion 询问:**
+**分阶段确认选项**
+
+**第一个 AskUserQuestion: 执行模式与分析范围**
+
+如果用户未指定选项,询问:
 
 ```
 问题1: 分析类型
@@ -19,24 +23,41 @@ argument-hint: [--scope path] [--type security|outdated|conflicts|tree|all] [--f
 - outdated: 过期依赖分析(版本差距、更新建议)
 - conflicts: 版本冲突检测(peer dependency、重复包)
 - tree: 依赖树分析(深度、包大小、冗余)
-- all: 全部分析(默认)
+- all: 全部分析(默认推荐)
 
 问题2: 分析范围
-- 默认: 项目根目录
-- 指定: 输入路径(如 packages/core)
-
-问题3: 修复策略
-- report: 仅生成报告(默认)
-- fix: 自动修复可修复的问题
-- interactive: 交互式选择修复
-
-问题4: 升级策略(仅 outdated 类型)
-- patch: 补丁版本(1.0.x)
-- minor: 次版本(1.x.0)
-- major: 主版本(x.0.0)
+- 项目根目录(默认推荐)
+- 指定路径: 输入具体路径(如 packages/core)
 ```
 
-**如果用户已指定(如 `/deps --type security --fix`),跳过询问。**
+**第二个 AskUserQuestion: 分析配置**
+
+询问分析深度和修复策略:
+
+```
+问题1: 修复策略
+- report: 仅生成报告(默认推荐)
+- fix: 自动修复可修复的问题
+- interactive: 交互式选择修复项
+
+问题2: 升级策略(仅当分析类型包含 outdated 时询问)
+- patch: 仅补丁版本(1.0.x, 默认推荐)
+- minor: 次版本升级(1.x.0)
+- major: 主版本升级(x.0.0, 可能有破坏性变更)
+
+问题3: 依赖范围
+- 包含开发依赖(默认推荐)
+- 仅生产依赖(排除 devDependencies)
+```
+
+**自动模式行为**(用户指定了 `--fix` 或完整参数时):
+- 分析类型: 使用用户指定值或 `all`
+- 分析范围: 使用用户指定值或项目根目录
+- 修复策略: 根据 `--fix`/`--interactive` 参数
+- 升级策略: 使用 `--upgrade` 参数值或 `patch`
+- 依赖范围: 根据 `--no-dev` 参数
+
+**如果用户已指定(如 `/deps --type security --fix`),跳过相关询问。**
 
 ---
 

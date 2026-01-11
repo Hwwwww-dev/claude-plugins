@@ -33,7 +33,7 @@ argument-hint: [--scope path] [--framework jest|vitest|pytest|go] [--type unit|i
 
 ## 执行流程
 
-Phase 0 环境检测 → Phase 1 目标分析 → Phase 1.5 选择规划器 → Phase 2 用例规划 → Phase 3 测试生成 → Phase 4 验证
+Phase 0 环境检测 → Phase 1 目标分析 → Phase 1.5 配置选择 → Phase 2 用例规划 → Phase 3 测试生成 → Phase 4 验证
 
 ### Subagent 分配
 
@@ -41,7 +41,7 @@ Phase 0 环境检测 → Phase 1 目标分析 → Phase 1.5 选择规划器 → 
 |:------|:-----|:---------|:-----|
 | 0 | 环境检测 | 主进程 | 检测测试框架和现有覆盖率 |
 | 1 | 目标分析 | `atlas:information-gatherer` | 分析目标代码 |
-| 1.5 | 选择规划器 | 用户选择 | 选择 atlas:planner 或内置 Plan |
+| 1.5 | 配置选择 | 用户选择 | 第一次询问执行模式+测试范围，第二次询问测试配置（仅交互模式） |
 | 2 | 用例规划 | `atlas:planner` 或 `Plan` | 规划测试用例 |
 | 3 | 测试生成 | `atlas:atlas-executor` | 并行生成测试文件 |
 | 4 | 验证 | 主进程 | 运行测试，报告覆盖率 |
@@ -106,21 +106,82 @@ Phase 0 环境检测 → Phase 1 目标分析 → Phase 1.5 选择规划器 → 
 
 ---
 
-## Phase 1.5: 选择规划器
+## Phase 1.5: 配置选择
 
-**询问用户选择规划器类型**:
+**分阶段询问用户配置**:
+
+**第一个 AskUserQuestion: 执行模式和测试范围**
 ```
 AskUserQuestion(questions=[
+  {
+    "question": "执行模式",
+    "header": "Mode",
+    "options": [
+      {"label": "自动模式（推荐）", "description": "使用推荐选项，减少交互"},
+      {"label": "交互模式", "description": "每个关键步骤都需要确认"}
+    ]
+  },
+  {
+    "question": "测试范围",
+    "header": "Scope",
+    "options": [
+      {"label": "全项目", "description": "为所有代码生成测试"},
+      {"label": "指定目录", "description": "仅为指定目录生成测试"}
+    ]
+  }
+])
+```
+
+**第二个 AskUserQuestion: 测试配置（仅交互模式）**
+
+如果用户选择了**交互模式**，询问测试配置：
+
+```
+AskUserQuestion(questions=[
+  {
+    "question": "测试类型",
+    "header": "Type",
+    "options": [
+      {"label": "单元测试（推荐）", "description": "测试独立函数和类"},
+      {"label": "集成测试", "description": "测试模块间交互"}
+    ]
+  },
+  {
+    "question": "测试框架",
+    "header": "Framework",
+    "options": [
+      {"label": "自动检测（推荐）", "description": "根据项目配置自动选择"},
+      {"label": "Jest", "description": "JavaScript/TypeScript"},
+      {"label": "Vitest", "description": "JavaScript/TypeScript (Vite)"},
+      {"label": "Pytest", "description": "Python"},
+      {"label": "Go Test", "description": "Go"}
+    ]
+  },
+  {
+    "question": "覆盖率目标",
+    "header": "Coverage",
+    "options": [
+      {"label": "80%（推荐）", "description": "标准覆盖率目标"},
+      {"label": "90%", "description": "高覆盖率目标"},
+      {"label": "100%", "description": "完全覆盖"}
+    ]
+  },
   {
     "question": "选择用例规划器",
     "header": "Planner",
     "options": [
-      {"label": "atlas:planner (推荐)", "description": "信任 gatherer 输出，最小化额外扫描，高效规划"},
+      {"label": "atlas:planner（推荐）", "description": "信任 gatherer 输出，最小化额外扫描，高效规划"},
       {"label": "内置 Plan", "description": "Claude Code 内置规划器，会自行探索验证"}
     ]
   }
 ])
 ```
+
+**自动模式行为**（跳过第二个 AskUserQuestion）：
+- 测试类型: 单元测试
+- 测试框架: 自动检测
+- 覆盖率目标: 80%
+- 规划器: atlas:planner
 
 ---
 
@@ -266,9 +327,11 @@ prompt: |
 
 **执行约束**:
 - Phase 1 必须使用 information-gatherer (model="haiku")
-- Phase 1.5 必须询问用户选择规划器（atlas:planner 或内置 Plan）
+- Phase 1.5 第一个 AskUserQuestion 必须询问执行模式和测试范围
+- Phase 1.5 第二个 AskUserQuestion 仅在交互模式下询问测试配置（测试类型、框架、覆盖率、规划器）
+- Phase 1.5 自动模式使用推荐选项（单元测试、自动检测框架、80%覆盖率、atlas:planner）
 - Phase 2 必须使用选择的规划器
-- Phase 3 必须使用 atlas-executor (询问用户选择模型)
+- Phase 3 必须使用 atlas-executor (在交互模式下询问用户选择模型，自动模式使用 sonnet)
 
 ---
 
