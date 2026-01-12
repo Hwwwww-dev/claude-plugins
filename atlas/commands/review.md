@@ -1,6 +1,6 @@
 ---
 description: 代码审查命令。对指定范围的代码进行多维度自动化审查（安全、性能、风格、架构），支持自动修复。
-argument-hint: [--scope path] [--type security|performance|style|architecture|all] [--fix] [--severity critical|warning|all]
+argument-hint: [--scope path] [--type security|performance|style|architecture|all] [--fix] [--quick] [--severity critical|warning|all]
 ---
 
 # /review - 代码审查
@@ -47,15 +47,17 @@ code-reviewer → 读取 context.json → 输出审查结果 JSON
 
 ### 2.2 模式行为定义
 
-| 步骤 | 默认值 | --fix 时 | 可选值 |
-|------|--------|---------|--------|
-| 审查类型 | all | all | security / performance / style / architecture / all |
-| 严重性过滤 | all | all | critical / warning / all |
-| 规划器 | - | 询问 | atlas:planner / 内置 Plan |
-| Reviewer 模型 | 询问 | 询问 | haiku / sonnet / opus |
-| Executor 模型 | - | 询问 | haiku / sonnet / opus |
-| 测试节点 | - | 询问 | 修复后 / 不测试 |
-| 测试模式 | - | 询问 | 编译测试 / 单元测试 / 编译+单元 |
+| 步骤 | 快速模式 | 默认值 | --fix 时 | 可选值 |
+|------|---------|--------|---------|--------|
+| 信息收集 | **跳过** | 是 | 是 | 是 / 否 |
+| 审查类型 | 用户指定 | all | all | security / performance / style / architecture / all |
+| 严重性过滤 | all | all | all | critical / warning / all |
+| 规划器 | **跳过** | - | 询问 | atlas:planner / 内置 Plan |
+| Reviewer 模型 | **haiku** | 询问 | 询问 | haiku / sonnet / opus |
+| Executor 模型 | - | - | 询问 | haiku / sonnet / opus |
+| 测试节点 | **跳过** | - | 询问 | 修复后 / 不测试 |
+| 测试模式 | - | - | 询问 | 编译测试 / 单元测试 / 编译+单元 |
+| 状态文件 | **创建** | 创建 | 创建 | - |
 
 ### 2.3 审查类型
 
@@ -66,7 +68,17 @@ code-reviewer → 读取 context.json → 输出审查结果 JSON
 | `style` | 命名规范、代码结构、一致性 |
 | `architecture` | 分层违规、循环依赖、耦合度 |
 
-### 2.4 执行步骤
+### 2.4 执行模式选择
+
+**第一个 AskUserQuestion: 执行模式选择**
+
+```
+问题: 执行模式
+- 快速模式: 跳过信息收集，直接审查（适合单文件或小范围审查，~3分钟）
+- 标准模式（推荐）: 使用 gatherer 收集信息后审查
+```
+
+### 2.5 执行步骤
 
 **Step 1: 范围确定**
 - 无 --scope: git diff（未提交变更）
@@ -75,7 +87,7 @@ code-reviewer → 读取 context.json → 输出审查结果 JSON
 
 **Step 2: 分阶段确认选项**
 
-**第一个 AskUserQuestion: Reviewer 模型选择**
+**第二个 AskUserQuestion: Reviewer 模型选择（仅标准模式）**
 
 ```
 问题: Reviewer 模型
@@ -115,8 +127,82 @@ code-reviewer → 读取 context.json → 输出审查结果 JSON
 ```
 
 **注意**:
-- 只有使用 --fix 时才会询问第二个和第三个 AskUserQuestion
+- 快速模式跳过所有询问，直接进入审查流程
+- 只有标准模式使用 --fix 时才会询问第三个和第四个 AskUserQuestion
 - 如果不使用 --fix，只询问 Reviewer 模型，直接进入审查流程
+
+---
+
+### 2.6 快速模式流程（--quick）
+
+**适用场景**：
+- 审查 1-3 个文件
+- 快速检查特定代码片段
+
+**流程**：
+```
+确认模式 → 主进程快速定位 → 直接审查 → 简化报告
+```
+
+**Step Q1: 确认快速模式**
+```
+AskUserQuestion:
+问题: 执行模式
+- 快速模式 ✓
+```
+
+**Step Q2: 创建状态文件**
+```bash
+mkdir -p .claude/orchestrate/.state
+echo '{
+  "executionId": "<task-id>",
+  "timestamp": "<ISO-8601>",
+  "task": "<用户任务>",
+  "status": "in_progress",
+  "currentStage": "quick_review",
+  "config": { "mode": "quick", "reviewerModel": "haiku" }
+}' > .claude/orchestrate/.state/<task-id>.json
+```
+
+**Step Q3: 主进程快速定位**
+```
+主进程允许使用 Grep/Glob/Read 快速定位目标文件（≤5 次工具调用）
+直接构建 code-reviewer prompt
+```
+
+**Step Q4: 直接审查**
+```
+Task(subagent_type="atlas:code-reviewer", model="haiku")
+prompt: |
+  审查维度: [用户指定或 all]
+  目标文件: [主进程定位的文件]
+  代码片段: [主进程读取的代码]
+  注意: 快速模式，输出简化报告
+```
+
+**Step Q5: 简化报告**
+```markdown
+# 快速审查完成
+
+**执行 ID**: <task-id>
+**状态文件**: .claude/orchestrate/.state/<task-id>.json
+**范围**: [文件列表]
+**审查类型**: [security/performance/style/architecture/all]
+**发现问题**: X critical, Y warning
+
+[问题列表]
+
+[如果有 autoFixable] 建议: 使用 `/review --fix` 自动修复
+```
+
+**快速模式风险提示**：
+- 跳过 gatherer，可能遗漏上下文依赖
+- 不支持 --fix（需切换到标准模式）
+- 如果审查失败，建议用户切换到标准模式重新执行
+
+---
+
+### 2.7 标准模式执行步骤
 
 **Step 3: 代码分析**
 ```
@@ -190,47 +276,77 @@ prompt: |
 
 ## 四、示例
 
-### 示例 1: 基础审查
+### 示例 1: 快速审查（~3分钟）
 
 ```
-用户: /review --scope src/services
-
-1. 范围确定: src/services (12 文件)
-2. 确认选项: sonnet
-3. Gatherer: 收集代码信息
-4. 并行审查: 4 个 code-reviewer
-5. 报告: 发现 3 critical, 5 warning
+用户: /review --scope src/api/user.ts --quick
+1. AskUserQuestion: 执行模式 → 用户选择"快速模式"
+2. 主进程定位: Glob 匹配 → Read 读取 user.ts (156 行)
+3. Task(code-reviewer, haiku): 审查维度 all
+4. 审查结果: security=0, performance=1, style=2, architecture=0
+5. 输出简化报告 → warning: 1 (N+1 查询风险 L45-52)
+6. 建议: 使用 `/review --fix` 自动修复
 ```
 
-### 示例 2: 安全审查+修复
+### 示例 2: 标准审查（多维度）
+
+```
+用户: /review --scope src/services --type all
+1. AskUserQuestion: 执行模式 → 用户选择"标准模式"
+2. AskUserQuestion: Reviewer 模型 → 用户选择 sonnet
+3. Task(gatherer, haiku): 收集 12 文件 → .claude/gather/review-1704067200/
+4. 并行启动 4 个 Task(code-reviewer, sonnet): security/performance/style/architecture
+5. 聚合结果: critical=2, warning=5, info=8
+6. 输出报告 → .claude/review/report-2024-01-01.md
+7. 关键问题: SQL 注入(L45), 内存泄漏(L128), 循环依赖(services→utils→services)
+```
+
+### 示例 3: 安全审查+修复
 
 ```
 用户: /review --type security --fix
-
-1. 范围确定: git diff (5 文件)
-2. 确认选项: opus + 创建检查点 + 编译测试
-3. Gatherer: 收集代码信息
-4. 审查: 1 个 security reviewer
-5. 报告: 2 个可自动修复的问题
-6. Executor: 执行修复
-7. 测试: tsc --noEmit ✅
+1. AskUserQuestion: 执行模式 → 用户选择"标准模式"
+2. AskUserQuestion: Reviewer 模型 → opus (深度安全审查)
+3. AskUserQuestion: 规划器 → atlas:planner / Executor 模型 → sonnet
+4. AskUserQuestion: 测试配置 → 修复后 + 编译测试
+5. Task(gatherer): 收集 → Task(code-reviewer, opus): 发现 2 critical (autoFixable)
+6. Task(executor, sonnet): 修复 SQL 注入(L45) + XSS 漏洞(L89)
+7. 验证: tsc --noEmit ✓ → 输出报告 → critical: 0, fixed: 2
 ```
 
 ---
 
 ## 五、核心约束
 
-### 必须做
+### 标准模式必须做
 
+- ✅ 询问执行模式选择
 - ✅ 询问 Reviewer 模型选择
 - ✅ --fix 时询问规划器和测试选项
 - ✅ 使用 gatherer 收集代码信息
 - ✅ 不同维度并行审查
 - ✅ 问题包含文件路径和行号
 
+### 快速模式必须做
+
+- ✅ **Step Q1**: 确认用户选择快速模式
+- ✅ **Step Q2**: 创建状态文件到 `.claude/orchestrate/.state/<task-id>.json`
+- ✅ **Step Q3**: 主进程快速定位目标文件（≤5 次工具调用）
+- ✅ **Step Q4**: 使用 `Task(subagent_type="atlas:code-reviewer", model="haiku")`
+- ✅ **Step Q5**: 输出简化报告（包含执行 ID 和状态文件路径）
+- ✅ 失败时建议用户切换到标准模式
+
+### 快速模式允许做
+
+- ✅ 主进程使用 Grep/Glob/Read 快速定位文件（≤5 次）
+- ✅ 主进程直接构建 code-reviewer prompt（不调用 gatherer）
+- ✅ 跳过检查点
+
 ### 禁止做
 
-- ❌ 主进程直接读取代码
+- ❌ 主进程直接读取代码（标准模式）
 - ❌ 主进程直接修改文件
 - ❌ 不使用 --fix 时自动修复
 - ❌ autoFixable 判断不谨慎
+- ❌ 快速模式使用 --fix（需切换到标准模式）
+- ❌ 快速模式用于复杂审查（>3 个文件或需要依赖分析）

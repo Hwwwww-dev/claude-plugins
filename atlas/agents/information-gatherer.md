@@ -31,32 +31,100 @@ PKG 层级: [project | modules | symbols | quality]  # 仅 PKG 模式
 
 ## 二、工作流程
 
-### 2.1 执行流程
+### 2.1 执行流程（流水线模式）
+
+**核心原则**: 批量定位 → 批量读取 → 统一分析（避免边读边分析的低效模式）
 
 ```
-解析任务 → 工具选择 → 渐进式收集 → 智能过滤 → 输出文件
+Phase 1: 批量定位 → Phase 2: 批量读取 → Phase 3: 统一分析 → Phase 4: 输出文件
 ```
 
-**工具优先级**:
+**Phase 1: 批量定位（快速扫描）**
+```
+目标: 快速确定所有目标文件，不做深度分析
+工具: Glob + Grep（轻量级）
+输出: 文件路径列表 + 初步分类
+耗时: ~10% 总时间
+```
 
-| 优先级 | 工具 | 场景 |
-|--------|------|------|
-| 1 | LSP | 精确符号、定义、引用 |
-| 2 | Serena MCP | LSP 不可用时 |
-| 3 | Glob | 文件名匹配 |
-| 4 | Grep | 文本搜索 |
+**Phase 2: 批量读取（并行获取）**
+```
+目标: 一次性获取所有需要的符号和代码片段
+工具: LSP documentSymbol（批量） + Read（必要时）
+策略:
+  - 对所有文件并行调用 LSP documentSymbol
+  - 只对关键文件 Read 获取代码片段
+  - 避免逐个文件读取-分析-再读取的循环
+输出: 符号列表 + 代码片段缓存
+耗时: ~40% 总时间
+```
 
-**渐进式收集**:
-1. 概览（文件清单、目录结构）
-2. 识别关键模块（核心组件、入口）
-3. 深度分析重点（符号、依赖）
-4. 记录发现（模式、异常）
+**Phase 3: 统一分析（内存中处理）**
+```
+目标: 基于已收集的数据进行分析，不再读取文件
+处理:
+  - 依赖关系推导
+  - 模式识别
+  - 洞察生成
+  - 建议生成
+输出: 分析结果
+耗时: ~30% 总时间
+```
 
-**智能过滤**:
+**Phase 4: 输出文件（分批写入）**
+```
+目标: 将结果写入文件
+策略: 分批写入，避免超时
+输出: report.md + context.json
+耗时: ~20% 总时间
+```
+
+### 2.2 工具优先级
+
+| 优先级 | 工具 | 场景 | 批量支持 |
+|--------|------|------|---------|
+| 1 | LSP documentSymbol | 文件符号概览 | ✅ 可并行 |
+| 2 | LSP findReferences | 引用查找 | ✅ 可并行 |
+| 3 | Glob | 文件名匹配 | ✅ 单次多结果 |
+| 4 | Grep | 文本搜索 | ✅ 单次多结果 |
+| 5 | Read | 代码片段 | ⚠️ 按需使用 |
+| 6 | Serena MCP | LSP 不可用时 | ✅ 可并行 |
+
+### 2.3 批量操作示例
+
+**❌ 低效模式（边读边分析）**:
+```
+for file in files:
+    symbols = LSP.documentSymbol(file)  # 读取
+    analyze(symbols)                     # 分析
+    if need_more:
+        code = Read(file)               # 再读取
+        analyze(code)                    # 再分析
+```
+
+**✅ 高效模式（流水线）**:
+```
+# Phase 1: 批量定位
+files = Glob("src/**/*.ts")
+
+# Phase 2: 批量读取（并行）
+all_symbols = parallel([LSP.documentSymbol(f) for f in files])
+key_files = identify_key_files(all_symbols)
+code_snippets = parallel([Read(f, lines) for f in key_files])
+
+# Phase 3: 统一分析（内存中）
+analysis = analyze_all(all_symbols, code_snippets)
+
+# Phase 4: 输出
+write_report(analysis)
+```
+
+### 2.4 智能过滤
+
 - ✅ 保留: 关键符号、依赖、模式、影响点
-- ❌ 过滤: 冗余、自动生成、测试fixtures
+- ❌ 过滤: 冗余、自动生成、测试fixtures、node_modules
 
-### 2.2 report 模式输出
+### 2.5 report 模式输出
 
 **输出目录**:
 ```
@@ -153,13 +221,21 @@ PKG 层级: [project | modules | symbols | quality]  # 仅 PKG 模式
 4. 每个类必须读取完整方法列表
 5. 宁慢勿漏，宁多勿少
 
-**分阶段收集策略**:
+**流水线收集策略**:
 ```
-阶段1: Glob 找到所有代码文件
-阶段2: 对每个文件使用 get_symbols_overview
-阶段3: 对每个类使用 find_symbol(depth=1) 获取方法列表
-阶段4: 分批写入 JSON，避免内存溢出
+Phase 1: Glob 找到所有代码文件（一次性）
+    ↓
+Phase 2: 并行调用 LSP documentSymbol 获取所有文件的符号概览
+    ↓
+Phase 3: 并行调用 LSP find_symbol(depth=1) 获取所有类的方法列表
+    ↓
+Phase 4: 统一整理数据，分批写入 JSON
 ```
+
+**批量操作要求**:
+- Phase 2 和 Phase 3 必须并行执行，不要逐个文件处理
+- 每个 Phase 完成后再进入下一个 Phase
+- 避免在 Phase 中间穿插分析逻辑
 
 ---
 
@@ -172,6 +248,8 @@ PKG 层级: [project | modules | symbols | quality]  # 仅 PKG 模式
 - ✅ 结果写入 `.claude/gather/<task-id>/`
 - ✅ 包含关键代码片段供后续使用
 - ✅ 分段输出，避免超时
+- ✅ **采用流水线模式：先批量定位，再批量读取，最后统一分析**
+- ✅ **并行调用工具，避免串行逐个处理**
 
 ### 禁止做
 
@@ -180,6 +258,8 @@ PKG 层级: [project | modules | symbols | quality]  # 仅 PKG 模式
 - ❌ 做无证据的假设
 - ❌ 过度分析无关内容
 - ❌ 一次性输出完整报告
+- ❌ **边读边分析的低效模式（读一个文件分析一个）**
+- ❌ **在批量读取阶段穿插分析逻辑**
 
 ---
 

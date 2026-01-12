@@ -1,6 +1,6 @@
 ---
 description: 智能重构命令。识别代码问题并执行特定模式的自动化重构，支持预览和交互式确认。
-argument-hint: <pattern> [--scope path] [--dry-run] [--interactive]
+argument-hint: <pattern> [--quick] [--scope path] [--dry-run] [--interactive]
 ---
 
 # /refactor - 智能重构命令
@@ -45,13 +45,16 @@ executor → 直接重构（无需重新扫描）
 
 ### 2.2 模式行为定义
 
-| 步骤 | 默认值 | --dry-run | --interactive | 可选值 |
-|------|--------|-----------|---------------|--------|
-| 候选识别 | 是 | 是 | 是 | 是 / 否 |
-| 规划器 | 询问 | atlas:planner | 询问 | atlas:planner / 内置 Plan |
-| Executor 模型 | 询问 | - | 询问 | haiku / sonnet / opus |
-| 测试节点 | 询问 | - | 询问 | 每个候选后 / 统一测试 / 不测试 |
-| 测试模式 | 询问 | - | 询问 | 编译测试 / 单元测试 / 编译+单元 |
+| 步骤 | 快速模式 | 自动模式 | 交互模式 | dry-run |
+|------|---------|---------|---------|---------|
+| 执行策略 | auto | auto | 询问用户 | auto |
+| 候选识别 | **跳过** | 是 | 是 | 是 |
+| 检查点 | **跳过** | 创建 | 询问用户 | 跳过 |
+| 规划器选择 | **跳过（主进程直接规划）** | atlas:planner | 询问用户 | atlas:planner |
+| Executor 模型 | **haiku** | sonnet | 询问用户 | - |
+| 测试节点 | **不测试** | 统一测试 | 询问用户 | - |
+| 测试模式 | - | 编译测试 | 询问用户 | - |
+| 状态文件 | **创建** | 创建 | 创建 | 创建 |
 
 ### 2.3 支持的重构模式
 
@@ -74,6 +77,7 @@ executor → 直接重构（无需重新扫描）
 
 ```
 问题: 执行模式
+- 快速模式: 跳过候选识别和规划，直接重构（适合单文件小重构，~3分钟）
 - 自动模式（推荐）: 使用推荐选项，减少交互
 - 交互模式: 每个关键步骤都需要确认
 - dry-run: 只规划不执行
@@ -103,6 +107,14 @@ executor → 直接重构（无需重新扫描）
 - 规划器: atlas:planner
 - Executor 模型: sonnet
 
+**快速模式行为**（跳过第二、三个 AskUserQuestion）：
+- 候选识别: 跳过
+- 检查点: 跳过
+- 规划器: 跳过（主进程直接规划）
+- Executor 模型: haiku
+- 测试: 不测试
+- 状态文件: 创建
+
 **第三个 AskUserQuestion: 测试配置**
 
 询问测试配置：
@@ -122,6 +134,80 @@ executor → 直接重构（无需重新扫描）
 **注意**:
 - 自动模式和交互模式都会询问测试配置
 - 仅 dry-run 模式跳过测试配置询问
+- **快速模式跳过所有询问，直接进入执行**
+
+---
+
+### 2.5 快速模式流程（--quick）
+
+**适用场景**：
+- 重构 1-3 个文件
+- 简单的重命名、提取方法等
+
+**流程**：
+```
+确认模式 → 主进程快速定位 → 直接执行 → 简化报告
+```
+
+**Step Q1: 确认快速模式**
+```
+AskUserQuestion:
+问题: 执行模式
+- 快速模式 ✓
+```
+
+**Step Q2: 创建状态文件**
+```bash
+mkdir -p .claude/refactor/.state
+echo '{
+  "executionId": "refactor-<timestamp>",
+  "timestamp": "<ISO-8601>",
+  "task": "<用户任务>",
+  "status": "in_progress",
+  "currentStage": "quick_refactor",
+  "config": { "mode": "quick", "executorModel": "haiku" }
+}' > .claude/refactor/.state/refactor-<timestamp>.json
+```
+
+**Step Q3: 主进程快速定位**
+```
+主进程允许使用 Grep/Glob/Read 快速定位目标文件（≤5 次工具调用）
+生成简单的修改计划（不调用 planner agent）
+直接构建 executor prompt
+```
+
+**Step Q4: 直接执行**
+```
+Task(subagent_type="atlas:atlas-executor", model="haiku")
+prompt: |
+  子任务 #1
+  描述: [重构模式] - [用户任务]
+  文件: [主进程定位的文件]
+  修改点: [主进程分析的修改点]
+  注意: 快速模式，只做明确提及的重构
+```
+
+**Step Q5: 简化报告**
+```markdown
+# 快速重构完成
+
+**执行 ID**: refactor-<timestamp>
+**状态文件**: .claude/refactor/.state/refactor-<timestamp>.json
+**模式**: [重构模式]
+**修改文件**: [文件列表]
+**状态**: ✅ 成功 / ❌ 失败
+
+[如果失败] 建议: 使用自动模式重新执行 `/refactor <pattern>`
+```
+
+**风险提示**：
+- 跳过候选识别，可能遗漏重构点
+- 跳过检查点，无法回滚
+- 如果 executor 失败，建议用户切换到自动模式
+
+---
+
+### 2.6 标准模式执行步骤
 
 **Step 2: 创建执行环境**（执行重构时）
 
@@ -400,129 +486,69 @@ gatherer 的 context.json 必须包含：
 
 ## 四、示例
 
-### 示例 1: 自动模式
+### 示例 1: 快速模式（~3分钟）- 单文件小重构
 
 ```
-用户: /refactor extract-method
+用户: /refactor extract-method --scope src/utils/helper.ts --quick
 
-1. 第一个 AskUserQuestion - 执行模式:
-   - 执行模式: 自动模式（推荐）✓
-
-   [自动使用推荐配置，跳过第二个 AskUserQuestion]
-   - 检查点: 创建
-   - 规划器: atlas:planner
-   - Executor 模型: sonnet
-
-2. 创建执行环境:
-   - mkdir -p .claude/refactor/.state
-   - 创建 refactor-20240115.json
-   - git stash push -m "atlas-checkpoint-refactor-20240115"
-
-3. Gatherer: 识别长函数候选项
-   → .claude/gather/refactor-20240115/context.json
-   → 更新状态: currentStage="candidates_identified"
-
-4. Planner: 生成重构计划
-   → .claude/plan/refactor-20240115/plan.json
-   → 展示重构计划给用户
-   → 用户确认: 继续执行 ✓
-   → 更新状态: currentStage="planning_approved"
-
-5. Executor: 并行执行重构
-   → 全部成功
-   → 用户确认: 继续验证 ✓
-   → 更新状态: currentStage="refactoring_completed"
-
-6. 第三个 AskUserQuestion - 测试配置:
-   - 测试节点: 统一测试（推荐）✓
-   - 测试模式: 编译测试（推荐）✓
-
-   验证测试: tsc --noEmit
-   → 通过 ✓
-   → 更新状态: currentStage="testing_completed"
-
-7. 报告: 成功重构 5 个函数
-   → 更新状态: status="completed", currentStage="finished"
+1. AskUserQuestion → 用户选择「快速模式」→ 跳过所有后续询问
+2. 主进程快速定位: Grep "function.*{" → 发现 processData() 89行
+3. 主进程分析: 识别可提取片段 L45-L78 (数据验证逻辑)
+4. Executor(haiku): 提取为 validateUserData() 独立函数
+5. 影响范围: 1 文件 | 修改: +15行 -34行 (净减 19行)
+6. 输出简化报告 → 建议: 如需更多重构点，使用自动模式
 ```
 
-### 示例 2: 交互模式
+### 示例 2: 自动模式（~15分钟）- 标准重构流程
 
 ```
-用户: /refactor add-types --scope src/services
+用户: /refactor extract-method --scope src/services
 
-1. 连续询问配置:
-   第一个 AskUserQuestion - 执行模式:
-   - 执行模式: 交互模式 ✓
-
-   第二个 AskUserQuestion - 重构配置:
-   - 检查点: 创建 ✓
-   - 规划器: atlas:planner ✓
-   - Executor 模型: opus ✓
-
-   第三个 AskUserQuestion - 测试配置:
-   - 测试节点: 统一测试 ✓
-   - 测试模式: 编译测试 ✓
-
-2-3. 创建环境 + 候选识别
-   → .claude/gather/refactor-20240115/
-
-4. Planner: 生成计划
-   → 展示: 8 个缺少类型的位置
-   → 用户: 继续执行 ✓
-
-5. Executor: 执行重构
-   → 7 个成功, 1 个失败
-   → 用户: "修复失败任务"
-   → 重新执行: 成功 ✓
-   → 用户: 继续验证 ✓
-
-6. 验证测试: tsc --noEmit
-   → 通过 ✓
-
-7. 报告: 成功为 8 个位置添加类型
+1. AskUserQuestion → 用户选择「自动模式」→ 使用推荐配置
+2. 创建检查点: git stash push -m "atlas-checkpoint-refactor-20240115"
+3. Gatherer(haiku): 扫描 src/services/ → 识别 5 个候选 (函数体>50行)
+   - UserService.processOrder (89行) | PaymentService.validate (67行) | ...
+4. Planner: 生成 plan.json → 用户确认执行 ✓
+5. Executor(sonnet): 并行执行 5 个 extract-method 重构
+   - 成功: 5/5 | 新增函数: 8 个 | 修改文件: 4 个
+6. 测试: tsc --noEmit ✓ → 输出完整报告 (含回滚命令)
 ```
 
-### 示例 3: dry-run 模式
+### 示例 3: 交互模式（带循环修改）
+
+```
+用户: /refactor add-types --scope src/services --interactive
+
+1. AskUserQuestion → 用户选择「交互模式」→ 逐项确认配置
+   - 检查点: 创建 | 规划器: atlas:planner | 模型: sonnet | 测试: 编译+单元
+2. Gatherer: 识别 12 个缺失类型的函数 → Planner 生成计划
+3. 用户审查: "排除 legacy/ 目录" → 重新规划 → 剩余 8 个候选 ✓
+4. Executor 第一轮: 7 成功 / 1 失败 (PaymentService.process 类型冲突)
+5. 用户选择「修复失败」→ Executor 重试: 调整泛型约束 → 成功 ✓
+6. 测试: tsc --noEmit ✓ + npm test ✓ → 8/8 完成
+7. 输出报告: 修改 6 文件 | 新增类型定义 23 个 | iterations: planning=2, execution=2
+```
+
+### 示例 4: dry-run 模式 - 预览不执行
 
 ```
 用户: /refactor modernize-js --scope src --dry-run
 
-1. 连续询问配置:
-   第一个 AskUserQuestion - 执行模式:
-   - 执行模式: dry-run ✓
-
-   第二个 AskUserQuestion - 重构配置:
-   - 检查点: 跳过（dry-run 默认）✓
-   - 规划器: atlas:planner ✓
-   - Executor 模型: （dry-run 不执行，跳过）
-
-   [跳过第三个 AskUserQuestion - dry-run 不需要测试配置]
-
-2. 跳过检查点创建
-   → 创建状态文件（标记为 dry-run）
-
-3. Gatherer: 识别旧语法
-   → .claude/gather/refactor-20240115/
-
-4. Planner: 生成重构计划
-   → .claude/plan/refactor-20240115/plan.json
-   → 展示完整计划给用户
-
-5. 输出预览报告（不执行）:
-   📋 重构预览
-   模式: modernize-js | 候选数: 12
-   - var → const/let: 8 处
-   - callback → async/await: 4 处
-   - 影响文件: 6 个
-
-6. 提示: 如需执行，使用 /refactor modernize-js --scope src
+1. AskUserQuestion → 用户选择「dry-run」→ 跳过检查点和测试配置
+2. Gatherer(haiku): 扫描 src/ → 识别 15 个现代化候选
+   - var 声明: 8 处 | callback 模式: 5 处 | 旧式循环: 2 处
+3. Planner: 生成详细重构计划 (不执行)
+4. 输出预览报告:
+   - 预计修改: 9 文件 | 预计变更: +45行 -62行
+   - 风险评估: 低 (无破坏性变更)
+5. 提示: 确认后执行 `/refactor modernize-js --scope src`
 ```
 
 ---
 
 ## 五、核心约束
 
-### 必须做
+### 标准模式必须做
 
 - ✅ **Step 1**: 分阶段确认配置（执行模式 → 重构配置 → 测试配置）
 - ✅ **Step 1**: 自动模式跳过第二个 AskUserQuestion，直接使用推荐配置
@@ -537,14 +563,29 @@ gatherer 的 context.json 必须包含：
 - ✅ **Step 6**: 根据 Step 1 的选择执行验证测试
 - ✅ **Step 7**: 更新最终状态并输出报告
 
+### 快速模式必须做
+
+- ✅ **Step Q1**: 确认用户选择快速模式
+- ✅ **Step Q2**: 创建状态文件 `.claude/refactor/.state/refactor-<timestamp>.json`
+- ✅ **Step Q3**: 主进程快速定位目标文件（≤5 次工具调用）
+- ✅ **Step Q4**: 使用 `Task(subagent_type="atlas:atlas-executor", model="haiku")`
+- ✅ **Step Q5**: 输出简化报告（含执行 ID 和状态文件路径）
+- ✅ 失败时建议用户切换到自动模式
+
+### 快速模式允许做
+
+- ✅ 主进程使用 Grep/Glob/Read 快速定位文件（≤5 次）
+- ✅ 主进程直接生成简单修改计划（不调用 planner）
+- ✅ 跳过候选识别、检查点
+
 ### 禁止做
 
-- ❌ 主进程直接读取代码（除了 agent 输出的 JSON 文件）
 - ❌ 主进程直接修改文件（所有修改必须通过 executor）
-- ❌ 跳过候选识别直接规划
-- ❌ 跳过规划直接执行
-- ❌ executor 重新扫描文件（应使用 plan.json 的修改点）
+- ❌ 标准模式跳过候选识别直接规划（除非快速模式）
+- ❌ 标准模式跳过规划直接执行
+- ❌ executor 重新扫描文件（应使用 plan.json 或主进程提供的修改点）
 - ❌ 在 Step 1 之后还有其他的 AskUserQuestion（除了 Step 4.3 和 5.4 的确认循环）
-- ❌ 忘记更新状态文件的 `currentStage`（执行重构时）
+- ❌ 标准模式忘记更新状态文件的 `currentStage`
 - ❌ 在用户未确认的情况下继续执行下一步
 - ❌ "顺便"做其他优化（只执行指定模式的重构）
+- ❌ 快速模式用于复杂任务（>3 个文件或涉及依赖分析）

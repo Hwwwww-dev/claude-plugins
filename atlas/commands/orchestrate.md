@@ -1,6 +1,6 @@
 ---
 description: 任务协调与并发执行引擎。处理复杂多步骤任务、批量操作、项目级变更。支持回滚和断点续传。
-argument-hint: <任务描述> [--parallel|--sequential] [--dry-run] [--no-gather] [--auto-rollback] [--resume <id>]
+argument-hint: <任务描述> [--quick] [--parallel|--sequential] [--dry-run] [--no-gather] [--auto-rollback] [--resume <id>]
 ---
 
 # /orchestrate - 任务协调引擎
@@ -51,16 +51,17 @@ executor → 直接修改文件（无需重新扫描）
 
 ### 2.2 模式行为定义
 
-| 步骤 | 自动模式 | 交互模式 | dry-run |
-|------|---------|---------|---------|
-| 执行策略 | auto | 询问用户 | auto |
-| 信息收集 | 是（除非 repowiki 充足） | 询问用户 | 是 |
-| 检查点 | 创建 | 询问用户 | 跳过 |
-| 规划器选择 | atlas:planner | 询问用户 | atlas:planner |
-| Executor 模型 | sonnet | 询问用户 | - |
-| 测试节点 | 统一测试 | 询问用户 | - |
-| 测试模式 | 编译测试 | 询问用户 | - |
-| 失败处理 | **询问用户** | 询问用户 | - |
+| 步骤 | 快速模式 | 自动模式 | 交互模式 | dry-run |
+|------|---------|---------|---------|---------|
+| 执行策略 | auto | auto | 询问用户 | auto |
+| 信息收集 | **跳过** | 是（除非 repowiki 充足） | 询问用户 | 是 |
+| 检查点 | **跳过** | 创建 | 询问用户 | 跳过 |
+| 规划器选择 | **跳过（主进程直接规划）** | atlas:planner | 询问用户 | atlas:planner |
+| Executor 模型 | **haiku** | sonnet | 询问用户 | - |
+| 测试节点 | **不测试** | 统一测试 | 询问用户 | - |
+| 测试模式 | - | 编译测试 | 询问用户 | - |
+| 失败处理 | 询问用户 | 询问用户 | 询问用户 | - |
+| 状态文件 | 创建 | 创建 | 创建 | 创建 |
 
 ### 2.3 执行步骤
 
@@ -70,6 +71,7 @@ executor → 直接修改文件（无需重新扫描）
 
 ```
 问题: 执行模式
+- 快速模式: 跳过信息收集和规划，直接执行（适合 1-3 个文件的小修改，3-5 分钟）
 - 自动模式（推荐）: 使用推荐选项，减少交互
 - 交互模式: 每个关键步骤都需要确认
 - dry-run: 只规划不执行
@@ -105,6 +107,14 @@ executor → 直接修改文件（无需重新扫描）
 - Executor 模型: sonnet
 - 失败处理: 询问用户
 
+**快速模式行为**（跳过第二、三个 AskUserQuestion）：
+- 信息收集: 跳过
+- 检查点: 跳过
+- 规划器: 跳过（主进程直接规划）
+- Executor 模型: haiku
+- 测试: 不测试
+- 状态文件: 创建
+
 **第三个 AskUserQuestion: 测试配置**
 
 询问测试配置：
@@ -124,6 +134,96 @@ executor → 直接修改文件（无需重新扫描）
 **注意**:
 - 自动模式和交互模式都会询问测试配置
 - 仅 dry-run 模式跳过测试配置询问
+- **快速模式跳过所有询问，直接进入执行**
+
+---
+
+### 2.4 快速模式流程（--quick）
+
+**适用场景**：
+- 修改 1-3 个文件
+- 明确的小任务（如"修改函数签名"、"添加类型注解"、"修复单个 bug"）
+- 用户已经明确知道要改什么
+
+**流程**：
+```
+确认模式 → 创建状态文件 → 主进程快速定位 → 直接执行 → 更新状态 → 报告
+```
+
+**Step Q1: 确认快速模式**
+```
+AskUserQuestion:
+问题: 执行模式
+- 快速模式 ✓
+```
+
+**Step Q2: 创建状态文件**
+```bash
+mkdir -p .claude/orchestrate/.state
+echo '{
+  "executionId": "<task-id>",
+  "timestamp": "<ISO-8601>",
+  "task": "<用户任务>",
+  "status": "in_progress",
+  "currentStage": "quick_mode",
+  "config": {
+    "mode": "quick",
+    "executorModel": "haiku"
+  },
+  "subtasks": [],
+  "progress": { "total": 1, "completed": 0, "failed": 0, "pending": 1 }
+}' > .claude/orchestrate/.state/<task-id>.json
+```
+
+**Step Q3: 主进程快速定位**
+```
+主进程允许使用 Grep/Glob/Read 快速定位目标文件（≤5 次工具调用）
+生成简单的修改计划（不调用 planner agent）
+直接构建 executor prompt
+```
+
+**Step Q4: 直接执行**
+```
+Task(subagent_type="atlas:atlas-executor", model="haiku")
+prompt: |
+  子任务 #1
+  描述: [用户任务]
+  文件: [主进程定位的文件]
+  修改点: [主进程分析的修改点]
+  注意: 快速模式，只做明确提及的修改
+```
+
+**Step Q5: 更新状态并报告**
+```bash
+# 更新状态文件
+更新 .state/<task-id>.json: {
+  status: "completed",
+  currentStage: "finished",
+  completedAt: "<ISO-8601>",
+  progress: { total: 1, completed: 1, failed: 0, pending: 0 }
+}
+```
+
+```markdown
+# 快速执行完成
+
+**任务**: [描述]
+**执行 ID**: <task-id>
+**修改文件**: [文件列表]
+**状态**: ✅ 成功 / ❌ 失败
+**状态文件**: .claude/orchestrate/.state/<task-id>.json
+
+[如果失败] 建议: 使用自动模式重新执行 `/orchestrate <任务>`
+```
+
+**⚠️ 快速模式风险提示**：
+- 跳过依赖分析，可能遗漏影响点
+- 跳过检查点，无法回滚
+- 如果 executor 失败，建议用户切换到自动模式重新执行
+
+---
+
+### 2.5 标准模式执行步骤
 
 **Step 2: 创建执行环境**
 ```bash
@@ -512,142 +612,84 @@ prompt: |
 
 ## 四、示例
 
-### 示例 1: 完整流程（自动模式）
+### 示例 1: 快速模式（~3分钟）
+
+```
+用户: /orchestrate 修改 UserAPI.login 的返回类型 --quick
+
+1. 选择快速模式 → 跳过所有后续询问
+2. 主进程快速定位:
+   - Grep "UserAPI" → 找到 src/api/UserAPI.ts
+   - Read 文件 → 定位 login 方法
+   - 生成修改计划（不调用 planner）
+3. Executor(haiku): 修改 src/api/UserAPI.ts → 成功 ✓
+4. 简化报告: 任务完成，修改 1 个文件
+```
+
+### 示例 2: 自动模式（~20分钟）
 
 ```
 用户: /orchestrate 给所有 React 组件添加 TypeScript 类型
 
-1. 第一个 AskUserQuestion - 执行模式:
-   - 执行模式: 自动模式（推荐）✓
-
-   [自动使用推荐配置，跳过第二个 AskUserQuestion]
-   - 信息收集: 是
-   - 检查点: 创建
-   - 规划器: atlas:planner
-   - Executor 模型: sonnet
-
-2. 创建执行环境:
-   - mkdir -p .claude/orchestrate/.state
-   - 创建 add-types-20240115.json
-   - git stash push -m "atlas-checkpoint-add-types-20240115"
-
-3. Gatherer: 收集所有 React 组件
-   → .claude/gather/add-types-20240115/context.json
-   → 更新状态: currentStage="gathering_completed"
-
-4. Planner: 生成执行计划
-   → .claude/plan/add-types-20240115/plan.json
-   → 展示规划给用户
-   → 用户确认: 继续执行 ✓
-   → 更新状态: currentStage="planning_approved"
-
-5. Executor: 并行执行 3 个子任务
-   → 全部成功
-   → 用户确认: 继续验证 ✓
-   → 更新状态: currentStage="execution_completed"
-
-6. 第三个 AskUserQuestion - 测试配置:
-   - 测试节点: 统一测试（推荐）✓
-   - 测试模式: 编译测试（推荐）✓
-
-   验证测试: tsc --noEmit
-   → 通过 ✓
-   → 更新状态: currentStage="testing_completed"
-
+1. 选择自动模式 → 使用推荐配置
+   - gatherer + planner + sonnet + 编译测试
+2. 创建检查点: git stash push -m "atlas-checkpoint-..."
+3. Gatherer: 收集组件信息 → .claude/gather/<id>/context.json
+4. Planner: 生成计划 → .claude/plan/<id>/plan.json
+   → 展示: 3 个子任务 → 用户确认 ✓
+5. Executor: 并行执行 3 个子任务 → 全部成功 ✓
+6. 测试: tsc --noEmit → 通过 ✓
 7. 报告: 成功修改 6 个文件
-   → 更新状态: status="completed", currentStage="finished"
 ```
 
-### 示例 2: 带循环修改的流程（交互模式）
+### 示例 3: 交互模式（带循环修改）
 
 ```
 用户: /orchestrate 重构用户认证模块
 
-1. 连续询问配置:
-   第一个 AskUserQuestion - 执行模式:
-   - 执行模式: 交互模式 ✓
-
-   第二个 AskUserQuestion - 基础配置:
-   - 信息收集: 是 ✓
-   - 检查点: 创建 ✓
-   - 规划器: atlas:planner ✓
-   - Executor 模型: opus ✓
-
-   第三个 AskUserQuestion - 测试配置:
-   - 测试节点: 统一测试 ✓
-   - 测试模式: 编译+单元 ✓
-
-2-3. 创建环境 + 信息收集
-   → .claude/gather/refactor-auth-20240115/
-
-4. Planner: 生成初始计划
-   → 展示: 3 个子任务（重构 login, 重构 register, 更新 middleware）
-   → 用户: "修改规划 - 需要先重构 middleware，再处理 login/register"
-
-   4.4 重新规划（循环 1）
-   → 展示: 调整后的顺序（middleware → login → register）
-   → 用户: 继续执行 ✓
-
-5. Executor: 执行 3 个子任务
-   → 子任务 1 (middleware): 成功 ✓
-   → 子任务 2 (login): 失败 - 类型不匹配
-   → 子任务 3 (register): 成功 ✓
-
-   5.4 用户决策
-   → 用户: "修复失败任务"
-
-   5.5 重新执行（循环 1）
-   → 仅重新执行子任务 2
-   → 成功 ✓
-   → 用户: 继续验证 ✓
-
-6. 验证测试: tsc --noEmit && npm test
-   → 全部通过 ✓
-
-7. 报告: 成功重构用户认证模块
+1. 选择交互模式 → 逐项确认配置
+   - 信息收集: 是 | 检查点: 创建 | 规划器: atlas:planner | 模型: opus
+2. Gatherer + Planner → 展示 3 个子任务
+   → 用户: "需要先重构 middleware" → 重新规划 ✓
+3. Executor: 执行 3 个子任务
+   → middleware: 成功 | login: 失败 | register: 成功
+   → 用户选择修复 → 重试 login → 成功 ✓
+4. 测试: tsc --noEmit && npm test → 通过 ✓
+5. 报告: 成功重构用户认证模块
 ```
 
-### 示例 3: dry-run 模式
+### 示例 4: dry-run 模式
 
 ```
 用户: /orchestrate 批量更新 API 路由 --dry-run
 
-1. 连续询问配置:
-   第一个 AskUserQuestion - 执行模式:
-   - 执行模式: dry-run ✓
-
-   第二个 AskUserQuestion - 基础配置:
-   - 信息收集: 是 ✓
-   - 检查点: 跳过（dry-run 默认）✓
-   - 规划器: atlas:planner ✓
-   - Executor 模型: （dry-run 不执行，跳过）
-
-   [跳过第三个 AskUserQuestion - dry-run 不需要测试配置]
-
-2. 跳过检查点创建
-   → 创建状态文件（标记为 dry-run）
-
-3. Gatherer: 收集 API 路由信息
-   → .claude/gather/update-routes-20240115/
-
-4. Planner: 生成执行计划
-   → .claude/plan/update-routes-20240115/plan.json
-   → 展示完整计划给用户
-
-5. 输出预览报告（不执行）:
-   - 影响文件: 12 个
-   - 子任务: 4 个
-   - 执行策略: parallel
-   - 预计修改点: [详细列表]
-
-6. 提示: 如需执行，使用 /orchestrate --resume update-routes-20240115
+1. 选择 dry-run → 跳过检查点和测试配置
+2. Gatherer: 收集 API 路由信息
+3. Planner: 生成计划 → 展示预览
+   - 影响文件: 12 个 | 子任务: 4 个 | 策略: parallel
+4. 输出预览报告（不执行）
+5. 提示: 如需执行，使用 /orchestrate --resume <task-id>
 ```
 
 ---
 
 ## 五、输出格式
 
-### 执行报告
+### 快速模式报告
+
+```markdown
+# 快速执行完成
+
+**任务**: [描述]
+**修改文件**: [文件列表]
+**状态**: ✅ 成功 / ❌ 失败
+
+[如果失败]
+**失败原因**: [原因]
+**建议**: 使用自动模式重新执行 `/orchestrate <任务>`
+```
+
+### 标准模式执行报告
 
 ```markdown
 # Atlas 执行报告
@@ -701,12 +743,12 @@ task-20240115-103000
 
 ## 六、核心约束
 
-### 必须做
+### 标准模式必须做
 
 - ✅ **Step 1**: 开始时一次性确认所有配置（执行模式、规划器、模型、测试选项）
 - ✅ **Step 2**: 创建状态目录 `.claude/orchestrate/.state/` 和状态文件 `<task-id>.json`
 - ✅ **Step 2**: 在每个关键步骤完成后更新状态文件的 `currentStage` 字段
-- ✅ **Step 2**: 创建 git 检查点（非 dry-run 模式）
+- ✅ **Step 2**: 创建 git 检查点（非 dry-run/快速模式）
 - ✅ **Step 3**: 使用 `Task(subagent_type="atlas:information-gatherer", model="haiku")`
 - ✅ **Step 4**: 使用用户选择的规划器，输出到 `.claude/plan/<task-id>/`
 - ✅ **Step 4.2-4.4**: 展示规划给用户，支持循环修改直到用户确认
@@ -715,13 +757,31 @@ task-20240115-103000
 - ✅ **Step 6**: 根据 Step 1 的选择执行验证测试
 - ✅ **Step 7**: 更新最终状态为 `completed` 和输出固定格式报告
 
+### 快速模式必须做
+
+- ✅ **Step Q1**: 确认用户选择快速模式
+- ✅ **Step Q2**: 创建状态文件 `.claude/orchestrate/.state/<task-id>.json`
+- ✅ **Step Q3**: 主进程快速定位目标文件（≤5 次工具调用）
+- ✅ **Step Q4**: 使用 `Task(subagent_type="atlas:atlas-executor", model="haiku")`
+- ✅ **Step Q5**: 更新状态文件并输出报告
+- ✅ 失败时建议用户切换到自动模式
+
+### 快速模式允许做
+
+- ✅ 主进程使用 Grep/Glob/Read 快速定位文件（≤5 次）
+- ✅ 主进程直接生成简单修改计划（不调用 planner）
+- ✅ 跳过信息收集和检查点
+
 ### 禁止做
 
-- ❌ 主进程直接读取代码（除了 agent 输出的 JSON 文件）
 - ❌ 主进程直接修改文件（所有修改必须通过 executor）
-- ❌ 跳过信息收集直接规划（除非 --no-gather）
-- ❌ 跳过规划直接执行
-- ❌ executor 重新扫描文件（应使用 plan.json 的修改点）
+- ❌ 标准模式跳过信息收集直接规划（除非 --no-gather 或快速模式）
+- ❌ 标准模式跳过规划直接执行
+- ❌ executor 重新扫描文件（应使用 plan.json 或主进程提供的修改点）
 - ❌ 在 Step 1 之后还有其他的 AskUserQuestion（除了 Step 4.3 和 5.4 的确认循环）
-- ❌ 忘记更新状态文件的 `currentStage`
+- ❌ 标准模式忘记更新状态文件的 `currentStage`
 - ❌ 在用户未确认的情况下继续执行下一步
+- ❌ 快速模式用于复杂任务（>3 个文件或涉及依赖分析）
+
+
+** 在本协调器中，做任何事情都需要在 Subagent 中完成，主对话只负责调用 Subagent 和输出报告。不可在主对话中直接执行任何操作。（读取流程中的文档除外）**

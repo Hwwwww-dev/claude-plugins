@@ -1,6 +1,6 @@
 ---
 description: 问题诊断与修复建议。分析问题根因，提供修复方案，可选执行修复。
-argument-hint: <问题描述> [--scope path] [--fix]
+argument-hint: <问题描述> [--quick] [--scope path] [--fix] [--auto]
 ---
 
 # /bugfix - 问题诊断与修复
@@ -45,17 +45,18 @@ executor → 直接修复（无需重新扫描）
 
 ### 2.2 模式行为定义
 
-| 步骤 | 仅诊断 | 执行修复（交互） | 自动模式 |
-|------|--------|------------------|----------|
-| 执行策略 | 不执行 | 手动确认 | auto |
-| 信息收集 | 询问 | 询问 | 是 |
-| 诊断深度 | 询问 | 询问 | 快速 |
-| 检查点 | - | 询问 | 创建 |
-| 规划器 | 询问 | 询问 | atlas:planner |
-| Executor 模型 | - | 询问 | sonnet |
-| 测试节点 | - | 询问 | 修复后 |
-| 测试模式 | - | 询问 | 编译测试 |
-| 失败处理 | - | 询问用户 | 询问用户 |
+| 步骤 | 快速模式 | 仅诊断 | 执行修复（交互） | 自动模式 |
+|------|---------|--------|------------------|----------|
+| 执行策略 | auto | 不执行 | 手动确认 | auto |
+| 信息收集 | **跳过** | 询问 | 询问 | 是 |
+| 诊断深度 | **跳过** | 询问 | 询问 | 快速 |
+| 检查点 | **跳过** | - | 询问 | 创建 |
+| 规划器 | **跳过（主进程直接定位）** | 询问 | 询问 | atlas:planner |
+| Executor 模型 | **haiku** | - | 询问 | sonnet |
+| 测试节点 | **不测试** | - | 询问 | 修复后 |
+| 测试模式 | - | - | 询问 | 编译测试 |
+| 失败处理 | 询问用户 | - | 询问用户 | 询问用户 |
+| 状态文件 | **创建** | - | 创建 | 创建 |
 
 ### 2.3 执行步骤
 
@@ -65,6 +66,7 @@ executor → 直接修复（无需重新扫描）
 
 ```
 问题: 执行模式
+- 快速模式: 跳过信息收集，直接修复（适合明确的单点 bug，~3分钟）
 - 仅诊断（推荐）: 只分析问题，输出修复方案
 - 执行修复: 诊断后自动执行修复
 - 自动模式: 使用推荐选项，减少交互
@@ -93,6 +95,14 @@ executor → 直接修复（无需重新扫描）
 - 诊断深度: 快速
 - 失败处理: 询问用户
 
+**快速模式行为**（跳过第二、三个 AskUserQuestion）：
+- 信息收集: 跳过
+- 检查点: 跳过
+- 规划器: 跳过（主进程直接定位）
+- Executor 模型: haiku
+- 测试: 不测试
+- 状态文件: 创建
+
 **第三个 AskUserQuestion: 修复和测试配置**（仅执行修复模式和自动模式）
 
 如果用户选择了**执行修复**或**自动模式**，询问修复和测试配置：
@@ -120,6 +130,86 @@ executor → 直接修复（无需重新扫描）
 **注意**:
 - 仅诊断模式跳过第三个 AskUserQuestion
 - 自动模式和执行修复模式都需要第三个 AskUserQuestion
+- **快速模式跳过所有询问，直接进入执行**
+
+---
+
+### 2.4 快速模式流程（--quick）
+
+**适用场景**：
+- 修复 1-3 个文件中的明确 bug
+- 用户已经定位到问题位置
+- 简单的语法错误、类型错误、拼写错误
+
+**流程**：
+```
+确认模式 → 主进程快速定位 → 直接修复 → 简化报告
+```
+
+**Step Q1: 确认快速模式**
+```
+AskUserQuestion:
+问题: 执行模式
+- 快速模式 ✓
+```
+
+**Step Q2: 创建状态文件**
+```bash
+# 创建状态目录
+mkdir -p .claude/orchestrate/.state
+
+# 初始化状态文件
+echo '{
+  "executionId": "bugfix-<timestamp>",
+  "timestamp": "<ISO-8601>",
+  "task": "<用户任务>",
+  "status": "in_progress",
+  "currentStage": "quick_bugfix",
+  "config": { "mode": "quick", "executorModel": "haiku" }
+}' > .claude/orchestrate/.state/bugfix-<timestamp>.json
+```
+
+**Step Q3: 主进程快速定位**
+```
+主进程允许使用 Grep/Glob/Read 快速定位目标文件（≤5 次工具调用）
+分析问题根因
+直接构建 executor prompt（不调用 planner agent）
+```
+
+**Step Q4: 直接修复**
+```
+Task(subagent_type="atlas:atlas-executor", model="haiku")
+prompt: |
+  子任务 #1
+  描述: [问题修复]
+  文件: [主进程定位的文件]
+  问题: [根因分析]
+  修改点: [主进程分析的修改点]
+  注意: 快速模式，只做明确提及的修复
+```
+
+**Step Q5: 简化报告**
+```markdown
+# 快速修复完成
+
+**执行 ID**: bugfix-<timestamp>
+**状态文件**: .claude/orchestrate/.state/bugfix-<timestamp>.json
+**问题**: [描述]
+**根因**: [定位]
+**修改文件**: [文件列表]
+**状态**: ✅ 成功 / ❌ 失败
+
+[如果失败] 建议: 使用自动模式重新执行 `/bugfix <问题> --fix`
+```
+
+**快速模式风险提示**：
+- 跳过深度诊断，可能遗漏关联问题
+- 跳过检查点，无法回滚
+- 如果 executor 失败，建议用户切换到自动模式
+
+---
+
+### 2.5 标准模式执行步骤
 
 **Step 2: 创建执行环境**（仅执行修复和自动模式时）
 
@@ -355,120 +445,59 @@ prompt: |
 
 ## 四、示例
 
-### 示例 1: 仅诊断
+### 示例 1: 快速修复（~3分钟）- 明确的单点 bug
 
 ```
-用户: /bugfix 登录按钮点击无反应
+用户: /bugfix Login.tsx 第45行 onClick 未绑定 --quick
 
-1. 分阶段确认配置:
-   第一个 AskUserQuestion - 执行模式:
-   - 执行模式: 仅诊断（推荐）✓
-
-   第二个 AskUserQuestion - 诊断配置:
-   - 信息收集: 是 ✓
-   - 规划器: atlas:planner ✓
-   - 诊断深度: 快速 ✓
-
-   [跳过第三个 AskUserQuestion - 仅诊断模式不需要修复和测试配置]
-
-2. Gatherer: 收集登录组件代码
-   → .claude/gather/bugfix-20240115/context.json
-
-3. 根因分析: src/components/Login.tsx:45 onClick 未绑定
-   → .claude/plan/bugfix-20240115/plan.json
-
-4. 输出修复方案:
-   - 问题类型: 事件绑定问题
-   - 复杂度: simple
-   - 修复策略: 添加 onClick 事件处理器
+1. 选择快速模式 → 跳过所有后续询问
+2. 主进程定位: Grep "onClick" src/components/Login.tsx
+   → 发现第45行: <button onClick={handleLogin}>
+   → Read 上下文: handleLogin 定义在第12行，但未绑定 this
+3. 根因确认: 类组件中 handleLogin 未在 constructor 中绑定
+4. Executor(haiku): 在 constructor 添加 this.handleLogin = this.handleLogin.bind(this)
+5. 修复完成: src/components/Login.tsx (1处修改)
+6. 输出: ✅ 快速修复成功 | 建议: 考虑使用箭头函数避免绑定问题
 ```
 
-### 示例 2: 诊断+修复（交互模式）
+### 示例 2: 自动模式 - 需要诊断的 bug
 
 ```
-用户: /bugfix 用户数据丢失 --fix
+用户: /bugfix 用户列表接口返回 undefined --auto
 
-1. 分阶段确认配置:
-   第一个 AskUserQuestion - 执行模式:
-   - 执行模式: 执行修复 ✓
-
-   第二个 AskUserQuestion - 诊断配置:
-   - 信息收集: 是 ✓
-   - 规划器: atlas:planner ✓
-   - 诊断深度: 深度 ✓
-
-   第三个 AskUserQuestion - 修复和测试配置:
-   - 是否创建检查点: 创建 ✓
-   - Executor 模型: opus ✓
-   - 测试节点: 修复后 ✓
-   - 测试模式: 编译+单元 ✓
-
-2. 创建执行环境:
-   - mkdir -p .claude/bugfix/.state
-   - 创建 bugfix-20240115.json
-   - git stash push -m "atlas-checkpoint-bugfix-20240115"
-
-3. Gatherer: 收集 UserService 代码
-   → .claude/gather/bugfix-20240115/context.json
-
-4. 根因分析: 并发竞态条件
-   → .claude/plan/bugfix-20240115/plan.json
-   → 用户确认: 继续执行 ✓
-
-5. Executor: 执行修复
-   → 成功 ✓
-   → 用户确认: 继续验证 ✓
-
-6. 测试: tsc --noEmit && npm test
-   → 全部通过 ✓
-
-7. 报告
+1. 选择自动模式 → 使用推荐配置 (gatherer + atlas:planner + 快速诊断)
+2. 创建检查点: git stash push -m "atlas-checkpoint-bugfix-20240115-143000"
+3. Gatherer 收集: 搜索 "用户列表" 相关代码 → 定位 api/users.ts, hooks/useUsers.ts
+4. Planner 诊断: 根因在 api/users.ts:28 - response.data.users 应为 response.data.list
+   → 复杂度: simple | 影响: useUsers hook 的所有调用方
+5. 用户确认方案 ✓
+6. Executor(sonnet): 修复 api/users.ts 第28行字段映射
+7. 测试: tsc --noEmit ✓ | 输出报告: 1文件修改，根因已修复
 ```
 
-### 示例 3: 自动模式
+### 示例 3: 交互模式 - 复杂 bug 修复
 
 ```
-用户: /bugfix 导入路径错误 --auto
+用户: /bugfix 订单提交后状态不更新 --fix
 
-1. 分阶段确认配置:
-   第一个 AskUserQuestion - 执行模式:
-   - 执行模式: 自动模式 ✓
-
-   [自动使用推荐配置，跳过第二个 AskUserQuestion]
-   - 信息收集: 是
-   - 规划器: atlas:planner
-   - 诊断深度: 快速
-
-   第三个 AskUserQuestion - 修复和测试配置:
-   - 是否创建检查点: 创建 ✓
-   - Executor 模型: sonnet ✓
-   - 测试节点: 修复后 ✓
-   - 测试模式: 编译测试 ✓
-
-2. 创建执行环境并创建检查点
-
-3. Gatherer: 收集导入相关代码
-   → .claude/gather/bugfix-20240115/context.json
-
-4. 根因分析: 相对路径错误
-   → .claude/plan/bugfix-20240115/plan.json
-   → 用户确认: 继续执行 ✓
-
-5. Executor: 执行修复
-   → 成功 ✓
-   → 用户确认: 继续验证 ✓
-
-6. 测试: tsc --noEmit
-   → 通过 ✓
-
-7. 报告
+1. 选择执行修复 → 配置: 深度诊断 + opus + 编译+单元测试
+2. 创建检查点 + Gatherer 收集: 订单相关文件 (5个) + 状态管理 (3个)
+3. Planner 深度诊断:
+   → 根因1: store/order.ts:45 - 异步 action 未 await
+   → 根因2: api/order.ts:67 - 缺少错误处理导致静默失败
+   → 复杂度: moderate | 关联影响: 购物车、支付流程
+4. 用户审查方案 → 要求: "保留原有错误处理逻辑"
+5. Planner 重新规划 (v2): 调整修复策略，保留 try-catch 结构
+6. 用户确认 ✓ → Executor(opus): 修复 2 个文件
+7. 测试: tsc ✓ + npm test ✓ (订单相关用例全部通过)
+8. 报告: 2文件修改 | 迭代: 规划2次，执行1次 | 检查点可回滚
 ```
 
 ---
 
 ## 五、核心约束
 
-### 必须做
+### 标准模式必须做
 
 - ✅ **Step 1**: 分阶段确认配置（第一个询问执行模式，第二个询问诊断配置，第三个询问修复和测试配置）
 - ✅ **Step 2**: 创建状态目录 `.claude/bugfix/.state/` 和状态文件（执行修复模式和自动模式）
@@ -481,13 +510,31 @@ prompt: |
 - ✅ **Step 6**: 根据 Step 1 的选择执行验证测试
 - ✅ **Step 7**: 更新最终状态并输出报告
 
+### 快速模式必须做
+
+- ✅ **Step Q1**: 确认用户选择快速模式
+- ✅ **Step Q2**: 创建状态文件 `.claude/orchestrate/.state/bugfix-<timestamp>.json`
+- ✅ **Step Q3**: 主进程快速定位目标文件（≤5 次工具调用）
+- ✅ **Step Q4**: 使用 `Task(subagent_type="atlas:atlas-executor", model="haiku")`
+- ✅ **Step Q5**: 输出简化报告（包含执行 ID 和状态文件路径）
+- ✅ 失败时建议用户切换到自动模式
+
+### 快速模式允许做
+
+- ✅ 主进程使用 Grep/Glob/Read 快速定位文件（≤5 次）
+- ✅ 主进程直接分析根因（不调用 planner）
+- ✅ 跳过信息收集、检查点
+
 ### 禁止做
 
-- ❌ 主进程直接读取代码（除了 agent 输出的 JSON 文件）
 - ❌ 主进程直接修改文件（所有修改必须通过 executor）
-- ❌ 跳过信息收集直接诊断
-- ❌ 跳过规划直接执行修复
-- ❌ executor 重新扫描文件（应使用 plan.json 的修改点）
+- ❌ 标准模式跳过信息收集直接诊断（除非快速模式）
+- ❌ 标准模式跳过规划直接执行修复
+- ❌ executor 重新扫描文件（应使用 plan.json 或主进程提供的修改点）
 - ❌ 在 Step 1 之后还有其他的 AskUserQuestion（除了 Step 4.3 和 5.3 的确认循环）
-- ❌ 忘记更新状态文件的 `currentStage`（执行修复模式）
+- ❌ 标准模式忘记更新状态文件的 `currentStage`
 - ❌ 在用户未确认的情况下继续执行下一步
+- ❌ 快速模式用于复杂问题（>3 个文件或涉及依赖分析）
+
+
+** 在本命令中，做任何事情都需要在 Subagent 中完成，主对话只负责调用 Subagent 和输出报告。不可在主对话中直接执行任何操作。（读取流程中的文档除外）**
