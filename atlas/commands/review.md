@@ -1,270 +1,352 @@
 ---
-description: Code review command. Performs multi-dimensional automated review on specified code scope (security, performance, style, architecture), supports auto-fix.
-argument-hint: [--scope path] [--type security|performance|style|architecture|all] [--fix] [--severity critical|warning|all]
+description: Code review command. Performs multi-dimensional automated review (security, performance, style, architecture) on specified code scope, with auto-fix support.
+argument-hint: [--scope path] [--type security|performance|style|architecture|all] [--fix] [--quick] [--severity critical|warning|all]
 ---
 
-# Code Review Command
+# /review - Code Review
 
-Performs multi-dimensional automated code review, discovers potential issues and provides fix suggestions.
+## 1. Agents and Tools
 
-## Parameters
+### 1.1 Agent Description
 
-| Parameter | Description | Default |
-|:----------|:------------|:--------|
-| `--scope` | Review scope (directory/file/git diff) | git diff (uncommitted changes) |
-| `--type` | Review type | all |
-| `--fix` | Auto-fix fixable issues | false |
-| `--severity` | Minimum severity level to report | all |
+| Agent | Responsibility | Model | Output Location |
+|-------|----------------|-------|-----------------|
+| `atlas:information-gatherer` | Collect target code information | haiku | `.claude/gather/review-<ts>/` |
+| `atlas:code-reviewer` | Execute single-dimension review | User selected | Returns review result JSON |
+| `atlas:atlas-executor` | Execute auto-fix | User selected | Directly modifies files |
 
----
+### 1.2 Tool Description
 
-## Review Types
+| Tool | Purpose |
+|------|---------|
+| `AskUserQuestion` | Confirm options |
+| `Task` | Call subagent |
+| `tsc` / `npm test` | Validate results |
 
-| Type | Description | Check Items |
-|:-----|:------------|:------------|
-| `security` | Security review | SQL injection, XSS, hardcoded secrets, sensitive data leaks, insecure dependencies |
-| `performance` | Performance review | N+1 queries, memory leaks, unnecessary re-renders, excessive complexity |
-| `style` | Style review | Naming conventions, code structure, consistency, comment quality |
-| `architecture` | Architecture review | Layer violations, circular dependencies, coupling level, module boundaries |
-| `all` | Full review | All types above |
+### 1.3 Information Flow
 
----
-
-## Execution Flow
-
-Phase 0 Scope Determination -> Phase 1 Code Analysis -> Phase 2 Parallel Review -> Phase 3 Report Aggregation -> Phase 4 Auto-fix (optional)
-
-### Subagent Assignment
-
-| Phase | Function | Subagent | Description |
-|:------|:---------|:---------|:------------|
-| 0 | Scope determination | Main process | Parse parameters, determine review scope |
-| 1 | Code analysis | `atlas:information-gatherer` | Collect target code information |
-| 2 | Parallel review | `atlas:code-reviewer` | Multiple instances review different dimensions in parallel |
-| 3 | Report aggregation | Main process | Merge results, generate unified report |
-| 4 | Auto-fix | `atlas:atlas-executor` | Execute auto-fixable issues |
-
----
-
-## Phase 0: Scope Determination
-
-**Input**: Command parameters
-
-**Output**: Review target list
-
-**Scope determination rules**:
-| Scenario | Scope |
-|:---------|:------|
-| No --scope | git diff (uncommitted change files) |
-| --scope . | Entire project (exclude node_modules, .git, etc.) |
-| --scope src | Specified directory |
-| --scope src/user.ts | Specified file |
-
-**Operations**:
-1. Parse --scope parameter
-2. If not specified, get git diff changed file list
-3. Filter non-code files
-4. Output target file list
-
----
-
-## Project Knowledge Base
-
-**Prioritize getting project info from `.claude/repowiki/`** (if exists):
-
-| File | Purpose |
-|:-----|:--------|
-| `.claude/repowiki/.meta/modules.pkg.json` | Module structure, dependency relationships (for architecture review) |
-| `.claude/repowiki/.meta/api.pkg.json` | API endpoint information (for security review) |
-| `.claude/repowiki/.meta/symbols.pkg.json` | Symbol index (accelerate code location) |
-
-**Usage**: Check if these files exist before Phase 1 analysis, prioritize using existing information.
-
----
-
-## Phase 1: Code Analysis
-
-**Subagent**: `atlas:information-gatherer`
-
-**Input**: Phase 0 target file list + `.claude/repowiki/` existing info (if exists)
-
-**Output**: `.claude/review/.meta/targets.pkg.json` (contains file path, language, line count, symbols, imports/exports, statistics)
-
----
-
-## Phase 2: Parallel Review
-
-**Subagent**: `atlas:code-reviewer` (multiple instances in parallel)
-
-**Input**:
-- `.claude/review/.meta/targets.pkg.json`
-- Review type (--type parameter)
-
-**Output**: Review result JSON for each dimension
-
-**Parallel Strategy**:
-- --type all: Start 4 code-reviewers (security, performance, style, architecture)
-- --type security: Start 1 code-reviewer
-- Multiple types: Start corresponding number for specified types
-
-**Subagent Prompt must include**:
-1. Review dimension (single dimension)
-2. Target file path list
-3. Review rules reference (see rules table below)
-4. Output format requirements
-
-### Review Rules
-
-#### Security
-
-| Rule ID | Check Item | Severity |
-|:--------|:-----------|:---------|
-| SEC001 | SQL injection | critical |
-| SEC002 | XSS vulnerability | critical |
-| SEC003 | Hardcoded secrets | critical |
-| SEC004 | Sensitive info logging | warning |
-| SEC005 | Insecure random numbers | info |
-| SEC006 | eval/Function usage | warning |
-| SEC007 | Path traversal | critical |
-| SEC008 | CORS configuration | warning |
-
-#### Performance
-
-| Rule ID | Check Item | Severity |
-|:--------|:-----------|:---------|
-| PERF001 | N+1 queries | warning |
-| PERF002 | Unoptimized loops | info |
-| PERF003 | Memory leak risk | warning |
-| PERF004 | Unnecessary re-renders | info |
-| PERF005 | Synchronous blocking | warning |
-| PERF006 | Regex backtracking | warning |
-| PERF007 | Large object copies | info |
-
-#### Style
-
-| Rule ID | Check Item | Severity |
-|:--------|:-----------|:---------|
-| STYLE001 | Function too long | warning |
-| STYLE002 | Nesting too deep | warning |
-| STYLE003 | Non-standard naming | info |
-| STYLE004 | Magic numbers | info |
-| STYLE005 | Duplicate code | warning |
-| STYLE006 | TODO/FIXME | info |
-| STYLE007 | Dead code | info |
-| STYLE008 | Too many parameters | info |
-
-#### Architecture
-
-| Rule ID | Check Item | Severity |
-|:--------|:-----------|:---------|
-| ARCH001 | Circular dependencies | warning |
-| ARCH002 | Layer violations | warning |
-| ARCH003 | Module boundaries | info |
-| ARCH004 | High coupling | info |
-| ARCH005 | Missing abstraction | info |
-| ARCH006 | Singleton abuse | info |
-
-### Output Format
-
-Each code-reviewer instance outputs JSON containing:
-- `dimension`: Review dimension
-- `timestamp`: Timestamp
-- `issues[]`: Issue list (ruleId, severity, file, line, column, code, message, suggestion, autoFixable, fixedCode)
-- `summary`: Statistics (critical, warning, info, total)
-
----
-
-## Phase 3: Report Aggregation
-
-**Executor**: Main process
-
-**Input**: Phase 2 review result JSON for each dimension
-
-**Output**: `.claude/review/report-{date}.md`
-
-**Report Contains**:
-- Overview (review scope, types, total issues, critical issues, warnings, info)
-- Issue distribution (by dimension and severity)
-- Critical issue details (file, code, suggestion, auto-fixable or not)
-- Warning and info issue list
-- Fix suggestions (grouped by auto-fix and manual fix)
-
----
-
-## Phase 4: Auto-fix (Optional)
-
-**Condition**: Only execute when --fix parameter exists
-
-**Subagent**: `atlas:atlas-executor`
-
-**Input**: Phase 3 report issues list where autoFixable=true
-
-**Output**: Fixed files + fix report
-
-**Execution Strategy**:
-1. Group by file, one subtask per file
-2. Execute subtasks in parallel
-3. Each fix maintains original code style
-
-**Fix Principles**:
-- Only fix issues where autoFixable=true
-- Maintain code format consistency
-- Don't introduce new issues
-- Verify syntax correctness after fix
-
-**Fix Report** contains: Fix statistics, fix details, follow-up suggestions
-
----
-
-## Conditional Execution
-
-| Condition | Behavior |
-|:----------|:---------|
-| No changed files | Prompt no review needed, exit |
-| Target files >100 | Suggest using --scope to narrow scope |
-| --fix but no fixable issues | Report no auto-fixable issues |
-| Review type has no issues | Report that dimension passed |
-
----
-
-## Constraints
-
-**Execution Constraints**:
-- Phase 2 must use `atlas:code-reviewer` agent
-- Phase 4 must use `atlas:atlas-executor` agent
-- Different review dimensions must execute in parallel
-- Each code-reviewer only handles single dimension
-
-**Review Constraints**:
-- Only report issues, don't fix without permission (unless --fix)
-- Strictly judge severity by rules
-- Provide actionable fix suggestions
-- autoFixable must be carefully determined
-
-**Report Constraints**:
-- Issues must include file path and line number
-- Must provide code snippet context
-- Must sort by severity
-- Must indicate if auto-fixable
-
----
-
-## Examples
-
-### Basic Usage
-```bash
-# Review uncommitted changes
-/atlas:review
-
-# Review specified directory
-/atlas:review --scope src/services
-
-# Security review only
-/atlas:review --type security
-
-# Review and auto-fix
-/atlas:review --fix
-
-# Show critical issues only
-/atlas:review --severity critical
 ```
+gatherer → .claude/gather/review-<ts>/context.json
+    ↓
+code-reviewer → Read context.json → Output review result JSON
+    ↓
+Main process → Aggregate report → .claude/review/report-<date>.md
+    ↓
+[--fix] executor → Fix autoFixable issues
+```
+
+---
+
+## 2. Orchestration Plan
+
+### 2.1 Mandatory Flow
+
+```
+Scope determination → Confirm options → Code analysis → Parallel review → Report aggregation → [--fix] Fix → Test → Output
+```
+
+### 2.2 Mode Behavior Definition
+
+| Step | Quick Mode | Default | With --fix | Options |
+|------|------------|---------|------------|---------|
+| Information gathering | **Skip** | Yes | Yes | Yes / No |
+| Review type | User specified | all | all | security / performance / style / architecture / all |
+| Severity filter | all | all | all | critical / warning / all |
+| Planner | **Skip** | - | Ask | atlas:planner / Built-in Plan |
+| Reviewer model | **haiku** | Ask | Ask | haiku / sonnet / opus |
+| Executor model | - | - | Ask | haiku / sonnet / opus |
+| Test node | **Skip** | - | Ask | After fix / No test |
+| Test mode | - | - | Ask | Compile test / Unit test / Compile+Unit |
+| State file | **Create** | Create | Create | - |
+
+### 2.3 Review Types
+
+| Type | Check Items |
+|------|-------------|
+| `security` | SQL injection, XSS, hardcoded keys, sensitive data leakage |
+| `performance` | N+1 queries, memory leaks, unnecessary re-renders |
+| `style` | Naming conventions, code structure, consistency |
+| `architecture` | Layer violations, circular dependencies, coupling |
+
+### 2.4 Execution Mode Selection
+
+**First AskUserQuestion: Execution Mode Selection**
+
+```
+Question: Execution mode
+- Quick mode: Skip information gathering, review directly (suitable for single file or small scope review, ~3 minutes)
+- Standard mode (recommended): Use gatherer to collect information before review
+```
+
+### 2.5 Execution Steps
+
+**Step 1: Scope Determination**
+- No --scope: git diff (uncommitted changes)
+- --scope .: Entire project
+- --scope src: Specified directory
+
+**Step 2: Phased Option Confirmation**
+
+**Second AskUserQuestion: Reviewer Model Selection (Standard mode only)**
+
+```
+Question: Reviewer model
+- haiku: Quick review, suitable for simple checks
+- sonnet (recommended): Balance between performance and cost
+- opus: Deep review, for complex code with high quality requirements
+```
+
+**Second AskUserQuestion: Fix Configuration (Only with --fix)**
+
+If user uses **--fix** parameter, ask for fix configuration:
+
+```
+Question 1: Planner selection
+- atlas:planner (recommended): Trust gatherer output, minimize scanning
+- Built-in Plan: Will explore and validate on its own
+
+Question 2: Executor model
+- haiku: Quick simple fixes
+- sonnet (recommended): Balance between performance and cost
+- opus: Complex fixes with high quality requirements
+```
+
+**Third AskUserQuestion: Test Configuration (Only with --fix)**
+
+If user uses **--fix** parameter, ask for test configuration:
+
+```
+Question 1: Test node
+- After fix (recommended): Test after fix completion
+- No test: Skip validation
+
+Question 2: Test mode
+- Compile test (recommended): tsc --noEmit to ensure syntax correctness
+- Unit test: npm test to ensure functionality
+- Compile+Unit: Complete validation
+```
+
+**Notes**:
+- Quick mode skips all questions and proceeds directly to review flow
+- Only standard mode with --fix will ask the third and fourth AskUserQuestion
+- If not using --fix, only ask for Reviewer model, then proceed directly to review flow
+
+---
+
+### 2.6 Quick Mode Flow (--quick)
+
+**Applicable Scenarios**:
+- Review 1-3 files
+- Quick check of specific code snippets
+
+**Flow**:
+```
+Confirm mode → Main process quick locate → Direct review → Simplified report
+```
+
+**Step Q1: Confirm Quick Mode**
+```
+AskUserQuestion:
+Question: Execution mode
+- Quick mode ✓
+```
+
+**Step Q2: Create State File**
+```bash
+mkdir -p .claude/orchestrate/.state
+echo '{
+  "executionId": "<task-id>",
+  "timestamp": "<ISO-8601>",
+  "task": "<user task>",
+  "status": "in_progress",
+  "currentStage": "quick_review",
+  "config": { "mode": "quick", "reviewerModel": "haiku" }
+}' > .claude/orchestrate/.state/<task-id>.json
+```
+
+**Step Q3: Main Process Quick Locate**
+```
+Main process is allowed to use Grep/Glob/Read to quickly locate target files (≤5 tool calls)
+Directly build code-reviewer prompt
+```
+
+**Step Q4: Direct Review**
+```
+Task(subagent_type="atlas:code-reviewer", model="haiku")
+prompt: |
+  Review dimension: [user specified or all]
+  Target files: [files located by main process]
+  Code snippets: [code read by main process]
+  Note: Quick mode, output simplified report
+```
+
+**Step Q5: Simplified Report**
+```markdown
+# Quick Review Complete
+
+**Execution ID**: <task-id>
+**State file**: .claude/orchestrate/.state/<task-id>.json
+**Scope**: [file list]
+**Review type**: [security/performance/style/architecture/all]
+**Issues found**: X critical, Y warning
+
+[Issue list]
+
+[If autoFixable exists] Suggestion: Use `/review --fix` for auto-fix
+```
+
+**Quick Mode Risk Notes**:
+- Skips gatherer, may miss context dependencies
+- Does not support --fix (need to switch to standard mode)
+- If review fails, suggest user switch to standard mode and re-execute
+
+---
+
+### 2.7 Standard Mode Execution Steps
+
+**Step 3: Code Analysis**
+```
+Task(subagent_type="atlas:information-gatherer", model="haiku")
+prompt: |
+  Task ID: review-<timestamp>
+  Target files: [file list]
+  Output directory: .claude/gather/review-<timestamp>/
+```
+
+**Step 4: Parallel Review**
+```
+Task(subagent_type="atlas:code-reviewer", model=user selected)
+prompt: |
+  Review dimension: [security/performance/style/architecture]
+  Gatherer output: .claude/gather/review-<timestamp>/
+```
+
+--type all: Launch 4 code-reviewers in parallel
+
+**Step 5: Report Aggregation**
+- Merge results from all dimensions
+- Sort by severity
+- Output `.claude/review/report-<date>.md`
+
+**Step 6: (--fix) Auto-Fix**
+```
+Task(subagent_type="atlas:atlas-executor", model=user selected)
+prompt: |
+  Fix task: Issues with autoFixable=true
+  Modification points: [extracted from review results]
+```
+
+**Step 7: (--fix) Validation Test** (Execute based on Step 2 selection)
+
+**Step 8: Output Report**
+
+---
+
+## 3. Key Details
+
+### 3.1 Main Process Responsibilities
+
+**Allowed**: AskUserQuestion / Task calls / Read agent output / Aggregate reports
+
+**Prohibited**: Read/Grep/Glob to read code / Edit/Write to modify files / Direct code analysis
+
+### 3.2 Review Result Format
+
+Each code-reviewer outputs:
+```json
+{
+  "dimension": "security",
+  "issues": [
+    {
+      "ruleId": "SEC001",
+      "severity": "critical",
+      "file": "src/api.ts",
+      "line": 45,
+      "message": "SQL injection risk",
+      "suggestion": "Use parameterized queries",
+      "autoFixable": true,
+      "fixedCode": "..."
+    }
+  ],
+  "summary": {"critical": 1, "warning": 2, "info": 0}
+}
+```
+
+---
+
+## 4. Examples
+
+### Example 1: Quick Review (~3 minutes)
+
+```
+User: /review --scope src/api/user.ts --quick
+1. AskUserQuestion: Execution mode → User selects "Quick mode"
+2. Main process locate: Glob match → Read user.ts (156 lines)
+3. Task(code-reviewer, haiku): Review dimension all
+4. Review results: security=0, performance=1, style=2, architecture=0
+5. Output simplified report → warning: 1 (N+1 query risk L45-52)
+6. Suggestion: Use `/review --fix` for auto-fix
+```
+
+### Example 2: Standard Review (Multi-dimensional)
+
+```
+User: /review --scope src/services --type all
+1. AskUserQuestion: Execution mode → User selects "Standard mode"
+2. AskUserQuestion: Reviewer model → User selects sonnet
+3. Task(gatherer, haiku): Collect 12 files → .claude/gather/review-1704067200/
+4. Launch 4 Task(code-reviewer, sonnet) in parallel: security/performance/style/architecture
+5. Aggregate results: critical=2, warning=5, info=8
+6. Output report → .claude/review/report-2024-01-01.md
+7. Key issues: SQL injection(L45), memory leak(L128), circular dependency(services→utils→services)
+```
+
+### Example 3: Security Review + Fix
+
+```
+User: /review --type security --fix
+1. AskUserQuestion: Execution mode → User selects "Standard mode"
+2. AskUserQuestion: Reviewer model → opus (deep security review)
+3. AskUserQuestion: Planner → atlas:planner / Executor model → sonnet
+4. AskUserQuestion: Test configuration → After fix + Compile test
+5. Task(gatherer): Collect → Task(code-reviewer, opus): Found 2 critical (autoFixable)
+6. Task(executor, sonnet): Fix SQL injection(L45) + XSS vulnerability(L89)
+7. Validate: tsc --noEmit ✓ → Output report → critical: 0, fixed: 2
+```
+
+---
+
+## 5. Core Constraints
+
+### Standard Mode Must Do
+
+- ✅ Ask for execution mode selection
+- ✅ Ask for Reviewer model selection
+- ✅ Ask for planner and test options when using --fix
+- ✅ Use gatherer to collect code information
+- ✅ Review different dimensions in parallel
+- ✅ Include file path and line number in issues
+
+### Quick Mode Must Do
+
+- ✅ **Step Q1**: Confirm user selects quick mode
+- ✅ **Step Q2**: Create state file at `.claude/orchestrate/.state/<task-id>.json`
+- ✅ **Step Q3**: Main process quick locate target files (≤5 tool calls)
+- ✅ **Step Q4**: Use `Task(subagent_type="atlas:code-reviewer", model="haiku")`
+- ✅ **Step Q5**: Output simplified report (include execution ID and state file path)
+- ✅ Suggest user switch to standard mode on failure
+
+### Quick Mode Allowed
+
+- ✅ Main process uses Grep/Glob/Read to quickly locate files (≤5 times)
+- ✅ Main process directly builds code-reviewer prompt (without calling gatherer)
+- ✅ Skip checkpoints
+
+### Prohibited
+
+- ❌ Main process directly reads code (standard mode)
+- ❌ Main process directly modifies files
+- ❌ Auto-fix without using --fix
+- ❌ Careless autoFixable judgment
+- ❌ Quick mode with --fix (need to switch to standard mode)
+- ❌ Quick mode for complex reviews (>3 files or requires dependency analysis)

@@ -53,6 +53,26 @@ A multi-expert brainstorming framework that explores problems through Socratic d
 
 **Documentation**: See [ideation/](./ideation/) directory
 
+### 📚 Mnemosyne - Context Memory Management
+
+A context memory management plugin for saving and restoring session context.
+
+**Features**:
+- 💾 **One-Click Save**: Intelligently extract and save session context including requirements, decisions, code changes, and progress
+- 🔄 **Quick Restore**: Rapidly restore historical progress in new sessions
+- 🏷️ **Smart Tagging**: Auto-generate tags based on content for easy categorization
+- 🔍 **Full-Text Search**: Search across all saved contexts by title, tags, or content
+- 📊 **Statistics**: View storage usage, tag distribution, and quality metrics
+- 🧹 **Auto Cleanup**: Clean up expired or unused context records
+
+**Use Cases**:
+- Save work progress before ending a session
+- Resume complex tasks across multiple sessions
+- Maintain project context for long-running development
+- Share context between team members
+
+**Documentation**: See [mnemosyne/](./mnemosyne/) directory
+
 ## Installation
 
 ### Quick Start
@@ -64,6 +84,7 @@ A multi-expert brainstorming framework that explores problems through Socratic d
 # 2. Install plugins
 /plugin install atlas@claude-code-marketplace
 /plugin install ideation@claude-code-marketplace
+/plugin install mnemosyne@claude-code-marketplace
 
 # 3. Restart Claude Code
 ```
@@ -77,13 +98,14 @@ A multi-expert brainstorming framework that explores problems through Socratic d
 # Install plugins locally
 /plugin install atlas@claude-code-marketplace
 /plugin install ideation@claude-code-marketplace
+/plugin install mnemosyne@claude-code-marketplace
 ```
 
 ## Usage
 
 ### Atlas Plugin
 
-Atlas provides 9 commands, 7 specialized agents, and 3 query skills:
+Atlas provides 10 commands, 8 specialized agents, and 3 query skills:
 
 #### Commands
 
@@ -98,6 +120,7 @@ Atlas provides 9 commands, 7 specialized agents, and 3 query skills:
 | `/atlas:health` | Project health diagnostics |
 | `/atlas:changelog` | Auto-generate changelog |
 | `/atlas:repo-wiki` | Repository documentation generation |
+| `/atlas:bugfix` | Bug diagnosis and fix suggestions |
 
 #### Example Usage
 
@@ -169,6 +192,36 @@ Atlas provides 9 commands, 7 specialized agents, and 3 query skills:
 | business | PM, Market Analyst, Legal, Data Analyst | Business feasibility, compliance |
 | all | All 13 experts | Complex decisions, full evaluation |
 
+### Mnemosyne Plugin
+
+Mnemosyne provides 7 commands for context management:
+
+| Command | Description |
+|---------|-------------|
+| `/mnemosyne:save` | Save current session context |
+| `/mnemosyne:load` | Load historical context |
+| `/mnemosyne:list` | List all saved contexts |
+| `/mnemosyne:search` | Search contexts by keywords |
+| `/mnemosyne:delete` | Delete specific context |
+| `/mnemosyne:clean` | Clean up expired contexts |
+| `/mnemosyne:stats` | View storage statistics |
+
+#### Example Usage
+
+```bash
+# Save current session
+/mnemosyne:save "Implementing user authentication"
+
+# Load previous context
+/mnemosyne:load --latest
+
+# Search contexts
+/mnemosyne:search auth feature
+
+# View statistics
+/mnemosyne:stats
+```
+
 ## Plugin Structure
 
 ```
@@ -178,15 +231,16 @@ claude-code-marketplace/
 ├── atlas/                           # Atlas plugin (v2.9.1)
 │   ├── .claude-plugin/
 │   │   └── plugin.json             # Plugin metadata
-│   ├── agents/                     # Specialized agents (7)
+│   ├── agents/                     # Specialized agents (8)
 │   │   ├── atlas-executor.md       # Task executor
 │   │   ├── code-reviewer.md        # Code review expert
 │   │   ├── commit-analyzer.md      # Commit analysis
 │   │   ├── dependency-analyzer.md  # Dependency analysis
 │   │   ├── information-gatherer.md # Information gatherer
+│   │   ├── planner.md              # Task planner
 │   │   ├── repo-context-indexer.md # Repository context indexer
 │   │   └── repo-semantic-analyzer.md # Semantic analyzer
-│   ├── commands/                   # Commands (9)
+│   ├── commands/                   # Commands (10)
 │   │   ├── orchestrate.md          # Task orchestration
 │   │   ├── gather.md               # Information gathering
 │   │   ├── review.md               # Code review
@@ -195,7 +249,8 @@ claude-code-marketplace/
 │   │   ├── deps.md                 # Dependency management
 │   │   ├── health.md               # Health diagnostics
 │   │   ├── changelog.md            # Changelog generation
-│   │   └── repo-wiki.md            # Repo documentation
+│   │   ├── repo-wiki.md            # Repo documentation
+│   │   └── bugfix.md               # Bug diagnosis and fix
 │   ├── hooks/
 │   │   └── hooks.json              # Hooks configuration
 │   └── skills/                     # Query skills (3)
@@ -209,6 +264,17 @@ claude-code-marketplace/
 │   │   └── debate-moderator.md     # Debate moderator agent
 │   └── commands/
 │       └── brainstorm.md           # /ideation:brainstorm command
+├── mnemosyne/                       # Mnemosyne plugin (v1.1.2)
+│   ├── .claude-plugin/
+│   │   └── plugin.json             # Plugin metadata
+│   └── commands/                   # Commands (7)
+│       ├── save.md                 # Save context
+│       ├── load.md                 # Load context
+│       ├── list.md                 # List contexts
+│       ├── search.md               # Search contexts
+│       ├── delete.md               # Delete context
+│       ├── clean.md                # Clean up
+│       └── stats.md                # Statistics
 ├── docs/                            # Reference documentation
 ├── README.md                        # This file (English)
 └── README_zh.md                     # Chinese documentation

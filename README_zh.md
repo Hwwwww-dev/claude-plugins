@@ -55,6 +55,26 @@
 
 **文档**: 查看 [ideation/](./ideation/) 目录
 
+### 📚 Mnemosyne - 上下文记忆管理
+
+会话上下文记忆管理插件，支持保存和恢复会话上下文。
+
+**核心功能**:
+- 💾 **一键保存**: 智能提取并保存会话上下文，包括需求、决策、代码变更和进度
+- 🔄 **快速恢复**: 在新会话中快速恢复历史进度
+- 🏷️ **智能标签**: 根据内容自动生成标签，便于分类管理
+- 🔍 **全文搜索**: 支持按标题、标签或内容搜索所有保存的上下文
+- 📊 **统计信息**: 查看存储使用情况、标签分布和质量指标
+- 🧹 **自动清理**: 清理过期或无用的上下文记录
+
+**适用场景**:
+- 结束会话前保存工作进度
+- 跨多个会话恢复复杂任务
+- 长期开发项目的上下文维护
+- 团队成员间共享上下文
+
+**文档**: 查看 [mnemosyne/](./mnemosyne/) 目录
+
 ## 安装
 
 ### 快速开始
@@ -66,6 +86,7 @@
 # 2. 安装插件
 /plugin install atlas@claude-code-marketplace
 /plugin install ideation@claude-code-marketplace
+/plugin install mnemosyne@claude-code-marketplace
 
 # 3. 重启 Claude Code
 ```
@@ -79,13 +100,14 @@
 # 本地安装插件
 /plugin install atlas@claude-code-marketplace
 /plugin install ideation@claude-code-marketplace
+/plugin install mnemosyne@claude-code-marketplace
 ```
 
 ## 使用方法
 
 ### Atlas 插件
 
-Atlas 提供 9 个命令和 3 个快速查询 Skill：
+Atlas 提供 10 个命令和 3 个快速查询 Skill：
 
 #### 核心命令
 
@@ -203,6 +225,18 @@ Atlas 提供 9 个命令和 3 个快速查询 Skill：
 /atlas:repo-wiki --preview
 ```
 
+##### /atlas:bugfix - 问题诊断与修复
+```bash
+# 诊断问题
+/atlas:bugfix "登录功能报错 TypeError"
+
+# 分析并修复
+/atlas:bugfix --analyze --fix
+
+# 指定范围
+/atlas:bugfix --scope src/auth/ "认证失败问题"
+```
+
 #### 快速查询 Skills
 
 | Skill | 用途 | 示例 |
@@ -245,6 +279,36 @@ Atlas 提供 9 个命令和 3 个快速查询 Skill：
 | business | 产品经理、市场分析师、法务、数据分析师 | 商业可行性、合规 |
 | all | 全部13位专家 | 复杂决策、全面评估 |
 
+### Mnemosyne 插件
+
+Mnemosyne 提供 7 个上下文管理命令：
+
+| 命令 | 说明 |
+|------|------|
+| `/mnemosyne:save` | 保存当前会话上下文 |
+| `/mnemosyne:load` | 加载历史上下文 |
+| `/mnemosyne:list` | 列出所有保存的上下文 |
+| `/mnemosyne:search` | 按关键词搜索上下文 |
+| `/mnemosyne:delete` | 删除指定上下文 |
+| `/mnemosyne:clean` | 清理过期上下文 |
+| `/mnemosyne:stats` | 查看存储统计 |
+
+#### 使用示例
+
+```bash
+# 保存当前会话
+/mnemosyne:save "实现用户认证功能"
+
+# 加载最近的上下文
+/mnemosyne:load --latest
+
+# 搜索上下文
+/mnemosyne:search auth feature
+
+# 查看统计信息
+/mnemosyne:stats
+```
+
 ## 插件结构
 
 ```
@@ -254,15 +318,16 @@ claude-code-marketplace/
 ├── atlas/                           # Atlas 插件
 │   ├── .claude-plugin/
 │   │   └── plugin.json             # 插件元数据
-│   ├── agents/                     # 专业化 agents (7个)
+│   ├── agents/                     # 专业化 agents (8个)
 │   │   ├── atlas-executor.md       # 任务执行器 - 执行具体子任务
 │   │   ├── code-reviewer.md        # 代码审查 - 多维度代码质量检查
 │   │   ├── commit-analyzer.md      # 提交分析 - Git 提交历史分析
 │   │   ├── dependency-analyzer.md  # 依赖分析 - 安全漏洞与版本冲突
 │   │   ├── information-gatherer.md # 信息收集 - 项目结构分析
+│   │   ├── planner.md              # 任务规划器 - 任务分解与规划
 │   │   ├── repo-context-indexer.md # 仓库上下文索引 - 生成项目索引
 │   │   └── repo-semantic-analyzer.md # 语义分析 - 深度代码理解
-│   ├── commands/                   # 斜杠命令 (9个)
+│   ├── commands/                   # 斜杠命令 (10个)
 │   │   ├── orchestrate.md          # /atlas:orchestrate - 任务协调
 │   │   ├── gather.md               # /atlas:gather - 信息收集
 │   │   ├── review.md               # /atlas:review - 代码审查
@@ -271,7 +336,8 @@ claude-code-marketplace/
 │   │   ├── deps.md                 # /atlas:deps - 依赖管理
 │   │   ├── health.md               # /atlas:health - 健康检查
 │   │   ├── changelog.md            # /atlas:changelog - 变更日志
-│   │   └── repo-wiki.md            # /atlas:repo-wiki - 仓库文档
+│   │   ├── repo-wiki.md            # /atlas:repo-wiki - 仓库文档
+│   │   └── bugfix.md               # /atlas:bugfix - 问题诊断与修复
 │   ├── hooks/
 │   │   └── hooks.json              # Hooks 配置 (防止嵌套调用)
 │   └── skills/                     # 快速查询 Skills (3个)
@@ -287,6 +353,17 @@ claude-code-marketplace/
 │   │   └── brainstorm.md           # /ideation:brainstorm 命令
 │   └── skills/
 │       └── brainstorm/SKILL.md     # 头脑风暴工作流
+├── mnemosyne/                       # Mnemosyne 插件 (v1.1.2)
+│   ├── .claude-plugin/
+│   │   └── plugin.json             # 插件元数据
+│   └── commands/                   # 命令 (7个)
+│       ├── save.md                 # 保存上下文
+│       ├── load.md                 # 加载上下文
+│       ├── list.md                 # 列出上下文
+│       ├── search.md               # 搜索上下文
+│       ├── delete.md               # 删除上下文
+│       ├── clean.md                # 清理
+│       └── stats.md                # 统计信息
 ├── docs/                            # 参考文档
 ├── README.md                        # 英文文档
 └── README_zh.md                     # 本文件（中文）

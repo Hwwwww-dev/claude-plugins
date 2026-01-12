@@ -64,6 +64,29 @@
         "decision-making"
       ],
       "category": "productivity"
+    },
+    {
+      "name": "mnemosyne",
+      "source": "./mnemosyne",
+      "description": "Context memory management plugin. One-click save session context, quickly restore historical progress, supports intelligent tagging and full-text search.",
+      "version": "1.1.2",
+      "author": {
+        "name": "Hwwwww"
+      },
+      "homepage": "https://github.com/Hwwwww-dev/claude-plugins",
+      "repository": "https://github.com/Hwwwww-dev/claude-plugins.git",
+      "license": "MIT",
+      "keywords": [
+        "context",
+        "memory",
+        "session",
+        "save",
+        "load",
+        "search",
+        "restore",
+        "continuation"
+      ],
+      "category": "productivity"
     }
   ]
 }

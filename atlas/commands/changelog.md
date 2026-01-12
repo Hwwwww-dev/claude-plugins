@@ -1,5 +1,5 @@
 ---
-description: Changelog command. Analyzes git history and automatically generates structured CHANGELOG.md, supporting conventional commits and semantic versioning.
+description: Changelog command. Analyzes git history to automatically generate structured CHANGELOG.md, supporting conventional commits and semantic versioning.
 argument-hint: [--from tag|commit] [--to tag|commit] [--version X.Y.Z] [--format keep-a-changelog|conventional|github] [--output path]
 ---
 
@@ -21,40 +21,60 @@ User input: $ARGUMENTS
 | `--format` | Output format | keep-a-changelog |
 | `--output` | Output path | CHANGELOG.md |
 | `--append` | Append mode (preserve old content) | true |
-| `--dry-run` | Preview only, don't write to file | false |
+| `--dry-run` | Preview only, do not write to file | false |
 
 ### Version Auto-Inference Rules
 
 | Change Type | Version Change | Description |
 |-------------|----------------|-------------|
-| BREAKING CHANGE / "!" | Major (X.0.0) | Breaking changes |
+| BREAKING CHANGE / "!" | Major (X.0.0) | Incompatible changes |
 | `feat:` | Minor (x.Y.0) | New features |
 | `fix:` / `docs:` / `perf:` | Patch (x.y.Z) | Fixes and optimizations |
 
-### If User Doesn't Specify Options
+### Staged Confirmation Options
 
-**Use AskUserQuestion to ask:**
+**First AskUserQuestion: Execution Mode Selection**
+
+```
+Question: Execution mode
+- Auto mode (recommended): Use recommended options, minimize interaction
+- Interactive mode: Each configuration option requires confirmation
+- dry-run: Preview only, do not write to file
+```
+
+**Second AskUserQuestion: Generation Configuration (Interactive mode and dry-run only)**
+
+If the user selects **Interactive mode** or **dry-run**, ask about generation configuration:
 
 ```
 Question 1: Output format
-- keep-a-changelog: Added/Changed/Fixed/Security (recommended)
+- keep-a-changelog (recommended): Added/Changed/Fixed/Security
 - conventional: Features/Bug Fixes/BREAKING CHANGES
 - github: GitHub Release style (What's Changed)
 
 Question 2: Version number
-- auto: Auto-infer (based on commit types)
+- auto (recommended): Auto-infer (based on commit types)
 - manual: Manually specify (enter X.Y.Z)
 
 Question 3: Analysis range
-- last-tag: From previous tag to HEAD
+- last-tag (recommended): From last tag to HEAD
 - custom: Custom range (--from X --to Y)
 
 Question 4: Append mode
-- append: Append to existing CHANGELOG (preserve history)
+- append (recommended): Append to existing CHANGELOG (preserve history)
 - overwrite: Overwrite entire file
 ```
 
-**If user has specified options (e.g., `/changelog --version 2.0.0 --format conventional`), skip asking.**
+**Auto mode behavior** (skip second AskUserQuestion):
+- Output format: keep-a-changelog
+- Version number: auto (auto-inferred)
+- Analysis range: last-tag (from last tag to HEAD)
+- Append mode: append
+- Failure handling: Ask user
+
+**Note**:
+- If user has specified options via parameters (e.g., `/changelog --version 2.0.0 --format conventional`), skip all questions
+- dry-run mode will ask about generation configuration but will not actually write to file
 
 ---
 
@@ -80,9 +100,9 @@ prompt: |
   Task ID: changelog-analysis-<timestamp>
   Analysis range: <from>..<to>
 
-  ## Collect Content
+  ## Content to Collect
   1. Commit history (git log --oneline --no-merges)
-  2. Commit classification (following conventional commits spec):
+  2. Commit classification (following conventional commits specification):
      - feat: New features
      - fix: Bug fixes
      - docs: Documentation changes
@@ -90,33 +110,33 @@ prompt: |
      - refactor: Refactoring
      - perf: Performance optimization
      - test: Tests
-     - chore: Build/tools
+     - chore: Build/tooling
      - BREAKING: Breaking changes (commits containing "!" or `BREAKING CHANGE:`)
-  3. Statistics (total commits, file changes, contributors)
+  3. Statistics (total commits, files changed, contributors)
 
   ## Output
   Write to: docs/information/changelog-analysis-<timestamp>.md
-  Return: Commit classification results and version inference recommendations
+  Return: Commit classification results and version inference suggestions
 ```
 
 **If commits are non-standard (no type prefix)**:
-- Try to infer type from commit message content (e.g., contains "add" -> feat, "fix" -> fix)
-- Uninferable commits are classified as `Other Changes`
+- Attempt to infer type from commit message content (e.g., contains "add" → feat, "fix" → fix)
+- Uninferable commits are categorized as `Other Changes`
 
 ### 2.3 Version Number Inference
 
-**Auto-infer based on commit classification**:
+**Auto-inference based on commit classification**:
 
 ```
 Current version: 1.2.3
 
-If BREAKING CHANGE exists: -> 2.0.0 (Major bump)
-Else if feat exists: -> 1.3.0 (Minor bump)
-Else if fix/docs/perf exists: -> 1.2.4 (Patch bump)
-Else: -> Keep 1.2.3 (no release needed)
+If BREAKING CHANGE exists: → 2.0.0 (Major bump)
+Else if feat exists: → 1.3.0 (Minor bump)
+Else if fix/docs/perf exists: → 1.2.4 (Patch bump)
+Else: → Keep 1.2.3 (no release needed)
 ```
 
-**If user manually specifies `--version`, skip inference and use the specified version.**
+**If user manually specifies `--version`, skip inference and use the specified version directly.**
 
 ---
 
@@ -134,21 +154,21 @@ Else: -> Keep 1.2.3 (no release needed)
 - New feature 2 (commit hash)
 
 ### Changed
-- Refactored project A (commit hash)
-- Optimized performance B (commit hash)
+- Refactor project A (commit hash)
+- Optimize performance B (commit hash)
 
 ### Fixed
-- Fixed Bug #123 (commit hash)
-- Fixed memory leak (commit hash)
+- Fix Bug #123 (commit hash)
+- Fix memory leak (commit hash)
 
 ### Security
-- Fixed security vulnerability CVE-XXXX (commit hash)
+- Fix security vulnerability CVE-XXXX (commit hash)
 
 ### Deprecated
-- Deprecated old API X (commit hash)
+- Deprecate old API X (commit hash)
 
 ### Removed
-- Removed deprecated feature Y (commit hash)
+- Remove deprecated feature Y (commit hash)
 ```
 
 #### Format: conventional
@@ -175,16 +195,16 @@ Else: -> Keep 1.2.3 (no release needed)
 ```markdown
 ## What's Changed
 
-### New Features
+### 🚀 New Features
 - Feature description by @username in #PR
 
-### Bug Fixes
+### 🐛 Bug Fixes
 - Fix description by @username in #PR
 
-### Documentation
+### 📚 Documentation
 - Documentation update by @username in #PR
 
-### Chores
+### 🏗️ Chores
 - Dependency update by @username in #PR
 
 **Full Changelog**: https://github.com/owner/repo/compare/v1.2.3...v1.3.0
@@ -207,52 +227,52 @@ Else: -> Keep 1.2.3 (no release needed)
 
 **If `--dry-run` is specified**:
 ```markdown
-Preview of generated changelog:
+📄 Preview of generated changelog:
 
-------------------------------------
+────────────────────────────────────
 [Generated content]
-------------------------------------
+────────────────────────────────────
 
-Statistics:
+📊 Statistics:
 - Version: 1.3.0
 - Commits: 25
 - New features: 8
 - Bug fixes: 12
-- Others: 5
+- Other: 5
 
-Tip: Use /changelog without --dry-run parameter to actually write to file
+💡 Tip: Use /changelog without --dry-run parameter to actually write to file
 ```
 
-**Stop execution, don't write to file.**
+**Stop execution, do not write to file.**
 
 ### 4.2 Actual Write
 
-**Call atlas:atlas-executor to update file**:
+**Call atlas:atlas-executor to perform file update** (ask user to select model):
 
 ```
-Task(subagent_type="atlas:atlas-executor")
+Task(subagent_type="atlas:atlas-executor", model=user_selection)
 prompt: |
   ## Subtask
   Number: #1
   Description: Update CHANGELOG.md file
 
-  ## File
+  ## Files
   - <output-path>
 
   ## Operation
   Mode: <append|overwrite>
 
   ## Content
-  Read: docs/information/changelog-analysis-<timestamp>.md
-  Generate format: <keep-a-changelog|conventional|github>
+  Read from: docs/information/changelog-analysis-<timestamp>.md
+  Generation format: <keep-a-changelog|conventional|github>
 
   ## Requirements
   1. If append mode:
-     - Insert new version content at file beginning (below title)
+     - Insert new version content at the beginning of file (below the title)
      - Preserve all old version records
   2. If overwrite mode:
      - Replace entire file content
-  3. Ensure format consistency (heading levels, list format)
+  3. Ensure format consistency (heading levels, list formatting)
 ```
 
 ---
@@ -262,18 +282,18 @@ prompt: |
 **Fixed output structure**:
 
 ```markdown
-Changelog generated successfully
+✅ Changelog generated
 
-## Version Info
+## Version Information
 - Version: X.Y.Z
 - Inference basis: [Major/Minor/Patch] bump based on [BREAKING/feat/fix] commits
 - Analysis range: vA.B.C..HEAD (25 commits)
 
 ## Change Statistics
-- New features: 8
-- Bug fixes: 12
-- Documentation: 3
-- Refactoring: 2
+- 🚀 New features: 8
+- 🐛 Bug fixes: 12
+- 📚 Documentation: 3
+- ♻️ Refactoring: 2
 
 ## File Location
 - Output file: CHANGELOG.md
@@ -291,72 +311,115 @@ Changelog generated successfully
 
 ## Execution Examples
 
-### Example 1: Auto-generate (Default Options)
+### Example 1: Auto Generation (Auto Mode)
 
 ```
 User: /changelog
 
-1. Ask user for options:
+1. First AskUserQuestion - Execution mode:
+   - Execution mode: Auto mode (recommended) ✓
+
+   [Auto use recommended configuration, skip second AskUserQuestion]
    - Format: keep-a-changelog
    - Version: auto (inferred as 1.3.0)
    - Range: last-tag (v1.2.3..HEAD)
    - Mode: append
 
 2. Version detection:
-   git describe --tags -> v1.2.3
+   git describe --tags → v1.2.3
 
 3. Commit analysis:
    git log v1.2.3..HEAD --oneline
-   -> 25 commits (8 feat, 12 fix, 5 other)
-   -> Version inference: 1.3.0 (Minor bump)
+   → 25 commits (8 feat, 12 fix, 5 other)
+   → Version inference: 1.3.0 (Minor bump)
 
 4. Content generation (keep-a-changelog format):
    ## [1.3.0] - 2024-01-15
    ### Added
-   - Added user authentication feature
+   - Add user authentication feature
    ...
 
 5. File update (append mode):
-   Insert new version content at CHANGELOG.md beginning
+   Insert new version content at the beginning of CHANGELOG.md
 
 6. Output summary
 ```
 
-### Example 2: Specify Version and Format
+### Example 2: Interactive Mode
+
+```
+User: /changelog
+
+1. First AskUserQuestion - Execution mode:
+   - Execution mode: Interactive mode ✓
+
+2. Second AskUserQuestion - Generation configuration:
+   - Output format: conventional ✓
+   - Version number: manual ✓
+   - Analysis range: custom ✓
+   - Append mode: append ✓
+
+3. User input:
+   - Version number: 2.0.0
+   - Starting point: v1.5.0
+   - Ending point: HEAD
+
+4. Commit analysis:
+   git log v1.5.0..HEAD
+   → Found BREAKING CHANGE commits
+   → Verify version 2.0.0 conforms to Major bump specification
+
+5. Content generation (conventional format):
+   ## [2.0.0] (2024-01-15)
+   ### BREAKING CHANGES
+   - Remove legacy API...
+
+6. File update and output summary
+```
+
+### Example 3: Specified Parameters (Skip All Questions)
 
 ```
 User: /changelog --version 2.0.0 --format conventional --from v1.5.0
 
-1. Skip asking (parameters specified)
+1. Skip all questions (parameters already specified)
 
 2. Commit analysis:
    git log v1.5.0..HEAD
-   -> Found BREAKING CHANGE commits
-   -> Verify version 2.0.0 conforms to Major bump spec
+   → Found BREAKING CHANGE commits
+   → Verify version 2.0.0 conforms to Major bump specification
 
 3. Content generation (conventional format):
    ## [2.0.0] (2024-01-15)
    ### BREAKING CHANGES
-   - Removed old version API...
+   - Remove legacy API...
 
 4. File update and output summary
 ```
 
-### Example 3: Dry-run Preview
+### Example 4: Dry-run Preview
 
 ```
 User: /changelog --dry-run
 
-1. Execute analysis and content generation
+1. First AskUserQuestion - Execution mode:
+   - Execution mode: dry-run ✓
 
-2. Output preview:
-   Preview of generated changelog:
-   ------------------------------------
+2. Second AskUserQuestion - Generation configuration:
+   - Output format: keep-a-changelog ✓
+   - Version number: auto ✓
+   - Analysis range: last-tag ✓
+
+3. Execute analysis and content generation
+
+4. Output preview:
+   📄 Preview of generated changelog:
+   ────────────────────────────────────
    ## [1.3.0] - 2024-01-15
    ...
-   ------------------------------------
+   ────────────────────────────────────
 
-3. Stop execution, don't write to file
+3. Stop execution, do not write to file
 ```
 
 ---
@@ -366,7 +429,7 @@ User: /changelog --dry-run
 ### First Generation (No Existing CHANGELOG)
 
 ```
-Detection: CHANGELOG.md doesn't exist
+Detection: CHANGELOG.md does not exist
 Action: Create new file containing:
   - Title: # Changelog
   - Description paragraph: All notable changes...
@@ -378,26 +441,26 @@ Action: Create new file containing:
 ```
 Detection: git describe --tags fails
 Action: Use 0.0.0 as starting point
-  -> Analysis range: initial commit..HEAD
-  -> Version inference: 0.1.0 (first version)
+  → Analysis range: Initial commit..HEAD
+  → Inferred version: 0.1.0 (first version)
 ```
 
-### Non-standard Commits
+### Non-Standard Commits
 
 ```
 Detection: Commit messages lack conventional commits prefix
 Action:
-  1. Try smart inference (e.g., "Add feature" -> feat)
-  2. Uninferable ones go to "Other Changes" category
-  3. Prompt user to use standardized commit format
+  1. Attempt smart inference (e.g., "Add feature" → feat)
+  2. Uninferable commits go into "Other Changes" category
+  3. Prompt user to use standard commit format
 ```
 
 ### Version Number Conflict
 
 ```
-Detection: Specified version already exists in CHANGELOG
+Detection: Specified version number already exists in CHANGELOG
 Action:
-  - Warn user of duplicate version
+  - Warn user about duplicate version number
   - Ask: Overwrite / Use new version number / Cancel
 ```
 
@@ -407,16 +470,16 @@ Action:
 
 ### Must Do
 - Strictly follow Semantic Versioning specification
-- Analyze all commits, don't miss any changes
-- Generated log format maintains consistency
+- Analyze all commits, do not miss any changes
+- Maintain consistency in generated log format
 - Append mode must preserve old version content
 - Include complete metadata (date, version, commit hash)
 
 ### Must Not Do
-- Tamper with commit history or messages
+- Tamper with commit history or commit messages
 - Write to file in dry-run mode
 - Skip BREAKING CHANGES warnings
-- Infer non-compliant version numbers (e.g., feat -> Major bump)
+- Infer non-compliant version numbers (e.g., feat → Major bump)
 - Overwrite user's manually edited custom content (identify and preserve)
 
 ---
@@ -508,7 +571,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Notes
 
 - Generated logs may require manual review (especially for non-standard commits)
-- BREAKING CHANGES must be highlighted in version number and content
+- BREAKING CHANGES must be prominently displayed in both version number and content
 - Sensitive information (such as security vulnerability details) should be manually reviewed before release
-- Custom templates supported (via `.claude/templates/changelog.md` configuration)
-- All git operations are read-only, commit history will not be modified
+- Custom templates are supported (configure via `.claude/templates/changelog.md`)
+- All git operations are read-only and will not modify commit history

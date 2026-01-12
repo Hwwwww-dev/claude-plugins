@@ -1,5 +1,5 @@
 ---
-description: Project health check command. One-click project health diagnosis, integrating code quality, security vulnerabilities, dependency status, and architecture assessment, outputs comprehensive health score and improvement suggestions.
+description: Project health check command. One-click project health diagnosis integrating code quality, security vulnerabilities, dependency status, and architecture assessment, outputting comprehensive health scores and improvement recommendations.
 argument-hint: [--scope path] [--quick] [--export json|html] [--ci]
 ---
 
@@ -9,33 +9,54 @@ User input: $ARGUMENTS
 
 ---
 
-## Step 1: Confirm Check Options
+## Step 1: Phased Confirmation of Check Options
 
-**If user doesn't specify options, use AskUserQuestion to ask:**
+**If user has specified complete options (e.g., `/health --quick --scope src/ --export json`), skip all prompts.**
+
+**First AskUserQuestion: Execution Mode Selection**
 
 ```
-Question 1: Check mode
+Question: Execution Mode
+- Auto mode (recommended): Use recommended configuration, complete check of entire project
+- Interactive mode: Customize check scope and detailed configuration
+```
+
+**Second AskUserQuestion: Check Configuration (Interactive mode only)**
+
+If user selected **Interactive mode**, ask for detailed configuration:
+
+```
+Question 1: Check Mode
 - full (default): Complete check (5 dimensions)
 - quick: Quick check (security and code quality only)
 - security: Security check only
 - quality: Code quality check only
 
-Question 2: Check scope
-- all: Entire project
-- scope: Specified directory/module
+Question 2: Check Scope
+- all (default): Entire project
+- scope: Specify directory/module
 
-Question 3: Export format
+Question 3: Export Format
 - markdown (default): Markdown report
 - json: JSON format (suitable for CI)
 - html: HTML visual report
 
-Question 4: CI mode
+Question 4: Report Detail Level
+- full (default): Include all issue details
+- summary: Summary and key issues only
+- minimal: Scores and statistics only
+
+Question 5: CI Mode
 - no (default): Normal mode
 - yes: CI mode (includes threshold checks)
 ```
 
-**If user has specified (e.g., `/health --quick --scope src/`), skip asking.**
-
+**Auto mode behavior** (skip second AskUserQuestion):
+- Check mode: full (complete check of 5 dimensions)
+- Check scope: all (entire project)
+- Export format: markdown
+- Report detail level: full
+- CI mode: no
 ---
 
 ## Step 2: Environment Detection (P0)
@@ -56,8 +77,8 @@ command -v yarn audit 2>/dev/null
 
 **Output environment info:**
 ```markdown
-Environment Detection
-- Git repository: Yes
+🔍 Environment Detection
+- Git repository: ✓
 - Project type: Node.js
 - Package manager: npm/yarn
 - Available tools: npm audit, eslint
@@ -67,11 +88,11 @@ Environment Detection
 
 ## Step 3: Parallel Scanning (P1)
 
-**Select scanning dimensions based on check mode:**
+**Select scan dimensions based on check mode:**
 
-### Full Mode (5 Dimensions)
+### Full Mode (5 dimensions)
 
-**Launch 4 subagents simultaneously for parallel scanning:**
+**Launch 4 subagents for parallel scanning:**
 
 #### Subagent 1: Security Scan
 ```
@@ -89,9 +110,9 @@ prompt: |
   1. Dependency vulnerability detection:
      - Run: npm audit / yarn audit
      - Detect: High-risk dependencies in package.json
-     - Evaluate: CVE vulnerability level
+     - Assess: CVE vulnerability levels
 
-  2. Hardcoded secret scan:
+  2. Hardcoded secret scanning:
      - Search patterns: API_KEY, SECRET, PASSWORD, TOKEN
      - Detect: .env file leaks
      - Check: Sensitive info in config files
@@ -118,7 +139,7 @@ prompt: |
 
 #### Subagent 2: Code Quality Scan
 ```
-Task(subagent_type="atlas:information-gatherer")
+Task(subagent_type="atlas:information-gatherer", model="haiku")
 prompt: |
   ## Task
   Task ID: health-quality-<timestamp>
@@ -138,14 +159,14 @@ prompt: |
      - Read: coverage/coverage-summary.json
      - Extract: line/branch/function coverage
 
-  3. Issue patterns:
+  3. Problem patterns:
      - TODO/FIXME count
-     - console.log remnants
-     - Commented out code blocks
+     - Leftover console.log
+     - Commented-out code blocks
 
   ## Output
   Write to: .claude/health/.scan/quality-<timestamp>.json
-  Format same as above, score and weight(0.25)
+  Same format as above, score and weight(0.25)
 ```
 
 #### Subagent 3: Dependency Health Scan
@@ -163,15 +184,15 @@ prompt: |
 
   2. Dependency conflicts:
      - Detect: Duplicate dependencies in package-lock.json
-     - Evaluate: Version inconsistency issues
+     - Assess: Version inconsistency issues
 
   3. Dependency size:
-     - Count: dependencies count
+     - Count: Number of dependencies
      - Analyze: Large dependencies (>5MB)
 
   ## Output
   Write to: .claude/health/.scan/dependencies-<timestamp>.json
-  Format same as above, score and weight(0.20)
+  Same format as above, score and weight(0.20)
 ```
 
 #### Subagent 4: Architecture Quality Scan
@@ -189,18 +210,18 @@ prompt: |
 
   2. Module coupling:
      - Count: Cross-module reference count
-     - Evaluate: High coupling modules (referenced >20 times)
+     - Assess: Highly coupled modules (referenced >20 times)
 
   3. Directory structure:
-     - Check: Whether follows conventional directory structure
-     - Evaluate: Flat vs nesting depth
+     - Check: Whether following conventional directory structure
+     - Assess: Flat vs nesting depth
 
   ## Output
   Write to: .claude/health/.scan/architecture-<timestamp>.json
-  Format same as above, score and weight(0.15)
+  Same format as above, score and weight(0.15)
 ```
 
-#### Maintainability Check (Main Process Execution)
+#### Maintainability Check (executed in main conversation)
 ```
 Quick check directly in main conversation:
 1. Documentation coverage:
@@ -209,19 +230,19 @@ Quick check directly in main conversation:
 2. Naming conventions:
    - Search: Pinyin naming, meaningless variable names
 3. Comment quality:
-   - Count: Comment lines / code lines
+   - Count: Comment lines / code lines ratio
 
 Output: .claude/health/.scan/maintainability-<timestamp>.json
 Weight: 0.10
 ```
 
-### Quick Mode (2 Dimensions)
+### Quick Mode (2 dimensions)
 
-**Execute Subagent 1 and 2 only (security scan and code quality)**
+**Execute only Subagent 1 and 2 (security scan and code quality)**
 
-### Security/Quality Mode (Single Dimension)
+### Security/Quality Mode (single dimension)
 
-**Execute corresponding subagent only**
+**Execute only the corresponding subagent**
 
 ---
 
@@ -240,27 +261,27 @@ cat .claude/health/.scan/maintainability-<timestamp>.json
 **Calculate composite score:**
 
 ```
-Total = Sum(dimension score x dimension weight)
+Total = Σ (dimension score × dimension weight)
 
 Example:
-security: 75 x 0.30 = 22.5
-quality: 80 x 0.25 = 20.0
-dependencies: 70 x 0.20 = 14.0
-architecture: 85 x 0.15 = 12.75
-maintainability: 90 x 0.10 = 9.0
+security: 75 × 0.30 = 22.5
+quality: 80 × 0.25 = 20.0
+dependencies: 70 × 0.20 = 14.0
+architecture: 85 × 0.15 = 12.75
+maintainability: 90 × 0.10 = 9.0
 -------------------------------
-Total = 78.25 ~ 78 (Grade B)
+Total = 78.25 ≈ 78 (Grade B)
 ```
 
-**Grade Mapping:**
+**Grade mapping:**
 
 | Score | Grade | Status | Description |
 |-------|-------|--------|-------------|
-| 90-100 | A | Excellent | Production ready, no major issues |
-| 80-89 | B | Good | Deployable, some room for improvement |
-| 70-79 | C | Average | Needs optimization, moderate issues |
-| 60-69 | D | Poor | Not recommended for deployment, many issues |
-| <60 | F | Critical | Deployment prohibited, severe issues |
+| 90-100 | A | 🟢 Excellent | Production ready, no major issues |
+| 80-89 | B | 🟢 Good | Deployable, minor improvements possible |
+| 70-79 | C | 🟡 Fair | Needs optimization, moderate issues |
+| 60-69 | D | 🟠 Poor | Not recommended for deployment, many issues |
+| <60 | F | 🔴 Critical | Deployment prohibited, severe issues |
 
 ---
 
@@ -271,11 +292,11 @@ Total = 78.25 ~ 78 (Grade B)
 mkdir -p .claude/health/
 ```
 
-### Markdown Format (Default)
+### Markdown Format (default)
 
 **Write to file:** `.claude/health/report-<timestamp>.md`
 
-**Report Structure:**
+**Report structure:**
 ```markdown
 # Project Health Check Report
 
@@ -287,117 +308,117 @@ mkdir -p .claude/health/
 
 ## Composite Score
 
-### Summary
+### Overall
 **Score**: 78 / 100
 **Grade**: B (Good)
-**Status**: Deployable
+**Status**: 🟢 Deployable
 
 ### Dimension Scores
 
 | Dimension | Score | Weight | Contribution | Status |
 |-----------|-------|--------|--------------|--------|
-| Security | 75 | 30% | 22.5 | Average |
-| Code Quality | 80 | 25% | 20.0 | Good |
-| Dependency Health | 70 | 20% | 14.0 | Average |
-| Architecture Quality | 85 | 15% | 12.75 | Good |
-| Maintainability | 90 | 10% | 9.0 | Excellent |
+| 🔒 Security | 75 | 30% | 22.5 | 🟡 Fair |
+| ⚙️ Code Quality | 80 | 25% | 20.0 | 🟢 Good |
+| 📦 Dependency Health | 70 | 20% | 14.0 | 🟡 Fair |
+| 🏗️ Architecture Quality | 85 | 15% | 12.75 | 🟢 Good |
+| 🔧 Maintainability | 90 | 10% | 9.0 | 🟢 Excellent |
 
 ---
 
 ## Detailed Issues
 
-### Security (75/100)
+### 🔒 Security (75/100)
 
-#### Critical (1)
+#### ⚠️ Critical (1)
 - **CVE-2023-12345**: lodash dependency has prototype pollution vulnerability
   - Location: package.json:23
-  - Suggestion: Upgrade to 4.17.21 or higher
+  - Recommendation: Upgrade to 4.17.21 or higher
 
-#### High (2)
+#### ⚠️ High (2)
 - **Hardcoded secret**: API_KEY exposed in source code
   - Location: src/config/api.ts:15
-  - Suggestion: Migrate to environment variable (.env)
+  - Recommendation: Migrate to environment variables (.env)
 
 - **Dependency vulnerability**: axios version too low
   - Location: package.json:45
-  - Suggestion: Upgrade to 1.6.0+
+  - Recommendation: Upgrade to 1.6.0+
 
-#### Medium (5)
+#### ℹ️ Medium (5)
 - TODO comments contain sensitive information
 - .env.example missing
 - ...
 
 ---
 
-### Code Quality (80/100)
+### ⚙️ Code Quality (80/100)
 
-#### High (3)
-- **Complexity too high**: UserService.handleRequest cyclomatic complexity is 25
+#### ⚠️ High (3)
+- **Excessive complexity**: UserService.handleRequest cyclomatic complexity is 25
   - Location: src/services/user.ts:120-185
-  - Suggestion: Split into multiple smaller functions
+  - Recommendation: Split into multiple smaller functions
 
 - **File too large**: components/Dashboard.tsx has 850 lines
   - Location: src/components/Dashboard.tsx
-  - Suggestion: Split into multiple sub-components
+  - Recommendation: Split into multiple sub-components
 
-#### Medium (8)
-- 12 console.log remnants
+#### ℹ️ Medium (8)
+- 12 leftover console.log statements
 - 45 TODO/FIXME comments
-- Test coverage only 65% (recommended >=80%)
+- Test coverage only 65% (recommended ≥80%)
 - ...
 
 ---
 
-### Dependency Health (70/100)
+### 📦 Dependency Health (70/100)
 
-#### High (4)
+#### ⚠️ High (4)
 - **Major version outdated**: react 16.x (latest 18.x)
 - **Major version outdated**: webpack 4.x (latest 5.x)
-- **Size too large**: moment.js (289KB, suggest replacing with date-fns)
+- **Oversized**: moment.js (289KB, recommend replacing with date-fns)
 - **Duplicate dependency**: lodash has 3 versions (4.17.19, 4.17.20, 4.17.21)
 
-#### Medium (12)
+#### ℹ️ Medium (12)
 - 23 minor versions outdated
 - 45 patch versions outdated
 - ...
 
 ---
 
-### Architecture Quality (85/100)
+### 🏗️ Architecture Quality (85/100)
 
-#### Medium (2)
-- **Circular dependency**: utils/helpers.ts <-> services/user.ts
-  - Path: helpers -> user -> api -> helpers
-  - Suggestion: Extract common logic to independent module
+#### ⚠️ Medium (2)
+- **Circular dependency**: utils/helpers.ts ↔ services/user.ts
+  - Path: helpers → user → api → helpers
+  - Recommendation: Extract common logic to independent module
 
 - **High coupling**: AuthService referenced by 18 modules
-  - Suggestion: Consider dependency injection or interface abstraction
+  - Recommendation: Consider dependency injection or interface abstraction
 
-#### Low (5)
+#### ℹ️ Low (5)
 - components/ directory nesting depth reaches 5 levels
-- Some modules missing index.ts export
+- Some modules missing index.ts exports
 - ...
 
 ---
 
-### Maintainability (90/100)
+### 🔧 Maintainability (90/100)
 
-#### Good
+#### ✅ Good
 - README.md is comprehensive
 - Core modules have documentation coverage
-- Naming conventions are basically consistent
+- Naming conventions are generally consistent
 
-#### Low (3)
-- API documentation incomplete (7/12 endpoints missing description)
-- 3 pinyin naming instances
+#### ℹ️ Low (3)
+- API documentation incomplete (7/12 endpoints missing descriptions)
+- 3 pinyin naming instances (e.g., yonghu, denglu)
 - Some comments are outdated
 - ...
 
 ---
 
-## Improvement Suggestions
+## Improvement Recommendations
 
-### High Priority (Within 2 Weeks)
+### 🎯 High Priority (within 2 weeks)
 1. **Security fixes**:
    - Upgrade lodash to 4.17.21+
    - Migrate hardcoded secrets to environment variables
@@ -407,30 +428,30 @@ mkdir -p .claude/health/
    - Simplify UserService.handleRequest complexity
    - Split Dashboard.tsx into sub-components
 
-3. **Dependency upgrade**:
-   - Upgrade React to 18.x (evaluate compatibility)
+3. **Dependency upgrades**:
+   - Upgrade React to 18.x (assess compatibility)
    - Replace moment.js with date-fns (reduce 220KB)
 
-### Medium Priority (1-2 Months)
+### 📌 Medium Priority (1-2 months)
 4. **Test coverage**:
    - Increase test coverage to 80%+
    - Add unit tests for critical business logic
 
 5. **Architecture optimization**:
    - Resolve circular dependency issues
-   - Refactor high coupling modules (AuthService)
+   - Refactor highly coupled modules (AuthService)
 
 6. **Dependency cleanup**:
    - Unify lodash versions
    - Clean up unused dependencies (run depcheck)
 
-### Low Priority (Continuous Improvement)
+### 💡 Low Priority (continuous improvement)
 7. **Code cleanup**:
    - Remove console.log and debug code
    - Clean up outdated comments
    - Fix pinyin naming
 
-8. **Documentation improvements**:
+8. **Documentation improvement**:
    - Complete API documentation
    - Update outdated documentation
 
@@ -441,31 +462,31 @@ mkdir -p .claude/health/
 **Threshold settings** (recommended):
 - Minimum score: 70 (Grade C)
 - Critical issues: 0
-- High issues: <=3
+- High issues: ≤3
 
 **CI command**:
 ```bash
 /health --ci --export json
 
-# Or via script check
+# Or check via script
 node scripts/check-health.js
 ```
 
-**Failure handling**: CI fails when score below threshold, blocking merge
+**Failure handling**: CI fails when score is below threshold, blocking merge
 
 ---
 
 ## Next Steps
 
-1. **Immediate**: Fix 1 Critical security issue
-2. **This week**: Handle 2 High-level code quality issues
-3. **This month**: Upgrade major dependencies, resolve circular dependencies
-4. **Continuous**: Run `/health` check regularly (recommended weekly)
+1. **Execute immediately**: Fix 1 Critical security issue
+2. **This week's plan**: Address 2 High-level code quality issues
+3. **This month's goal**: Upgrade major dependencies, resolve circular dependencies
+4. **Continuous improvement**: Run `/health` check regularly (recommended weekly)
 
 ---
 
-**Report generated**: 2024-01-15 14:30:15
-**Next check suggested**: 2024-01-22 (7 days later)
+**Report generated at**: 2024-01-15 14:30:15
+**Next check recommended**: 2024-01-22 (7 days later)
 
 **Quick fix commands**:
 ```bash
@@ -473,14 +494,14 @@ node scripts/check-health.js
 npm update lodash axios
 
 # Code cleanup
-/orchestrate Remove all console.log
+/orchestrate remove all console.log
 
 # Test coverage
 npm run test:coverage
 ```
 ```
 
-### JSON Format (CI Mode)
+### JSON Format (CI mode)
 
 **Write to file:** `.claude/health/report-<timestamp>.json`
 
@@ -557,15 +578,15 @@ npm run test:coverage
 
 **Write to file:** `.claude/health/report-<timestamp>.html`
 
-**Contains:**
+**Includes:**
 - Visual score dashboard
 - Interactive issue filters
-- Trend charts (if historical data available)
+- Trend charts (if historical data exists)
 - Export buttons (PDF/PNG)
 
 ---
 
-## Step 6: CI Check (--ci Mode Only)
+## Step 6: CI Check (--ci mode only)
 
 **If `--ci` option is specified:**
 
@@ -585,40 +606,40 @@ MAX_HIGH=3
 
 # Determine pass/fail
 if [ $score -lt $MIN_SCORE ]; then
-  echo "CI Failed: Score $score < $MIN_SCORE"
+  echo "❌ CI Failed: Score $score < $MIN_SCORE"
   exit 1
 fi
 
 if [ $critical -gt $MAX_CRITICAL ]; then
-  echo "CI Failed: $critical Critical issues found"
+  echo "❌ CI Failed: $critical Critical issues found"
   exit 1
 fi
 
 if [ $high -gt $MAX_HIGH ]; then
-  echo "CI Warning: $high High issues found (threshold: $MAX_HIGH)"
+  echo "⚠️ CI Warning: $high High issues found (threshold: $MAX_HIGH)"
 fi
 
-echo "CI Passed: Health check passed"
+echo "✅ CI Passed: Health check passed"
 ```
 
-**CI Output:**
+**CI output:**
 ```markdown
-Project Health Check CI
+🏥 Project Health Check CI
 
-Score: 78 >= 70 (Pass)
-Critical issues: 0 (Pass)
-High issues: 5 (Exceeds threshold 3, Warning)
+✅ Score: 78 ≥ 70 (Passed)
+✅ Critical issues: 0 (Passed)
+⚠️ High issues: 5 (Exceeds threshold 3, Warning)
 
 Status: PASS (Merge allowed, recommend fixing High issues)
 ```
 
 **If failed:**
 ```markdown
-Project Health Check CI
+🏥 Project Health Check CI
 
-Score: 58 < 70 (Fail)
-Critical issues: 2 (Fail)
-High issues: 12 (Fail)
+❌ Score: 58 < 70 (Failed)
+❌ Critical issues: 2 (Failed)
+❌ High issues: 12 (Failed)
 
 Blockers:
 1. lodash CVE-2023-12345
@@ -638,7 +659,7 @@ User: /health
 
 1. Ask for options (if not specified)
 2. Environment detection
-3. Parallel launch 4 subagents (security/quality/dependencies/architecture) + main process checks maintainability
+3. Launch 4 subagents for parallel scanning (security/quality/dependencies/architecture) + main conversation checks maintainability
 4. Wait for all scans to complete
 5. Read 5 JSON results
 6. Calculate composite score: 78/100 (Grade B)
@@ -651,10 +672,10 @@ User: /health
 ```
 User: /health --quick
 
-1. Skip asking
+1. Skip prompts
 2. Environment detection
-3. Parallel launch 2 subagents (security/quality)
-4. Calculate score (these two dimensions only)
+3. Launch 2 subagents in parallel (security/quality)
+4. Calculate score (only these two dimensions)
 5. Generate simplified report
 ```
 
@@ -677,38 +698,38 @@ User: /health --ci --export json
 **Fixed output structure:**
 
 ```markdown
-Project Health Check Complete
+🏥 Project Health Check Complete
 
 ## Composite Score
 **Score**: 78 / 100
 **Grade**: B (Good)
-**Status**: Deployable
+**Status**: 🟢 Deployable
 
 ## Dimension Distribution
-- Security: 75/100 (Average)
-- Code Quality: 80/100 (Good)
-- Dependency Health: 70/100 (Average)
-- Architecture Quality: 85/100 (Good)
-- Maintainability: 90/100 (Excellent)
+- 🔒 Security: 75/100 (🟡 Fair)
+- ⚙️ Code Quality: 80/100 (🟢 Good)
+- 📦 Dependency Health: 70/100 (🟡 Fair)
+- 🏗️ Architecture Quality: 85/100 (🟢 Good)
+- 🔧 Maintainability: 90/100 (🟢 Excellent)
 
 ## Key Issues
-- Critical: 1
-- High: 7
-- Medium: 28
+- ⚠️ Critical: 1
+- ⚠️ High: 7
+- ℹ️ Medium: 28
 
-**Full report**: .claude/health/report-20240115-143000.md
+📊 **Full Report**: .claude/health/report-20240115-143000.md
 
 ## Next Steps
-1. Immediate: Fix 1 Critical security issue
-2. This week: Handle 2 High-level code quality issues
-3. This month: Upgrade major dependencies
+1. Fix immediately: 1 Critical security issue
+2. This week's plan: Address 2 High-level code quality issues
+3. This month's goal: Upgrade major dependencies
 
-**Recommended check frequency**: Weekly
+🔄 **Recommended check frequency**: Weekly
 ```
 
 ---
 
-## Historical Trends (Optional)
+## Historical Trends (optional)
 
 **If historical reports exist, show trends:**
 
@@ -717,30 +738,30 @@ Project Health Check Complete
 
 | Date | Score | Grade | Change |
 |------|-------|-------|--------|
-| 2024-01-15 | 78 | B | +5 |
-| 2024-01-08 | 73 | C | -2 |
-| 2024-01-01 | 75 | C | - |
+| 2024-01-15 | 78 | B | +5 ⬆️ |
+| 2024-01-08 | 73 | C | -2 ⬇️ |
+| 2024-01-01 | 75 | C | — |
 
-**Improving**: Security +10, Code Quality +5
+**Improvement areas**: Security +10, Code Quality +5
 **Needs improvement**: Dependency Health -3
 ```
 
 ---
 
-## Parameter Description
+## Parameter Reference
 
 | Parameter | Description | Default | Example |
 |-----------|-------------|---------|---------|
 | --scope | Check scope (directory path) | . | --scope src/ |
 | --quick | Quick mode (security and quality only) | false | --quick |
 | --export | Export format | markdown | --export json |
-| --ci | CI mode (includes threshold check) | false | --ci |
+| --ci | CI mode (includes threshold checks) | false | --ci |
 
 ---
 
-## Configuration File (Optional)
+## Configuration File (optional)
 
-**Custom configuration supported:** `.claude/health/config.json`
+**Supports custom configuration:** `.claude/health/config.json`
 
 ```json
 {
@@ -767,18 +788,18 @@ Project Health Check Complete
 
 ## Core Constraints
 
-**Must Do**:
+**Must do**:
 - Parallel scan multiple dimensions (unless quick/single dimension mode)
 - Use fixed JSON output format (for CI parsing)
 - Provide specific file paths and line numbers
-- Give actionable fix suggestions
+- Give actionable fix recommendations
 - Save historical reports (support trend analysis)
 
-**Must Not Do**:
-- Fix issues yourself (diagnosis only, don't modify code)
-- Serial scanning (affects efficiency)
+**Must not do**:
+- Fix issues yourself (diagnose only, no code modifications)
+- Sequential scanning (impacts efficiency)
 - Output incomplete reports (must include all dimensions)
-- Ignore CI threshold checks (must execute in --ci mode)
+- Skip CI threshold checks (must execute in --ci mode)
 
 ---
 
@@ -787,10 +808,27 @@ Project Health Check Complete
 ```bash
 # Workflow example
 /health                                # 1. Diagnose project health
-/gather dependencies <package>         # 2. Analyze impact scope of problem dependency
-/orchestrate Upgrade all <package> references    # 3. Batch fix
-/health --quick                        # 4. Verify fix effect
+/gather dependencies <package>         # 2. Analyze impact scope of problematic dependency
+/orchestrate upgrade all <package> references    # 3. Batch fix
+/health --quick                        # 4. Verify fix results
 ```
+
+---
+
+## Chunked Output Specification
+
+**Trigger conditions** (chunk if any condition met):
+- Single output exceeds 800 characters
+- List exceeds 15 items
+- Code block exceeds 30 lines
+
+### Pre-output Confirmation
+
+Confirm the output report contains:
+- [ ] Health score
+- [ ] Analysis results for each dimension
+- [ ] Issue list
+- [ ] Improvement recommendations
 
 ---
 
@@ -799,4 +837,4 @@ Project Health Check Complete
 - First run may be slow (5-10 minutes), subsequent checks will be faster
 - CI mode recommended before each PR merge
 - Historical reports retained for 30 days (configurable)
-- Large projects (>100k lines) recommend using --quick mode
+- For large projects (>100k lines), recommend using --quick mode

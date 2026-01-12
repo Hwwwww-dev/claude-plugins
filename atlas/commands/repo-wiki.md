@@ -1,5 +1,5 @@
 ---
-description: Autonomous documentation orchestrator. Generates deeply structured Repo Wiki, supporting project-level to symbol-level analysis, with 4-layer validation mechanism.
+description: Autonomous documentation orchestrator. Generates deeply structured Repo Wiki with project-to-symbol level analysis and 4-layer validation mechanism.
 argument-hint: [--force] [--lang zh|en] [--depth N] [--scope path] [--skip-symbols] [--features list] [--mode parallel|limited|sequential] [--concurrency N] [--preview]
 ---
 
@@ -11,108 +11,170 @@ Generates deeply structured project documentation through multi-phase workflow.
 
 | Parameter | Description | Default |
 |:----------|:------------|:--------|
-| `--force` | Force full build | Smart detection |
+| `--force` | Force full build | Auto-detect |
 | `--lang` | Output language (zh/en) | zh |
 | `--depth` | Analysis depth | 2 |
 | `--scope` | Limit analysis scope | . |
 | `--skip-symbols` | Skip symbol analysis | false |
 | `--features` | Specify features, comma-separated | Auto-detect |
 | `--mode` | Execution mode | Auto-detect |
-| `--concurrency` | Maximum concurrency | 2 |
-| `--preview` | Preview mode, show changes only without writing | false |
+| `--concurrency` | Max concurrency | 2 |
+| `--preview` | Preview mode, show changes without writing | false |
 
 ---
 
 ## Execution Flow
 
-P0 Environment Detection -> P1 Change Detection -> P2 Planning -> P3 Information Gathering -> P4 Document Generation -> P5 Index Generation -> P6 Context Optimization -> P7 Validation and Fix
+### Flow Overview
+
+P0 Environment Detection → User Configuration → P1 Change Detection → P2 Planning → P3 Information Gathering → P4 Document Generation → P5 Index Generation → P6 Context Optimization → P7 Validation & Fix
+
+### User Configuration Flow
+
+**First AskUserQuestion: Execution Mode and Document Scope**
+
+```
+Question 1: Execution Mode
+- Auto Mode (Recommended): Use recommended options, minimize interaction
+- Interactive Mode: Confirm at each key step
+- Preview Mode: Analyze only, no document generation
+
+Question 2: Document Scope
+- Full Documentation (Recommended): Include all modules, API, symbol docs
+- Core Documentation: Generate architecture and development guides only
+- Minimal Documentation: Generate homepage and architecture overview only
+- Custom: Specify required document types
+```
+
+**Second AskUserQuestion: Document Configuration (Interactive Mode Only)**
+
+If user selects **Interactive Mode**, ask for detailed configuration:
+
+```
+Question 1: Document Depth
+- Depth 2 (Recommended): Project → Module → Class/Function level
+- Depth 1: Project → Module level
+- Depth 3: Include detailed info for all symbols
+- Depth 0: Project-level overview only
+
+Question 2: Document Language
+- Chinese (Recommended): All documents in Chinese
+- English: All documents in English
+- Bilingual: Generate both Chinese and English documents
+
+Question 3: Symbol Analysis
+- Include Symbols (Recommended): Extract classes, functions, interfaces, etc.
+- Skip Symbols: Generate architecture and API docs only
+
+Question 4: Specific Features
+- Auto-detect (Recommended): Automatically identify feature modules from code
+- Specify Features: Enter comma-separated feature list (e.g., auth,payment)
+- Skip Features: Do not generate feature documentation
+
+Question 5: Concurrency Control
+- Parallel Mode (Recommended): Maximize concurrency for fast generation
+- Limited Concurrency: Use --concurrency parameter to specify max concurrency
+- Sequential Mode: Generate one by one, suitable for debugging
+```
+
+**Auto Mode Behavior** (Skip second AskUserQuestion):
+- Document Depth: 2
+- Document Language: Chinese
+- Symbol Analysis: Include symbols (unless --skip-symbols)
+- Specific Features: Auto-detect (unless --features specified)
+- Concurrency Control: Parallel mode, max concurrency 2
+
+**Preview Mode Behavior**:
+- Execute P0-3 phases (Environment Detection → Change Detection → Planning → Information Gathering)
+- Output preview report (document list to generate, change impact, PKG data preview)
+- Skip P4-7 phases (no actual document generation)
 
 ### Subagent Assignment
 
 | Phase | Subagent | Description |
 |:------|:---------|:------------|
-| 0 | Main process | Create directories, detect mode and scale |
+| 0 | Main Process | Create directories, detect mode and scale |
 | 1 | `atlas:repo-semantic-analyzer` | INCREMENTAL mode only |
-| 2 | `Plan` | **Must TodoWrite** generate detailed execution plan |
+| 2 | `Plan` | **Must TodoWrite** to generate detailed execution plan |
 | 3 | `atlas:information-gatherer` | Information gathering (see parallel strategy below) |
 | 4 | `atlas:atlas-executor` | Document generation (see parallel strategy below) |
 | 5 | `atlas:repo-context-indexer` | Generate .index/*.json |
-| 6 | Main process | Generate wiki-context.json |
+| 6 | Main Process | Generate wiki-context.json |
 | 7.1 | `atlas:information-gatherer` | Validation (see parallel strategy below) |
 | 7.3 | `atlas:atlas-executor` | Fix critical issues (<=2 rounds) |
-| 7.4 | Main process | Clean up temporary files |
+| 7.4 | Main Process | Clean temporary files |
 
 ### Parallel Strategy (Dynamic Assignment)
 
-**Core Principle**: Tasks without dependencies should be parallel as much as possible, limited by `--concurrency`
+**Core Principle**: Tasks without dependencies should run in parallel as much as possible, limited by `--concurrency`
 
 **Phase 3 Information Gathering**:
-| Collector | Dependencies | Parallel Group |
-|:----------|:-------------|:---------------|
+| Gatherer | Dependencies | Parallel Group |
+|:---------|:-------------|:---------------|
 | project | None | First round parallel |
 | modules | None | First round parallel |
 | quality | None | First round parallel |
 | api | None | First round parallel |
 | symbols | modules | Second round (wait for modules to complete) |
 
-**Phase 4 Document Generation** (can be dynamically split based on detected content):
-| Executor | Reads PKG | Output | Parallel |
-|:---------|:----------|:-------|:---------|
-| home | project | index.md | Yes |
-| arch-overview | modules | architecture/overview.md | Yes |
-| arch-structure | project | architecture/structure.md | Yes |
-| arch-deps | project | architecture/dependencies.md | Yes |
-| arch-modules | modules | architecture/modules.md, module-graph.md | Yes |
-| arch-layers | modules | architecture/layers.md, patterns.md | Yes |
-| api | api | api/*.md | Yes |
-| guides | project+quality | guides/*.md, quality/*.md | Yes |
-| symbols-index | symbols | symbols/index.md | Yes |
-| symbols-{module} | symbols | symbols/{module}-module.md | Yes, one per module |
-| features-{name} | project+symbols | features/{name}.md | Yes, one per feature |
+**Phase 4 Document Generation** (Can be dynamically split based on detected content):
+| Executor | Read PKG | Output | Parallel |
+|:---------|:---------|:-------|:---------|
+| home | project | index.md | ✅ |
+| arch-overview | modules | architecture/overview.md | ✅ |
+| arch-structure | project | architecture/structure.md | ✅ |
+| arch-deps | project | architecture/dependencies.md | ✅ |
+| arch-modules | modules | architecture/modules.md, module-graph.md | ✅ |
+| arch-layers | modules | architecture/layers.md, patterns.md | ✅ |
+| api | api | api/*.md | ✅ |
+| guides | project+quality | guides/*.md, quality/*.md | ✅ |
+| symbols-index | symbols | symbols/index.md | ✅ |
+| symbols-{module} | symbols | symbols/{module}-module.md | ✅ One per module |
+| features-{name} | project+symbols | features/{name}.md | ✅ One per feature |
 
 **Phase 7.1 Validation**:
 | Validator | Validation Scope | Parallel |
 |:----------|:-----------------|:---------|
-| V1-docs | Core document completeness | Yes |
-| V2-PKG | PKG data consistency | Yes |
-| V3-index | Index file completeness | Yes |
-| V4-context | wiki-context.json | Yes |
+| V1-Docs | Core document completeness | ✅ |
+| V2-PKG | PKG data consistency | ✅ |
+| V3-Index | Index file completeness | ✅ |
+| V4-Context | wiki-context.json | ✅ |
 
 **Parallel Mode Control**:
 | Mode | Behavior |
 |:-----|:---------|
-| `--mode parallel` | As parallel as possible, limited only by dependencies |
+| `--mode parallel` | Maximize parallelism, limited only by dependencies |
 | `--mode limited` | Limited by `--concurrency N` max parallel count |
-| `--mode sequential` | All sequential execution |
+| `--mode sequential` | Execute all sequentially |
 
-**Constraints**: 1. Never mix subagent types 2. P2 must TodoWrite 3. P3/P4 must execute per todos 4. Tasks with dependencies must wait for dependencies to complete
+**Constraints**: 1. Never mix subagent types 2. P2 must TodoWrite 3. P3/P4 must execute according to todos 4. Tasks with dependencies must wait for dependencies to complete
 
 ### Data Flow
 
 | Phase | Input | Output | Transfer |
 |:------|:------|:-------|:---------|
-| 0 | Project directory+git | Environment report (mode/scale) | Memory->P1/P2 |
-| 1 | Environment report+git diff | semantic-changes.json | File->P2 |
-| 2 | P0/P1 report | Execution plan+Todos | Memory->P3 |
-| 3 | P2 plan | *.pkg.json + .scripts/*.py | File->P4 |
-| 4 | PKG files | *.md | File->P5 |
-| 5 | *.md + PKG | .index/*.json | File->P6 |
-| 6 | Index files | wiki-context.json | File->P7 |
-| 7.1 | All artifacts | v*.json | File->7.2 |
-| 7.2 | v*.json | validation-issues.json | File->7.3 |
-| 7.3 | issues | Fixed files | File->7.1 (revalidate) |
-| 7.4 | - | Clean up temporary files | Delete |
+| 0 | Project directory+git | Environment report (mode/scale) | Memory→P1/P2 |
+| 1 | Environment report+git diff | semantic-changes.json | File→P2 |
+| 2 | P0/P1 reports | Execution plan+Todos | Memory→P3 |
+| 3 | P2 plan | *.pkg.json + .scripts/*.py | File→P4 |
+| 4 | PKG files | *.md | File→P5 |
+| 5 | *.md + PKG | .index/*.json | File→P6 |
+| 6 | Index files | wiki-context.json | File→P7 |
+| 7.1 | All artifacts | v*.json | File→7.2 |
+| 7.2 | v*.json | validation-issues.json | File→7.3 |
+| 7.3 | issues | Fixed files | File→7.1 (re-validate) |
+| 7.4 | - | Clean temporary files | Delete |
 | 7.5 | Validation results | validation-report.md | File |
 
-**Constraints**: P3/4/5/6/7 read from files, don't depend on memory | P7.4 must clean up `.scripts/` `.tmp/` `v*.json` `validation-issues.json`
+**Constraints**: P3/4/5/6/7 read from files, not memory | P7.4 must clean `.scripts/` `.tmp/` `v*.json` `validation-issues.json`
 
 ---
 
 ## Phase 0: Environment Detection
 
-**Operations**: Create directories `.claude/repowiki/{.meta,.index,.scripts,.tmp,architecture,api,guides,decisions,symbols,quality,features}` | Detect mode (Wiki doesn't exist/--force/config change->FULL_BUILD | Code changes only->INCREMENTAL) | Determine scale (<100 full|100-500 sampling|500-2000 sharding|>2000 requires --scope)
+**Operations**: Create directories `.claude/repowiki/{.meta,.index,.scripts,.tmp,architecture,api,guides,decisions,symbols,quality,features}` | Detect mode (Wiki not exists/--force/config changed→FULL_BUILD | Code changes only→INCREMENTAL) | Determine scale (<100 full scan|100-500 sampling|500-2000 sharding|>2000 requires --scope)
 
-**Output** (->P1/P2): `{mode: "FULL_BUILD|INCREMENTAL", fileCount: 150, changedFiles: ["src/user.ts"], scale: "small|medium|large|huge"}`
+**Output** (→P1/P2): `{mode: "FULL_BUILD|INCREMENTAL", fileCount: 150, changedFiles: ["src/user.ts"], scale: "small|medium|large|huge"}`
 
 ---
 
@@ -122,7 +184,7 @@ P0 Environment Detection -> P1 Change Detection -> P2 Planning -> P3 Information
 
 **Subagent**: `atlas:repo-semantic-analyzer`
 
-**Operations**: `git diff HEAD~1 HEAD` to get changes | Serena MCP (`find_symbol`/`find_referencing_symbols`) semantic analysis | Identify added/modified/deleted symbols | Determine list of docs needing update
+**Operations**: `git diff HEAD~1 HEAD` to get changes | Serena MCP (`find_symbol`/`find_referencing_symbols`) semantic analysis | Identify added/modified/deleted symbols | Determine docs to update
 
 **Output** (.meta/semantic-changes.json):
 ```json
@@ -146,29 +208,29 @@ P0 Environment Detection -> P1 Change Detection -> P2 Planning -> P3 Information
 
 **Subagent**: `Plan`
 
-**Operations**: Analyze project | **Must TodoWrite** dynamically generate execution plan (adjust based on P0/P1 results, --skip-symbols, --features and other parameters)
+**Operations**: Analyze project | **Must TodoWrite** to dynamically generate execution plan (adjust based on P0/P1 results, --skip-symbols, --features, etc.)
 
 **Output**:
-1. **TodoWrite**: Detailed todos (P3 collector selection, P4 document types, P7 validation items)
-2. **Execution plan**: `{collectors: ["project","modules","quality","symbols"], skipSymbols: false, features: ["auth"], priority: ["src/core"]}`
+1. **TodoWrite**: Detailed todos (P3 gatherer selection, P4 document types, P7 validation items)
+2. **Execution Plan**: `{collectors: ["project","modules","quality","symbols"], skipSymbols: false, features: ["auth"], priority: ["src/core"]}`
 
-**Generation Principle**: Dynamically decide based on actual project situation, each todo must be specific, executable and verifiable
+**Generation Principles**: Dynamically decide based on actual project situation, each todo should be specific, executable, and verifiable
 
-**Todos Structure Example** (dynamically generated as needed):
+**Todos Structure Example** (Dynamically generated based on actual needs):
 ```
 Phase 3 - Information Gathering:
-- [ ] Collect project metadata -> .meta/project.pkg.json
-- [ ] Analyze module structure -> .meta/modules.pkg.json
-- [ ] Calculate code quality -> .meta/quality.pkg.json
-- [ ] Extract API endpoints -> .meta/api.pkg.json
-- [ ] Extract symbol information -> .meta/symbols.pkg.json (if not --skip-symbols)
+- [ ] Collect project metadata → .meta/project.pkg.json
+- [ ] Analyze module structure → .meta/modules.pkg.json
+- [ ] Collect code quality stats → .meta/quality.pkg.json
+- [ ] Extract API endpoints → .meta/api.pkg.json
+- [ ] Extract symbol info → .meta/symbols.pkg.json (if not --skip-symbols)
 
 Phase 4 - Document Generation:
 - [ ] Generate homepage and architecture docs (home-arch executor)
 - [ ] Generate API docs (api executor)
 - [ ] Generate development guides (guides executor)
 - [ ] Generate symbol docs (symbols executor)
-- [ ] Generate feature docs (if specific features detected or --features)
+- [ ] Generate feature docs (if features detected or --features specified)
 
 Phase 7 - Validation:
 - [ ] Validate document completeness (V1-V4 parallel)
@@ -179,22 +241,22 @@ Phase 7 - Validation:
 
 ## Phase 3: Information Gathering
 
-**Core Principle: Better to collect more than miss, better slow than wrong**
+**Core Principle: Better More Than Less, Better Slow Than Wrong**
 
-**Subagent**: `atlas:information-gatherer` (**Must execute per P2 todos**, mark completed immediately after each completes)
+**Subagent**: `atlas:information-gatherer` (**Must execute according to P2 todos**, mark completed immediately after each task)
 
 **Output**: `.meta/{project,modules,quality,api,symbols}.pkg.json`
 
 ### Information Gathering Mandatory Rules
 
 **Information Density Principle**:
-- If one sentence can explain, don't use two
+- One sentence is enough, don't use two
 - Use tables instead of lists when possible
-- Use symbols instead of text when possible (Yes/No/-> etc)
+- Use symbols instead of text when possible (e.g., check/cross/arrow)
 - Avoid repeating the same point
 
 **Output Precision Requirements**:
-- Data must be precise to specific values, prohibit "several", "multiple" and other vague descriptions
+- Data must be precise with specific values, no vague descriptions like "several" or "multiple"
 - API endpoints must have complete paths, no ellipsis
 - Symbol signatures must be complete, no truncation
 
@@ -203,49 +265,49 @@ Phase 7 - Validation:
 - Each document must include generation timestamp at the end
 - Links in documents must be validated immediately after generation
 
-**Zero Speculation Principle (see [Constraints section](#constraints))**:
-1. **Depth first** - Each module/symbol must read actual source code
-2. **Complete coverage** - Cannot miss any public class, function, interface, API
-3. **Multiple validation** - Critical information (especially API endpoints) must be confirmed repeatedly
-4. **Source code is truth** - All information extracted from source code, speculation prohibited
+**Zero Speculation Principle (See [Constraints Section](#constraints))**:
+1. **Depth First** - Must read actual source code for each module/symbol
+2. **Complete Coverage** - Cannot miss any public classes, functions, interfaces, APIs
+3. **Multiple Validations** - Critical info (especially API endpoints) must be confirmed repeatedly
+4. **Source Code as Truth** - All info extracted from source code, speculation forbidden
 
 **API Endpoint Collection** (Strictest):
 - Must scan all route definition files (controller, router)
-- Must read decorators/annotations (`@Get()`, `@Post()`, `router.get()` etc)
+- Must read decorators/annotations (`@Get()`, `@Post()`, `router.get()`, etc.)
 - Must extract complete route path, HTTP method, handler function
-- **Absolutely Prohibited**: 1. Guessing routes from function names 2. Guessing endpoints from file names 3. Assuming standard CRUD routes 4. Making up undefined endpoints
+- **Absolutely Forbidden**: 1. Guessing routes from function names 2. Guessing endpoints from file names 3. Assuming standard CRUD routes 4. Fabricating undefined endpoints
 
 **Symbol Collection** (Zero Omission):
 - Must use Serena MCP `find_symbol`/`get_symbols_overview`
 - Must read method list for each class (`depth=1`)
 - Must extract actual parameter signatures for each function
-- **Prohibited**: 1. Guessing signatures from naming conventions 2. Sampling or skipping public/protected symbols 3. Skipping test/mock/generated
+- **Forbidden**: 1. Guessing signatures from naming conventions 2. Sampling or skipping public/protected symbols 3. Skipping test/mock/generated
 
 **Dependency/Config Collection**:
 - Must read `package.json`/`go.mod`/`requirements.txt`
 - Must analyze actual import/require statements
-- **Prohibited**: Assuming a dependency exists or guessing config item names
+- **Forbidden**: Assuming a dependency exists or guessing config item names
 
-### Parallel Gathering Strategy
+### Parallel Collection Strategy
 
-**Execution Method**: Task tool launches multiple collectors simultaneously
+**Execution Method**: Task tool starts multiple gatherers simultaneously
 
-| Collector | Dependencies | Parallelizable | Mode Control |
-|:----------|:-------------|:---------------|:-------------|
-| project/modules/quality/api | None | Yes | parallel: must be 4 parallel / limited: limited by --concurrency / sequential: serial |
-| symbols | modules | No | Starts after modules completes |
+| Gatherer | Dependencies | Parallel | Mode Control |
+|:---------|:-------------|:---------|:-------------|
+| project/modules/quality/api | None | ✅ | parallel: must run 4 in parallel / limited: limited by --concurrency / sequential: serial |
+| symbols | modules | ❌ | Start after modules completes |
 
-**Execute in two rounds**: 1. project+modules+quality+api parallel 2. symbols waits for modules
+**Execute in Two Rounds**: 1. project+modules+quality+api parallel 2. symbols waits for modules
 
-### Collector Definitions
+### Gatherer Definitions
 
-| Collector | Data Source | Key Fields |
-|:----------|:------------|:-----------|
+| Gatherer | Data Source | Key Fields |
+|:---------|:------------|:-----------|
 | **project** | package.json/README/config | {name, version, language, runtime, framework, database, tree, dependencies[], scripts, envVars, docker, ci} |
-| **modules** | Directory+entry files+import analysis | {modules[], graph[], cycles[], layers, controllers[], services[], repositories[], patterns[]} |
-| **quality** | File statistics+AST analysis | {totalFiles, totalLines, avgLines, distribution, largeFunctions[], deepNesting[], refactorings[]} |
-| **api** | Route files (Serena priority, fallback to Grep) | {endpoints[{method,path,handler,controller,auth,middlewares,params,response}], groups[], authStrategies[], middlewares[]} |
-| **symbols** | Serena MCP **Mandatory** | {classes[{name,module,path,visibility,extends,implements,properties[],methods[]}], interfaces[], functions[{name,params,returns}], types[]} |
+| **modules** | directories+entry files+import analysis | {modules[], graph[], cycles[], layers, controllers[], services[], repositories[], patterns[]} |
+| **quality** | file stats+AST analysis | {totalFiles, totalLines, avgLines, distribution, largeFunctions[], deepNesting[], refactorings[]} |
+| **api** | route files (Serena preferred, fallback to Grep) | {endpoints[{method,path,handler,controller,auth,middlewares,params,response}], groups[], authStrategies[], middlewares[]} |
+| **symbols** | Serena MCP **mandatory** | {classes[{name,module,path,visibility,extends,implements,properties[],methods[]}], interfaces[], functions[{name,params,returns}], types[]} |
 
 ### PKG JSON Schema Complete Definition
 
@@ -403,12 +465,12 @@ Phase 7 - Validation:
 | Go (Gin) | `r.GET/POST/PUT/DELETE` | `r.GET("/users", handler)` |
 | Go (net/http) | `http.HandleFunc` | `http.HandleFunc("/users", handler)` |
 
-**symbols Collection Mandatory Process** (Avoid Omission):
-1. Glob find all code files (`**/*.{ts,tsx,js,jsx,py,java,go}`)
+**Symbols Collection Mandatory Flow** (Avoid omissions):
+1. Glob to find all code files (`**/*.{ts,tsx,js,jsx,py,java,go}`)
 2. `get_symbols_overview` for each file to get symbol list
 3. `find_symbol(depth=1)` for each class to get method list
-4. Batch write (50 files per batch), merge at end
-5. **Validate**: Count scanned files, classes, total methods - fewer classes than expected indicates omission
+4. Write in batches (50 files per batch), merge at the end
+5. **Validation**: Count scanned files, classes, total methods; fewer classes than expected indicates omissions
 
 ### Python Script Assistance (Optional)
 
@@ -416,58 +478,58 @@ Phase 7 - Validation:
 
 **Storage Location**: `.claude/repowiki/.scripts/` (temporary, deleted in P7.4)
 
-**Generation Principle**: Detect tech stack -> Select parser (Python AST/TS Compiler/Go AST) -> Adapt to framework features -> Output PKG format
+**Generation Principles**: Detect tech stack → Select parser (Python AST/TS Compiler/Go AST) → Adapt to framework features → Output PKG format
 
-**Framework-specific Scripts** (dynamically generated based on detection):
+**Framework-specific Scripts** (Dynamically generated based on detection):
 
-| Framework | Script | Extracted Content |
-|:----------|:-------|:------------------|
+| Framework | Script | Extraction Content |
+|:----------|:-------|:-------------------|
 | FastAPI/Django/Flask | `extract_fastapi.py` | `@app.get/post` / `path()` routes |
 | NestJS/Express | `extract_nestjs.py` | Decorators / `app.get()` calls |
 | Spring/Gin | `extract_spring.py` | `@RequestMapping` / `r.GET()` |
 
 **All scripts must be deleted in P7.4 after validation!**
 
-**Subagent Prompt must include**:
+**Subagent Prompt Must Include**:
 1. Output file full path: `.claude/repowiki/.meta/{name}.pkg.json`
-2. PKG structure reference JSON Schema above
+2. PKG structure reference from JSON Schema above
 3. Dependent PKG file paths (symbols needs to read modules.pkg.json)
-4. **Mandatory Serena MCP usage rules** (symbols collection):
+4. **Mandatory Serena MCP Usage Specification** (symbols collection):
    - Use Glob to find all code files
    - Use `get_symbols_overview` for each file to get symbol list
    - Use `find_symbol(depth=1)` for each class to get method list
-   - Batch write JSON, 50 files per batch
-5. **Validation requirement**: After collection, must count and report scanned files, classes, total methods
+   - Write JSON in batches, 50 files per batch
+5. **Validation Requirements**: After collection, must count and report scanned file count, class count, total method count
 
 ---
 
 ## Phase 4: Document Generation
 
-**Subagent**: `atlas:atlas-executor` (**Must execute per P2 todos**, Task tool launches multiple simultaneously)
+**Subagent**: `atlas:atlas-executor` (**Must execute according to P2 todos**, Task tool starts multiple simultaneously)
 
 **Input**: `.meta/{project,modules,quality,api,symbols}.pkg.json` + P2 todos
 
 **Executor Assignment** (No interdependencies, parallel recommended):
 
-| Executor | Reads PKG | Output Documents | Parallel Control |
-|:---------|:----------|:-----------------|:-----------------|
-| home-arch | project + modules | index.md, architecture/*.md | parallel: must be 4 parallel / limited: limited by --concurrency / sequential: serial |
+| Executor | Read PKG | Output Documents | Parallel Control |
+|:---------|:---------|:-----------------|:-----------------|
+| home-arch | project + modules | index.md, architecture/*.md | parallel: must run 4 in parallel / limited: limited by --concurrency / sequential: serial |
 | api | api | api/*.md | Same as above |
 | guides | project + quality | guides/*.md, decisions/*.md, quality/*.md | Same as above |
 | symbols | symbols | symbols/*.md | Same as above |
 
-**Zero Speculation Constraint**: All content 100% from PKG, prohibited to add info not in PKG | When PKG data is empty, mark as "Not detected" rather than guessing
+**Zero Speculation Constraint**: All content 100% from PKG, forbidden to add info not in PKG | When PKG data is empty, mark as "Not detected" instead of guessing
 
-**Subagent Prompt must include**:
+**Subagent Prompt Must Include**:
 1. PKG file full path to read: `.claude/repowiki/.meta/{name}.pkg.json`
 2. Output file full path: `.claude/repowiki/{dir}/{name}.md`
-3. Reference [Document Standards] example format
-4. **Validation requirement**: When PKG data is empty, mark as "Not detected" rather than guessing
+3. Reference example format from [Document Specifications]
+4. **Validation Requirements**: When PKG data is empty, mark as "Not detected" instead of guessing
 
-### File Mapping (Conditional generation see [Conditional Generation section](#conditional-generation))
+### File Mapping (See [Conditional Generation Section](#conditional-generation) for conditions)
 
-| Output Document | Data Source PKG Field |
-|:----------------|:----------------------|
+| Output Document | Data Source PKG Fields |
+|:----------------|:-----------------------|
 | index.md | project.{name, description, tech stack, scripts} |
 | architecture/overview.md | modules.layers + Mermaid diagram |
 | architecture/structure.md | project.{tree, roles} |
@@ -480,7 +542,7 @@ Phase 7 - Validation:
 | api/types.md | api.types[] |
 | guides/development.md | project.{runtime, packageManager, scripts} |
 | guides/build.md | project.{docker, ci, envVars} |
-| decisions/adr-log.md | Tech selection inference |
+| decisions/adr-log.md | Tech decision inference |
 | quality/complexity.md | quality.* |
 | symbols/*.md | symbols grouped by module |
 
@@ -490,14 +552,14 @@ Phase 7 - Validation:
 
 **Subagent**: `atlas:repo-context-indexer`
 
-**Operations**: Scan *.md | Extract key info (titles/symbol references/link relationships) | Build quick lookup index | Analyze inter-document references
+**Operations**: Scan *.md | Extract key info (titles/symbol references/link relationships) | Build quick query index | Analyze inter-document references
 
 **Output** (.index/*.json):
 
 | Index File | Purpose | Key Fields |
 |:-----------|:--------|:-----------|
-| quick-lookup.json | Quick locate symbols/features | {project: {name, tech, entryDocs}, quickSearch: {symbolName: {type, file, doc}}} |
-| symbol-map.json | Symbol->document mapping | {classes[], interfaces[], functions[], endpoints[], symbolToDocs: {symbolName: [docPaths]}} |
+| quick-lookup.json | Quick symbol/feature lookup | {project: {name, tech, entryDocs}, quickSearch: {symbolName: {type, file, doc}}} |
+| symbol-map.json | Symbol→Document mapping | {classes[], interfaces[], functions[], endpoints[], symbolToDocs: {symbolName: [docPaths]}} |
 | doc-graph.json | Document relationship graph | {nodes: [{id, type, weight}], edges: [{from, to, type}]} |
 
 ### Index File Complete Schema
@@ -603,26 +665,26 @@ Phase 7 - Validation:
 
 ---
 
-## Phase 7: Parallel Validation and Auto-fix
+## Phase 7: Parallel Validation and Auto-Fix
 
-**Last phase, comprehensively check all generated content, auto-fix issues found!**
+**Final phase, comprehensively check all generated content, auto-fix issues found!**
 
 ### 7.1 Parallel Validation
 
-**Execution Method**: Main process **launches 4 validators in parallel in single message** (sequential prohibited)
+**Execution Method**: Main process **starts 4 validators in parallel in a single message** (serial forbidden)
 
 | Validator | Subagent | Validation Scope | Output | Key Checks |
 |:----------|:---------|:-----------------|:-------|:-----------|
-| V1-docs | `atlas:information-gatherer` | Document completeness | v1-docs.json | index.md exists >=10 lines / architecture/overview.md exists / guides/development.md exists / H1/H2 structure / Navigation links valid / No TODO/TBD |
-| V2-PKG | `atlas:information-gatherer` | PKG consistency | v2-pkg.json | project.pkg.json valid / modules matches directory / symbols coverage >=90% / api endpoints match source / PKG modules -> symbols/*.md exists |
-| V3-index | `atlas:information-gatherer` | Index completeness | v3-index.json | quick-lookup.json format correct / symbol-map symbol refs valid / doc-graph nodes correspond to actual docs / Index covers all docs |
-| V4-context | `atlas:information-gatherer` | Context validity | v4-context.json | wiki-context.json exists / entryPoints paths valid / quickAccess index files exist / metadata stats accurate |
+| V1-Docs | `atlas:information-gatherer` | Document completeness | v1-docs.json | index.md exists with >=10 lines / architecture/overview.md exists / guides/development.md exists / H1/H2 structure / Navigation links valid / No TODO/TBD |
+| V2-PKG | `atlas:information-gatherer` | PKG consistency | v2-pkg.json | project.pkg.json valid / modules match directory / symbols coverage >=90% / api endpoints match source / PKG modules → symbols/*.md exist |
+| V3-Index | `atlas:information-gatherer` | Index completeness | v3-index.json | quick-lookup.json format correct / symbol-map symbol refs valid / doc-graph nodes match actual docs / Index covers all docs |
+| V4-Context | `atlas:information-gatherer` | Context validity | v4-context.json | wiki-context.json exists / entryPoints paths valid / quickAccess indexes exist / metadata stats accurate |
 
-**Severity levels**: critical (must fix) | warning (suggest fix) | info (notice only)
+**Severity Levels**: critical (must fix) | warning (suggest fix) | info (notice only)
 
 **Validator Check Details**:
 
-V1-docs Validator:
+V1-Docs Validator:
 ```json
 {
   "checks": [
@@ -643,26 +705,26 @@ V2-PKG Validator:
   "checks": [
     {"id": "P1", "name": "project.pkg.json exists and valid", "severity": "critical"},
     {"id": "P2", "name": "modules.pkg.json matches directory structure", "severity": "warning"},
-    {"id": "P3", "name": "symbols.pkg.json coverage >= 90%", "severity": "warning"},
+    {"id": "P3", "name": "symbols.pkg.json symbol coverage >= 90%", "severity": "warning"},
     {"id": "P4", "name": "api.pkg.json endpoints match source", "severity": "warning"},
-    {"id": "P5", "name": "PKG modules -> symbols/*.md exists", "severity": "warning"}
+    {"id": "P5", "name": "PKG modules → symbols/*.md exist", "severity": "warning"}
   ]
 }
 ```
 
-V3-index Validator:
+V3-Index Validator:
 ```json
 {
   "checks": [
     {"id": "I1", "name": "quick-lookup.json exists and format correct", "severity": "critical"},
-    {"id": "I2", "name": "symbol-map.json symbol references valid", "severity": "warning"},
-    {"id": "I3", "name": "doc-graph.json nodes correspond to actual docs", "severity": "warning"},
+    {"id": "I2", "name": "symbol-map.json symbol refs valid", "severity": "warning"},
+    {"id": "I3", "name": "doc-graph.json nodes match actual docs", "severity": "warning"},
     {"id": "I4", "name": "Index covers all generated docs", "severity": "warning"}
   ]
 }
 ```
 
-V4-context Validator:
+V4-Context Validator:
 ```json
 {
   "checks": [
@@ -680,41 +742,41 @@ V4-context Validator:
 
 **Output** (.meta/validation-issues.json): `{timestamp, summary: {critical, warning, info, passed}, issues: [{id, severity, message, fix: {type, phase, target}}], fixable: bool, fixPlan: [{phase, action, targets}]}`
 
-### 7.3 Auto-fix (<=2 rounds)
+### 7.3 Auto-Fix (<=2 rounds)
 
 **Condition**: Critical issues exist
 
-**Flow**: Analyze validation-issues.json -> Group by Phase -> Parallel launch atlas:atlas-executor to fix (P3 issues->re-collect PKG / P4 issues->regenerate docs / P5 issues->regenerate index / P6 issues->regenerate wiki-context.json) -> Re-execute 7.1 after fix -> Repeat if still critical and <2 rounds -> Mark "requires manual intervention" if >=2 rounds still has issues
+**Flow**: Analyze validation-issues.json → Group by Phase → Start atlas:atlas-executor in parallel for fixes (P3 issues→re-collect PKG / P4 issues→re-generate docs / P5 issues→re-generate index / P6 issues→re-generate wiki-context.json) → After fix, re-execute 7.1 → If still critical and <2 rounds, repeat → >=2 rounds still has issues, mark "requires manual intervention"
 
 **Fix Flow Diagram**:
 ```
 +-------------------------------------------------------------+
-|                     Fix Loop (Max 2 rounds)                  |
+|                     Fix Loop (max 2 rounds)                  |
 +-------------------------------------------------------------+
 |  1. Analyze validation-issues.json                           |
 |  2. Group fixable issues by Phase                            |
-|  3. Parallel launch atlas:atlas-executor for fixes           |
-|     - Phase 3 issues -> Re-collect corresponding PKG         |
-|     - Phase 4 issues -> Regenerate corresponding docs        |
-|     - Phase 5 issues -> Regenerate index                     |
-|     - Phase 6 issues -> Regenerate wiki-context.json         |
-|  4. Re-execute 7.1 parallel validation after fix             |
+|  3. Start atlas:atlas-executor in parallel for fixes         |
+|     - Phase 3 issues → Re-collect corresponding PKG          |
+|     - Phase 4 issues → Re-generate corresponding docs        |
+|     - Phase 5 issues → Re-generate index                     |
+|     - Phase 6 issues → Re-generate wiki-context.json         |
+|  4. After fix, re-execute 7.1 parallel validation            |
 |  5. If still critical issues and < 2 rounds, return to step 1|
-|  6. If >= 2 rounds still has issues, mark "requires manual"  |
+|  6. If >= 2 rounds still has issues, mark "manual required"  |
 +-------------------------------------------------------------+
 ```
 
-### 7.4 Clean Up Temporary Files
+### 7.4 Clean Temporary Files
 
-**Cleanup Targets**: `.scripts/` (temporary scripts) | `.tmp/` (intermediate artifacts) | `v1-docs.json` | `v2-pkg.json` | `v3-index.json` | `v4-context.json` | `validation-issues.json` (after merged to report)
+**Clean Targets**: `.scripts/` (temp scripts) | `.tmp/` (intermediate artifacts) | `v1-docs.json` | `v2-pkg.json` | `v3-index.json` | `v4-context.json` | `validation-issues.json` (merged into report)
 
-**Cleanup Command**: `rm -rf .claude/repowiki/.{scripts,tmp}/ && rm -f .claude/repowiki/.meta/v*.json .claude/repowiki/.meta/validation-issues.json`
+**Clean Command**: `rm -rf .claude/repowiki/.{scripts,tmp}/ && rm -f .claude/repowiki/.meta/v*.json .claude/repowiki/.meta/validation-issues.json`
 
-**Keep temporary files for debugging when validation fails and requires manual intervention!**
+**Keep temp files for debugging when validation fails and requires manual intervention!**
 
 ### 7.5 Generate Final Report
 
-**Output** (.meta/validation-report.md): Execution summary (validation rounds/fix rounds/final status) | Validation results (V1-V4 pass/warning/fail) | Temporary file cleanup status | Generation timestamp
+**Output** (.meta/validation-report.md): Execution summary (validation rounds/fix rounds/final status) | Validation results (V1-V4 passed/warning/failed) | Temp file cleanup status | Generation timestamp
 
 ---
 
@@ -734,9 +796,9 @@ V4-context Validator:
 
 ---
 
-## Document Naming Conventions
+## Document Naming Convention
 
-**Except for features/ and symbols/, all document filenames are strictly fixed!**
+**All document filenames are strictly fixed except features/ and symbols/!**
 
 ### Fixed Naming
 
@@ -755,13 +817,13 @@ V4-context Validator:
 | symbols/ | index.md + {module}-module.md | user-module.md |
 | features/ | {feature}.md (kebab-case) | authentication.md |
 
-**Constraints**: symbols/ must have index.md, module docs end with `-module.md` | Prohibited: custom filenames, Chinese, spaces, uppercase
+**Constraints**: symbols/ must have index.md, module docs end with `-module.md` | No custom filenames, Chinese, spaces, or uppercase
 
 ---
 
-## Document Standards
+## Document Specifications
 
-**Universal Constraints**: H1 file title/H2 sections/H3 subsections | Tables left-aligned empty values use `-` | Code blocks specify language | Relative path links | Prohibited: TODO/TBD/broken links/invalid Mermaid
+**General Constraints**: H1 file title/H2 sections/H3 subsections | Tables left-aligned, empty values use `-` | Code blocks specify language | Relative path links | No TODO/TBD/broken links/invalid Mermaid
 
 ### Key Document Structure Examples
 
@@ -830,8 +892,8 @@ graph TD
 
 ## Technical Decisions
 
-| Decision | Choice | Rationale |
-|:---------|:-------|:----------|
+| Decision | Choice | Reason |
+|:---------|:-------|:-------|
 | ORM | Prisma | Type safety |
 | Auth | JWT | Stateless |
 ```
@@ -845,16 +907,16 @@ graph TD
 
 | Metric | Value |
 |:-------|:------|
-| Total endpoints | 12 |
-| Requires auth | 10 |
+| Total Endpoints | 12 |
+| Auth Required | 10 |
 
 ## Endpoint List
 
 | Method | Path | Handler | Auth | Description |
 |:-------|:-----|:--------|:----:|:------------|
-| GET | /users | UserController.list | Yes | User list |
-| POST | /users | UserController.create | Yes | Create user |
-| GET | /users/:id | UserController.find | Yes | User details |
+| GET | /users | UserController.list | Y | User list |
+| POST | /users | UserController.create | Y | Create user |
+| GET | /users/:id | UserController.find | Y | User details |
 
 ## Error Codes
 
@@ -910,14 +972,14 @@ graph TD
 
 | Metric | Value |
 |:-------|:------|
-| Total files | 45 |
-| Total lines | 3,200 |
-| Average lines | 71 |
+| Total Files | 45 |
+| Total Lines | 3,200 |
+| Average Lines | 71 |
 
 ## File Distribution
 
-| Lines | Files | Percentage |
-|:------|:------|:-----------|
+| Lines | File Count | Percentage |
+|:------|:-----------|:-----------|
 | 1-50 | 20 | 44% |
 | 51-100 | 15 | 33% |
 | 101-200 | 8 | 18% |
@@ -939,11 +1001,11 @@ graph TD
 
 ### High Priority
 
-1. **order.service.ts**: processOrder too long -> Split
+1. **order.service.ts**: processOrder too long → Split
 
 ### Medium Priority
 
-1. **validator.ts**: Nesting too deep -> Early return pattern
+1. **validator.ts**: Nesting too deep → Early return pattern
 ```
 
 #### features/{name}.md Complete Example
@@ -953,7 +1015,7 @@ graph TD
 
 ## Overview
 
-JWT-based stateless authentication, supporting access token and refresh token dual-token mechanism.
+JWT-based stateless authentication supporting access token and refresh token dual-token mechanism.
 
 ## Core Components
 
@@ -977,15 +1039,15 @@ sequenceDiagram
 
 | Config | Type | Default | Description |
 |:-------|:-----|:--------|:------------|
-| JWT_SECRET | string | - | Signing secret |
+| JWT_SECRET | string | - | Signing key |
 | JWT_EXPIRES | string | 15m | Expiration time |
 ```
 
-**Other Documents**: architecture/{dependencies,module-graph}.md contain Mermaid dependency graphs | quality/complexity.md contains statistics+warnings+suggestions | features/*.md contains overview+components+data flow (Mermaid)+config
+**Other Documents**: architecture/{dependencies,module-graph}.md include Mermaid dependency diagrams | quality/complexity.md includes stats+warnings+suggestions | features/*.md includes overview+components+data flow (Mermaid)+config
 
 ---
 
-## features/ Auto-detection
+## features/ Auto-Detection
 
 | Feature Pattern | Matching Files | Generated Document |
 |:----------------|:---------------|:-------------------|
@@ -997,7 +1059,7 @@ sequenceDiagram
 
 **Custom**: `--features auth,payment` or `.claude/wiki.config.json`
 
-**Document Structure**: Feature name (H1) | Overview (H2) | Core components (H2) | Data flow (H2, Mermaid optional) | Config (H2, optional)
+**Document Structure**: Feature name (H1) | Overview (H2) | Core Components (H2) | Data Flow (H2, Mermaid optional) | Configuration (H2, optional)
 
 ---
 
@@ -1005,42 +1067,57 @@ sequenceDiagram
 
 **Zero Speculation Principle (Highest Priority)**:
 
-**Absolutely Prohibited** to speculate, guess, infer! All document content **100% from actual code**!
+**Absolutely forbidden** to speculate, guess, or infer! All document content **100% from actual code**!
 
-**Prohibited Speculation Content**: API endpoints (path/method/params/response) | Class names/function names/variable names | Parameter signatures/return types | Module structure/dependency relationships | Config items/environment variables | Any code-related technical details
+**Forbidden Speculation Content**: API endpoints (path/method/params/response) | Class/function/variable names | Parameter signatures/return types | Module structure/dependencies | Config items/environment variables | Any code-related technical details
 
-**Mandatory Validation Flow**: 1. Must read source code before writing to document 2. Each symbol must be verified to exist via Serena MCP/Grep 3. Each API endpoint must be extracted from route definition file 4. Each config item must be extracted from config file 5. Better not to write than to guess
+**Mandatory Validation Flow**: 1. Must read source code before writing docs 2. Each symbol must be verified via Serena MCP/Grep 3. Each API endpoint must be extracted from route definition files 4. Each config item must be extracted from config files 5. Better to not write than to guess
 
 **Information Source Requirements**:
-- Symbol info -> `find_symbol`/`get_symbols_overview`
-- API endpoints -> Actual reading of route files (`@Get()`, `router.get()` etc)
-- Dependencies -> `package.json`/`go.mod`/actual import analysis
-- Config items -> `.env.example`/config files
+- Symbol info → `find_symbol`/`get_symbols_overview`
+- API endpoints → Actual route file reading (`@Get()`, `router.get()`, etc.)
+- Dependencies → `package.json`/`go.mod`/actual import analysis
+- Config items → `.env.example`/config files
 
-**When uncertain about information, must return to source code to confirm again!**
+**When uncertain about info, must return to source code to confirm again!**
 
-**Subagent Usage** (see each Phase description):
+**Subagent Usage** (See each Phase description):
 - P1: `atlas:repo-semantic-analyzer` (INCREMENTAL only)
 - P2: `Plan` (must TodoWrite)
-- P3: `atlas:information-gatherer` (parallel recommended, must execute per todos)
-- P4: `atlas:atlas-executor` (parallel recommended, must execute per todos)
+- P3: `atlas:information-gatherer` (model="haiku", parallel recommended, must execute according to todos)
+- P4: `atlas:atlas-executor` (parallel recommended, must execute according to todos, ask user to select model)
 - P5: `atlas:repo-context-indexer`
 - P6: Main process
-- P7.1: `atlas:information-gatherer` (must be 4 parallel)
-- P7.3: `atlas:atlas-executor`
+- P7.1: `atlas:information-gatherer` (model="haiku", must run 4 in parallel)
+- P7.3: `atlas:atlas-executor` (ask user to select model)
 - P7.4: Main process
 
-**Execution Constraints**: Phase order cannot be skipped | symbols waits for modules | PKG is only data medium | Prefer Serena MCP | Format - required sections cannot be omitted/table columns consistent/Mermaid syntax correct/relative path links | Naming - strictly follow conventions | Validation - docs >=10 lines/symbol coverage >=90% (warning)/links 100% valid/Mermaid no errors/must be 4 validators parallel | Cleanup - must delete .scripts/.tmp/v*.json/validation-issues.json after validation passes, keep for debugging when manual intervention needed
+**Execution Constraints**: Phase order cannot be skipped | symbols waits for modules | PKG is the only data medium | Prefer Serena MCP | Format - required sections cannot be omitted/table columns consistent/Mermaid syntax correct/relative path links | Naming - strictly follow conventions | Validation - docs >=10 lines/symbol coverage >=90% (warning)/links 100% valid/Mermaid no errors/must run 4 validators in parallel | Cleanup - must delete .scripts/.tmp/v*.json/validation-issues.json after validation passes, keep for debugging when manual intervention required
 
-**Prohibited**: Skip validation | Silently ignore failures | Placeholder content | Hardcoded info | Any speculated content | Custom filenames
+**Forbidden**: Skip validation | Silently ignore failures | Placeholder content | Hardcoded info | Any speculation | Custom filenames
 
-**Error Handling**: No git->FULL_BUILD | >2000 files without scope->terminate | Serena unavailable->fallback to Grep | Collection fails->skip dependent tasks | Executor fails->continue others | Critical issues->auto-fix (<=2 rounds)
+**Error Handling**: No git→FULL_BUILD | >2000 files without scope→terminate | Serena unavailable→fallback to Grep | Collection failed→skip dependent tasks | Executor failed→continue others | Critical issues→auto-fix (<=2 rounds)
+
+### Segmented Output Specification
+
+**Trigger Conditions** (Segment if any condition met):
+- Single output exceeds 800 characters
+- List exceeds 15 items
+- Code block exceeds 30 lines
+
+### Pre-Output Confirmation
+
+Confirm output documents include:
+- [ ] Project overview
+- [ ] Module documentation (each module)
+- [ ] API documentation (if any)
+- [ ] Symbol index
 
 ---
 
 ## Final Report Format
 
-**Must Include**: Execution summary (mode/language/scope/depth) | Generation stats (doc count/total lines/symbol coverage/time) | Validation results (All passed / X warnings / X failures) | Cleanup status (Temporary files deleted / Kept for debugging) | File list (core doc paths) | Next steps (`git add .claude/repowiki && git commit -m "docs: generate repo wiki"`)
+**Must Include**: Execution summary (mode/language/scope/depth) | Generation stats (doc count/total lines/symbol coverage/duration) | Validation results (All passed / X warnings / X failures) | Cleanup status (Temp files deleted / Kept for debugging) | File list (core doc paths) | Next steps (`git add .claude/repowiki && git commit -m "docs: generate repo wiki"`)
 
 ---
 
@@ -1048,9 +1125,9 @@ sequenceDiagram
 
 **Trigger**: `/atlas:repo-wiki --preview`
 
-**Flow**: P0-3 execute normally -> P4 generates preview (don't write files) -> P5-7 skipped
+**Flow**: P0-3 execute normally → P4 generates preview (no file writing) → P5-7 skipped
 
-**Preview Output**: Build info (mode/changed files/affected docs) | Documents to generate (new/update/unchanged) | PKG data preview (changed symbols) | Expected impact (doc count/line changes)
+**Preview Output**: Build info (mode/changed files/affected docs) | Documents to generate (new/updated/unchanged) | PKG data preview (changed symbols) | Estimated impact (doc count/line changes)
 
 **Use Cases**: Incremental update verification | Large project estimation | CI/CD integration
 
@@ -1062,7 +1139,7 @@ sequenceDiagram
 ```bash
 /atlas:repo-wiki                                      # Auto-detect all parameters
 /atlas:repo-wiki --preview                            # Preview mode
-/atlas:repo-wiki --lang en --scope src               # English + limit directory
+/atlas:repo-wiki --lang en --scope src               # English + limited directory
 /atlas:repo-wiki --skip-symbols --mode sequential    # Skip symbols + sequential
 /atlas:repo-wiki --features auth,payment             # Specify features
 /atlas:repo-wiki --force --concurrency 1             # Force rebuild + limit concurrency
@@ -1073,55 +1150,55 @@ sequenceDiagram
 Simple library (5 docs):
 ```
 .claude/repowiki/
-+-- .meta/
-|   +-- project.pkg.json
-|   +-- validation-report.md
-+-- .index/
-|   +-- quick-lookup.json
-|   +-- symbol-map.json
-|   +-- doc-graph.json
-+-- index.md
-+-- architecture/
-|   +-- overview.md
-|   +-- structure.md
-+-- guides/
-|   +-- development.md
-+-- symbols/
-    +-- index.md
+├── .meta/
+│   ├── project.pkg.json
+│   └── validation-report.md
+├── .index/
+│   ├── quick-lookup.json
+│   ├── symbol-map.json
+│   └── doc-graph.json
+├── index.md
+├── architecture/
+│   ├── overview.md
+│   └── structure.md
+├── guides/
+│   └── development.md
+└── symbols/
+    └── index.md
 ```
 
 Web application (12+ docs):
 ```
 .claude/repowiki/
-+-- .meta/
-|   +-- project.pkg.json
-|   +-- modules.pkg.json
-|   +-- quality.pkg.json
-|   +-- api.pkg.json
-|   +-- symbols.pkg.json
-|   +-- validation-report.md
-+-- .index/
-|   +-- quick-lookup.json
-|   +-- symbol-map.json
-|   +-- doc-graph.json
-+-- index.md
-+-- architecture/
-|   +-- overview.md
-|   +-- structure.md
-|   +-- dependencies.md
-|   +-- modules.md
-|   +-- module-graph.md
-|   +-- layers.md
-+-- api/
-|   +-- endpoints.md
-|   +-- types.md
-+-- guides/
-|   +-- development.md
-|   +-- build.md
-+-- symbols/
-|   +-- index.md
-|   +-- user-module.md
-|   +-- order-module.md
-+-- features/
-    +-- authentication.md
+├── .meta/
+│   ├── project.pkg.json
+│   ├── modules.pkg.json
+│   ├── quality.pkg.json
+│   ├── api.pkg.json
+│   ├── symbols.pkg.json
+│   └── validation-report.md
+├── .index/
+│   ├── quick-lookup.json
+│   ├── symbol-map.json
+│   └── doc-graph.json
+├── index.md
+├── architecture/
+│   ├── overview.md
+│   ├── structure.md
+│   ├── dependencies.md
+│   ├── modules.md
+│   ├── module-graph.md
+│   └── layers.md
+├── api/
+│   ├── endpoints.md
+│   └── types.md
+├── guides/
+│   ├── development.md
+│   └── build.md
+├── symbols/
+│   ├── index.md
+│   ├── user-module.md
+│   └── order-module.md
+└── features/
+    └── authentication.md
 ```
