@@ -8,6 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Atlas**: 任务协调框架插件,通过智能协调器和执行器实现项目级批量操作,支持项目分析、依赖梳理、代码探索
 - **Ideation**: 多角色头脑风暴框架,通过苏格拉底式对话和专家辩论深度探索问题本质
+- **Mnemosyne**: 上下文记忆管理插件,支持保存、加载、搜索会话上下文,实现跨会话知识延续
 
 ## 项目架构
 
@@ -20,19 +21,21 @@ cc-plugins/
 ├── atlas/                         # Atlas 任务协调框架插件
 │   ├── .claude-plugin/
 │   │   └── plugin.json           # 插件元数据(名称、版本、描述等)
-│   ├── agents/                   # 专业化 agents (7个)
+│   ├── agents/                   # 专业化 agents (8个)
 │   │   ├── atlas-executor.md     # 任务执行器: 执行具体的子任务
 │   │   ├── code-reviewer.md      # 代码审查: 多维度代码质量分析
 │   │   ├── commit-analyzer.md    # 提交分析: Git 提交历史分析
 │   │   ├── dependency-analyzer.md # 依赖分析: 依赖关系与安全检查
 │   │   ├── information-gatherer.md # 信息收集: 收集和分析项目信息
+│   │   ├── planner.md            # 规划器: 任务规划与分解
 │   │   ├── repo-context-indexer.md # 仓库索引: 项目上下文建立
 │   │   └── repo-semantic-analyzer.md # 语义分析: 代码语义理解
-│   ├── commands/                 # 斜杠命令 (9个)
+│   ├── commands/                 # 斜杠命令 (10个)
 │   │   ├── orchestrate.md        # /orchestrate 任务协调
 │   │   ├── gather.md             # /gather 信息收集
 │   │   ├── review.md             # /review 代码审查
 │   │   ├── refactor.md           # /refactor 智能重构
+│   │   ├── bugfix.md             # /bugfix 问题诊断与修复
 │   │   ├── test-gen.md           # /test-gen 测试生成
 │   │   ├── deps.md               # /deps 依赖管理
 │   │   ├── health.md             # /health 健康检查
@@ -41,9 +44,9 @@ cc-plugins/
 │   ├── hooks/                    # Hooks 配置
 │   │   └── hooks.json            # PreToolUse hooks: 防止嵌套调用
 │   └── skills/                   # 查询 skills (3个)
-│       ├── dep-query/SKILL.md    # 依赖查询: 版本、漏洞、使用位置
-│       ├── git-query/SKILL.md    # Git 查询: 提交、贡献者、分支
-│       └── wiki-query/SKILL.md   # Wiki 查询: 项目结构、API、模块
+│       ├── dep-query/            # 依赖查询: 版本、漏洞、使用位置
+│       ├── git-query/            # Git 查询: 提交、贡献者、分支
+│       └── wiki-query/           # Wiki 查询: 项目结构、API、模块
 ├── ideation/                      # Ideation 多角色头脑风暴插件
 │   ├── .claude-plugin/
 │   │   └── plugin.json           # 插件元数据
@@ -65,7 +68,18 @@ cc-plugins/
 │   ├── commands/
 │   │   └── brainstorm.md         # /brainstorm 命令定义
 │   └── skills/
-│       └── brainstorm/SKILL.md   # 头脑风暴工作流 skill
+│       └── brainstorm/           # 头脑风暴工作流 skill
+├── mnemosyne/                     # Mnemosyne 上下文记忆插件
+│   ├── .claude-plugin/
+│   │   └── plugin.json           # 插件元数据
+│   └── commands/                 # 记忆管理命令 (7个)
+│       ├── save.md               # /save 保存当前会话上下文
+│       ├── load.md               # /load 加载历史上下文
+│       ├── list.md               # /list 查看保存的上下文列表
+│       ├── search.md             # /search 搜索历史上下文
+│       ├── delete.md             # /delete 删除指定上下文
+│       ├── clean.md              # /clean 清理过期上下文
+│       └── stats.md              # /stats 显示存储统计
 ├── docs/                         # Claude Code 插件系统参考文档
 └── README.md / README_zh.md      # 项目说明文档
 ```
@@ -102,104 +116,54 @@ cc-plugins/
 ### 版本号规范
 
 项目遵循语义化版本 (Semantic Versioning 2.0.0):
-- **MAJOR.MINOR.PATCH** (例如: 1.0.0)
+- **MAJOR.MINOR.PATCH** (例如: 2.21.0)
   - MAJOR: 不兼容的 API 变更
   - MINOR: 向后兼容的功能新增
   - PATCH: 向后兼容的问题修正
 
+### 版本同步规则
+
+**核心原则**: marketplace 版本 = atlas 插件版本（主插件）
+
+| 文件 | 字段 | 说明 |
+|------|------|------|
+| `.claude-plugin/marketplace.json` | `metadata.version` | 市场版本，与主插件同步 |
+| `.claude-plugin/marketplace.json` | `plugins[atlas].version` | atlas 在市场中的版本 |
+| `atlas/.claude-plugin/plugin.json` | `version` | atlas 插件实际版本 |
+| `ideation/.claude-plugin/plugin.json` | `version` | ideation 独立版本 |
+| `mnemosyne/.claude-plugin/plugin.json` | `version` | mnemosyne 独立版本 |
+
+**更新时机**:
+- 修改 atlas 插件 → 同步更新 marketplace + atlas 三处版本
+- 修改 ideation/mnemosyne → 仅更新对应插件版本
+- Agent/Skill frontmatter 版本仅在该组件有重大变更时更新
+
 ### 修改版本号的步骤
 
-当需要发布新版本时,**必须同步更新以下文件**:
+**Step 1**: 确定新版本号（基于变更类型）
 
-1. **市场配置文件** (根级别)
-   ```bash
-   # 文件: .claude-plugin/marketplace.json
-   # 位置: 第 9 行
-   "version": "1.0.0"  # 修改此处
-   ```
+**Step 2**: 更新以下文件（atlas 变更时）
 
-2. **插件元数据** (每个插件独立版本)
-   ```bash
-   # Atlas 插件
-   # 文件: atlas/.claude-plugin/plugin.json
-   "version": "x.y.z"  # 修改此处
-
-   # Ideation 插件
-   # 文件: ideation/.claude-plugin/plugin.json
-   "version": "x.y.z"  # 修改此处
-   ```
-
-3. **市场配置中的插件版本**
-   ```bash
-   # 文件: .claude-plugin/marketplace.json
-   # 位置: plugins 数组中对应插件的 version 字段 (第 16 行)
-   "version": "1.0.0"  # 修改此处
-   ```
-
-4. **Agent frontmatter** (如果 agent 有重大变更)
-   ```bash
-   # 示例: atlas/agents/atlas-executor.md
-   # 位置: 第 4 行
-   version: 1.0.0  # 修改此处
-   ```
-
-5. **Skill frontmatter** (如果 skill 有重大变更)
-   ```bash
-   # 示例: atlas/skills/atlas/SKILL.md
-   # 位置: 第 4 行
-   version: 1.0.0  # 修改此处
-   ```
-
-### 版本更新命令
-
-```bash
-# 1. 修改版本号 (按上述步骤)
-# 2. 提交变更
-git add .
-git commit -m "chore: bump version to x.y.z"
-
-# 3. 创建 git tag
-git tag -a vx.y.z -m "Release version x.y.z"
-
-# 4. 推送到远程仓库
-git push origin main
-git push origin vx.y.z
+```
+.claude-plugin/marketplace.json     → metadata.version + plugins[atlas].version
+atlas/.claude-plugin/plugin.json    → version
 ```
 
-### 版本更新示例
-
-假设要从 1.0.0 升级到 1.1.0 (新增功能):
+**Step 3**: 验证版本一致性
 
 ```bash
-# 使用 sed 批量修改 (macOS 用户注意 -i 后需要 '')
-sed -i '' 's/"version": "1.0.0"/"version": "1.1.0"/g' .claude-plugin/marketplace.json
-sed -i '' 's/"version": "1.0.0"/"version": "1.1.0"/g' atlas/.claude-plugin/plugin.json
-sed -i '' 's/version: 1.0.0/version: 1.1.0/g' atlas/skills/atlas/SKILL.md
-
-# 验证修改
-grep -r "1.1.0" .claude-plugin/ atlas/.claude-plugin/ atlas/agents/ atlas/skills/
-
-# 提交
-git add .
-git commit -m "chore: bump version to 1.1.0"
-git tag -a v1.1.0 -m "Release version 1.1.0"
-git push origin main --tags
+grep -E '"version"' .claude-plugin/marketplace.json atlas/.claude-plugin/plugin.json
 ```
 
 ### 版本更新检查清单
 
 发布新版本前务必检查:
 
-- [ ] marketplace.json 中的 metadata.version 已更新
-- [ ] marketplace.json 中各插件的 version 已更新
-- [ ] atlas/.claude-plugin/plugin.json 中的 version 已更新
-- [ ] ideation/.claude-plugin/plugin.json 中的 version 已更新
-- [ ] 相关 agents 的 version frontmatter 已更新 (如有变更)
-- [ ] 相关 skills 的 version frontmatter 已更新 (如有变更)
-- [ ] README.md 和 README_zh.md 已更新 (如有文档变更)
-- [ ] 所有版本号一致
-- [ ] git tag 已创建
-- [ ] 变更已推送到远程仓库
+- [ ] `marketplace.json` 中 `metadata.version` 已更新
+- [ ] `marketplace.json` 中对应插件的 `version` 已更新
+- [ ] 对应插件的 `plugin.json` 中 `version` 已更新
+- [ ] 三处版本号一致（atlas 变更时）
+- [ ] README 已更新（如有文档变更）
 
 ## 开发工作流
 
