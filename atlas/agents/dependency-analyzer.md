@@ -143,78 +143,12 @@ pnpm install --frozen-lockfile  # 严格模式检查
 
 ```json
 {
-  "metadata": {
-    "taskId": "<task-id>",
-    "timestamp": "2025-12-06T12:34:56Z",
-    "analysisType": "all",
-    "scope": "."
-  },
-  "packageManager": {
-    "name": "npm",
-    "version": "10.2.3",
-    "lockfile": "package-lock.json",
-    "lockfileVersion": 3
-  },
-  "summary": {
-    "total": 156,
-    "direct": 23,
-    "transitive": 133,
-    "dev": 45,
-    "prod": 111,
-    "vulnerabilities": {
-      "critical": 2,
-      "high": 5,
-      "medium": 8,
-      "low": 3,
-      "total": 18
-    },
-    "outdated": {
-      "major": 5,
-      "minor": 12,
-      "patch": 20,
-      "total": 37
-    },
-    "conflicts": 3
-  },
+  "metadata": {"taskId": "<task-id>", "timestamp": "2025-12-06T12:34:56Z", "analysisType": "all", "scope": "."},
+  "packageManager": {"name": "npm", "version": "10.2.3", "lockfile": "package-lock.json", "lockfileVersion": 3},
+  "summary": {"total": 156, "direct": 23, "transitive": 133, "dev": 45, "prod": 111, "vulnerabilities": {"critical": 2, "high": 5, "medium": 8, "low": 3, "total": 18}, "outdated": {"major": 5, "minor": 12, "patch": 20, "total": 37}, "conflicts": 3},
   "dependencies": [
-    {
-      "name": "lodash",
-      "version": "4.17.21",
-      "latest": "4.17.21",
-      "type": "prod",
-      "isDirect": true,
-      "license": "MIT",
-      "homepage": "https://lodash.com/",
-      "description": "Lodash modular utilities.",
-      "vulnerabilities": [],
-      "dependents": [
-        "package-a@1.0.0",
-        "package-b@2.0.0"
-      ],
-      "installSize": "1.41 MB",
-      "location": "node_modules/lodash"
-    },
-    {
-      "name": "axios",
-      "version": "0.21.1",
-      "latest": "1.6.2",
-      "type": "prod",
-      "isDirect": true,
-      "license": "MIT",
-      "vulnerabilities": [
-        {
-          "id": "CVE-2021-3749",
-          "severity": "high",
-          "cvss": 7.5,
-          "title": "Regular Expression Denial of Service (ReDoS)",
-          "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-3749",
-          "fixedIn": "0.21.2",
-          "recommendation": "Upgrade to axios@0.21.2 or higher"
-        }
-      ],
-      "dependents": [],
-      "installSize": "234 KB"
-    }
+    {"name": "lodash", "version": "4.17.21", "latest": "4.17.21", "type": "prod", "isDirect": true, "license": "MIT", "homepage": "https://lodash.com/", "description": "Lodash modular utilities.", "vulnerabilities": [], "dependents": ["package-a@1.0.0", "package-b@2.0.0"], "installSize": "1.41 MB", "location": "node_modules/lodash"},
+    {"name": "axios", "version": "0.21.1", "latest": "1.6.2", "type": "prod", "isDirect": true, "license": "MIT", "vulnerabilities": [{"id": "CVE-2021-3749", "severity": "high", "cvss": 7.5, "title": "Regular Expression Denial of Service (ReDoS)", "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-3749", "fixedIn": "0.21.2", "recommendation": "Upgrade to axios@0.21.2 or higher"}], "dependents": [], "installSize": "234 KB"}
   ],
   "conflicts": [
     {
@@ -222,14 +156,8 @@ pnpm install --frozen-lockfile  # 严格模式检查
       "versions": ["^17.0.0", "^18.0.0"],
       "reason": "peer dependency version mismatch",
       "sources": [
-        {
-          "package": "react-router@6.0.0",
-          "requires": "react@^18.0.0"
-        },
-        {
-          "package": "react-dom@17.0.2",
-          "installed": "react@17.0.2"
-        }
+        {"package": "react-router@6.0.0", "requires": "react@^18.0.0"},
+        {"package": "react-dom@17.0.2", "installed": "react@17.0.2"}
       ],
       "recommendation": "Upgrade react to ^18.0.0 to satisfy react-router@6.0.0"
     }
@@ -238,28 +166,11 @@ pnpm install --frozen-lockfile  # 严格模式检查
     "depth": 5,
     "totalNodes": 156,
     "heaviest": [
-      {
-        "name": "webpack",
-        "size": "5.23 MB",
-        "dependencies": 45
-      },
-      {
-        "name": "@babel/core",
-        "size": "3.12 MB",
-        "dependencies": 38
-      }
+      {"name": "webpack", "size": "5.23 MB", "dependencies": 45},
+      {"name": "@babel/core", "size": "3.12 MB", "dependencies": 38}
     ],
     "duplicates": [
-      {
-        "name": "semver",
-        "versions": ["5.7.1", "6.3.0", "7.5.4"],
-        "count": 3,
-        "locations": [
-          "node_modules/semver",
-          "node_modules/package-a/node_modules/semver",
-          "node_modules/package-b/node_modules/semver"
-        ]
-      }
+      {"name": "semver", "versions": ["5.7.1", "6.3.0", "7.5.4"], "count": 3, "locations": ["node_modules/semver", "node_modules/package-a/node_modules/semver", "node_modules/package-b/node_modules/semver"]}
     ]
   }
 }
@@ -346,232 +257,42 @@ pnpm install --frozen-lockfile  # 严格模式检查
 # 依赖分析报告
 
 ## 分析概况
-- **时间**: 2025-12-06 12:34:56
-- **范围**: .
-- **包管理器**: npm v10.2.3
-- **Lockfile**: package-lock.json (v3)
+- 时间: <ISO-8601> | 范围: <scope>
+- 包管理器: <name version> | Lockfile: <file (ver)>
 
-## 📊 统计摘要
-
+## 统计摘要
 | 指标 | 数量 |
 |------|------|
-| 总依赖数 | 156 |
-| 直接依赖 | 23 |
-| 传递依赖 | 133 |
-| 开发依赖 | 45 |
-| 生产依赖 | 111 |
+| 总依赖数 | X |
+| 直接依赖 | A |
+| 传递依赖 | B |
+| 开发依赖 | C |
+| 生产依赖 | D |
 
-## 🔒 安全扫描
-
-### 漏洞总览
-
+## 安全漏洞（按严重性）
 | 严重程度 | 数量 |
 |---------|------|
-| 🔴 Critical | 2 |
-| 🟠 High | 5 |
-| 🟡 Medium | 8 |
-| 🟢 Low | 3 |
-| **总计** | **18** |
+| Critical | X |
+| High | Y |
+| Medium | Z |
+| Low | N |
 
-### 🔴 Critical 漏洞（需立即修复）
+## 过期依赖（major/minor/patch）
+| 包名 | 当前版本 | 最新版本 | 类型 | 建议 |
+|-----|---------|---------|------|------|
+| - | - | - | - | - |
 
-#### 1. lodash@4.17.19
-- **CVE**: CVE-2020-8203
-- **CVSS**: 9.1 (Critical)
-- **标题**: Prototype Pollution
-- **影响**: 可能导致远程代码执行
-- **修复版本**: 4.17.21+
-- **修复命令**: `npm install lodash@^4.17.21`
-- **引用路径**:
-  - Direct: lodash@4.17.19
-  - Transitive: webpack@4.46.0 → lodash@4.17.19
+## 版本冲突
+- <package>: <reason> → <recommendation>
 
-#### 2. axios@0.21.1
-- **CVE**: CVE-2021-3749
-- **CVSS**: 7.5 (High)
-- **标题**: Regular Expression Denial of Service (ReDoS)
-- **影响**: 可能导致应用程序拒绝服务
-- **修复版本**: 0.21.2+
-- **修复命令**: `npm install axios@^0.21.2`
-- **引用路径**: Direct: axios@0.21.1
+## 依赖树
+- 最大深度: D | 总节点: N | 重复版本: K | 最大依赖 TopN: [...]
 
-### 🟠 High 漏洞（建议尽快修复）
-
-[类似格式列出其他漏洞...]
-
-## 📦 过期依赖
-
-### Major 版本更新（需人工评估）
-
-| 包名 | 当前版本 | 最新版本 | 类型 | 变更日志 |
-|-----|---------|---------|------|---------|
-| react | 17.0.2 | 18.2.0 | prod | [Changelog](https://github.com/facebook/react/releases) |
-| webpack | 4.46.0 | 5.89.0 | dev | [Migration Guide](https://webpack.js.org/migrate/5/) |
-
-**升级建议**: Major 版本更新可能包含破坏性变更，建议：
-1. 阅读变更日志和迁移指南
-2. 在测试环境中验证
-3. 更新相关代码和配置
-
-### Minor 版本更新（兼容性升级）
-
-| 包名 | 当前版本 | 最新版本 | 类型 | 更新内容 |
-|-----|---------|---------|------|---------|
-| eslint | 8.45.0 | 8.56.0 | dev | 新规则、性能优化 |
-| typescript | 5.1.6 | 5.3.3 | dev | 新特性、bug 修复 |
-
-**升级命令**: `npm update eslint typescript`
-
-### Patch 版本更新（安全修复）
-
-| 包名 | 当前版本 | 最新版本 | 类型 | 修复内容 |
-|-----|---------|---------|------|---------|
-| express | 4.18.2 | 4.18.5 | prod | 安全补丁 |
-| jest | 29.5.0 | 29.7.0 | dev | Bug 修复 |
-
-**升级命令**: `npm update` (自动升级所有 patch 版本)
-
-## ⚠️ 版本冲突
-
-### 1. react 版本冲突
-
-**冲突描述**: react-router@6.0.0 要求 react@^18.0.0，但项目当前使用 react@17.0.2
-
-**冲突来源**:
-- react-router@6.0.0 (peerDependencies: react@^18.0.0)
-- 项目 package.json (dependencies: react@^17.0.0)
-
-**影响**: react-router 可能无法正常工作，可能出现运行时错误
-
-**修复建议**:
-```bash
-# 升级 react 到 18.x
-npm install react@^18.0.0 react-dom@^18.0.0
-```
-
-**注意事项**:
-- React 18 引入了新的并发特性，可能需要更新部分代码
-- 查看迁移指南: https://react.dev/blog/2022/03/08/react-18-upgrade-guide
-
-### 2. semver 重复依赖
-
-**冲突描述**: semver 包有 3 个不同版本同时安装
-
-**重复版本**:
-- semver@5.7.1 (被 webpack@4.46.0 依赖)
-- semver@6.3.0 (被 eslint@8.45.0 依赖)
-- semver@7.5.4 (项目直接依赖)
-
-**影响**:
-- 增加 bundle 体积约 150 KB
-- 可能导致类型不兼容问题
-
-**修复建议**:
-```bash
-# 使用 npm 的 overrides 功能统一版本
-# 在 package.json 中添加:
-{
-  "overrides": {
-    "semver": "^7.5.4"
-  }
-}
-```
-
-## 📈 依赖树分析
-
-### 树统计
-- **最大深度**: 5 层
-- **总节点数**: 156
-- **平均子依赖**: 2.3 个/包
-
-### 最大依赖（Top 5）
-
-| 包名 | 安装大小 | 子依赖数 | 类型 |
-|-----|---------|---------|------|
-| webpack | 5.23 MB | 45 | dev |
-| @babel/core | 3.12 MB | 38 | dev |
-| typescript | 2.89 MB | 0 | dev |
-| react-dom | 2.34 MB | 12 | prod |
-| lodash | 1.41 MB | 0 | prod |
-
-### 重复依赖分析
-
-**semver** (3 个版本):
-- v5.7.1: node_modules/webpack/node_modules/semver
-- v6.3.0: node_modules/eslint/node_modules/semver
-- v7.5.4: node_modules/semver
-
-**chalk** (2 个版本):
-- v2.4.2: node_modules/webpack/node_modules/chalk
-- v4.1.2: node_modules/chalk
-
-**优化建议**: 使用 `npm dedupe` 尝试减少重复依赖
-
-## 💡 优化建议
-
-### 🚨 高优先级（建议立即执行）
-
-1. **修复 Critical 漏洞**
-   ```bash
-   npm install lodash@^4.17.21
-   npm audit fix --force
-   ```
-
-2. **解决版本冲突**
-   ```bash
-   npm install react@^18.0.0 react-dom@^18.0.0
-   ```
-
-### ⚡️ 中优先级（计划执行）
-
-3. **升级 Patch 版本（安全修复）**
-   ```bash
-   npm update
-   ```
-
-4. **减少依赖体积**
-   ```bash
-   npm dedupe
-   npm prune --production
-   ```
-
-5. **审查开发依赖**
-   - 移除未使用的开发依赖
-   - 使用 `depcheck` 检测未使用的依赖
-
-### 🔧 低优先级（可选优化）
-
-6. **考虑 Major 版本升级**
-   - 阅读 webpack 5 迁移指南
-   - 测试 React 18 兼容性
-
-7. **依赖体积优化**
-   - 使用 `lodash-es` 替代 `lodash`（支持 tree-shaking）
-   - 考虑使用更轻量的替代品
-
-## 📋 执行清单
-
-- [ ] 修复 lodash CVE-2020-8203 (Critical)
-- [ ] 修复 axios CVE-2021-3749 (High)
-- [ ] 解决 react 版本冲突
-- [ ] 升级所有 patch 版本
-- [ ] 运行 `npm dedupe` 减少重复依赖
-- [ ] 执行 `npm audit fix` 自动修复可修复的漏洞
-- [ ] 测试应用程序功能
-- [ ] 更新 lockfile 并提交
-
-## 🔗 参考资源
-
-- [npm audit 文档](https://docs.npmjs.com/cli/v10/commands/npm-audit)
-- [CVE 数据库](https://nvd.nist.gov/vuln)
-- [Snyk 漏洞数据库](https://snyk.io/vuln)
-- [Node.js 安全最佳实践](https://nodejs.org/en/docs/guides/security/)
+## 建议
+- 先修复 critical/high，再处理冲突，再做升级/去重
 
 ---
-
-**生成时间**: 2025-12-06 12:34:56
-**分析工具**: Dependency Analyzer v1.0.0
-**数据来源**: npm audit + npm outdated + npm ls
+*生成于 <ISO-8601> | 数据源: audit/outdated/list*
 ```
 
 ---

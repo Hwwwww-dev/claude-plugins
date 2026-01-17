@@ -76,22 +76,13 @@ color: yellow
 
 ```markdown
 ## 统计摘要
-- 分析范围: v1.0.0..v2.0.0 (30天)
-- 总提交数: 87
-- 文件变更: 156 files changed, 3245 insertions(+), 1023 deletions(-)
+- 分析范围: <from>..<to>
+- 总提交数: N | 文件变更: X | +Lines/-Lines
 
-## 提交类型分布
-| 类型 | 数量 | 占比 |
-|------|-----|------|
-| feat | 32  | 36.8% |
-| fix  | 25  | 28.7% |
-| docs | 12  | 13.8% |
-| refactor | 10 | 11.5% |
-| other | 8  | 9.2% |
-
-## 时间分布
-- 平均每日提交: 2.9
-- 活跃时段: 周三、周四
+## 类型分布（示例）
+| feat | fix | docs | refactor | other |
+|------|-----|------|----------|-------|
+| 32 | 25 | 12 | 10 | 8 |
 ```
 
 ### contributors（贡献者）
@@ -103,8 +94,6 @@ color: yellow
 | 作者 | Commits | +Lines | -Lines | 净增长 |
 |------|---------|--------|--------|-------|
 | Alice <alice@example.com> | 42 | 1890 | 560 | +1330 |
-| Bob <bob@example.com> | 28 | 980 | 320 | +660 |
-| Charlie <charlie@example.com> | 17 | 375 | 143 | +232 |
 ```
 
 ### impact（影响分析）
@@ -112,18 +101,12 @@ color: yellow
 
 ```markdown
 ## 高影响变更
-- **Breaking Changes**: 2 个（需要特别关注）
-- **重大重构**: 5 个（refactor 类型，涉及核心模块）
+- Breaking Changes: N | 重大重构: M
 
 ## 热点文件 (Top 10)
 | 文件 | 修改次数 | 代码波动 | 参与者 |
 |------|----------|----------|--------|
 | src/api/auth.ts | 15 | +450/-120 | 4 |
-| src/models/User.ts | 12 | +230/-89 | 3 |
-| README.md | 10 | +120/-45 | 5 |
-
-## 风险提示
-⚠️ `src/api/auth.ts` 在 30 天内被修改 15 次，建议审查代码稳定性
 ```
 
 ---
@@ -138,27 +121,10 @@ color: yellow
 **PKG 结构**:
 ```json
 {
-  "range": {
-    "from": "v1.0.0",
-    "to": "v2.0.0",
-    "commits": 87,
-    "period": {
-      "start": "2025-01-01T00:00:00Z",
-      "end": "2025-01-30T23:59:59Z",
-      "days": 30
-    }
-  },
+  "range": {"from": "v1.0.0", "to": "v2.0.0", "commits": 87, "period": {"start": "2025-01-01T00:00:00Z", "end": "2025-01-30T23:59:59Z", "days": 30}},
   "changes": {
     "features": [
-      {
-        "hash": "a3b2c1d",
-        "scope": "ui",
-        "subject": "添加深色模式支持",
-        "body": "实现全局主题切换功能...",
-        "pr": "#42",
-        "files": ["src/theme.ts", "src/App.tsx"],
-        "stats": {"additions": 120, "deletions": 15}
-      }
+      {"hash": "a3b2c1d", "scope": "ui", "subject": "添加深色模式支持", "body": "实现全局主题切换功能...", "pr": "#42", "files": ["src/theme.ts", "src/App.tsx"], "stats": {"additions": 120, "deletions": 15}}
     ],
     "fixes": [...],
     "docs": [...],
@@ -178,37 +144,14 @@ color: yellow
     }
   ],
   "contributors": [
-    {
-      "name": "Alice",
-      "email": "alice@example.com",
-      "commits": 42,
-      "additions": 1890,
-      "deletions": 560,
-      "netChange": 1330,
-      "firstCommit": "2025-01-02T10:30:00Z",
-      "lastCommit": "2025-01-29T16:45:00Z"
-    }
+    {"name": "Alice", "email": "alice@example.com", "commits": 42, "additions": 1890, "deletions": 560, "netChange": 1330, "firstCommit": "2025-01-02T10:30:00Z", "lastCommit": "2025-01-29T16:45:00Z"}
   ],
   "hotspots": [
-    {
-      "file": "src/api/auth.ts",
-      "changes": 15,
-      "authors": ["Alice", "Bob", "Charlie", "David"],
-      "churn": 570,
-      "stats": {"additions": 450, "deletions": 120}
-    }
+    {"file": "src/api/auth.ts", "changes": 15, "authors": ["Alice", "Bob", "Charlie", "David"], "churn": 570, "stats": {"additions": 450, "deletions": 120}}
   ],
   "stats": {
     "totalCommits": 87,
-    "byType": {
-      "feat": 32,
-      "fix": 25,
-      "docs": 12,
-      "refactor": 10,
-      "perf": 3,
-      "test": 5,
-      "other": 8
-    },
+    "byType": {"feat": 32, "fix": 25, "docs": 12, "refactor": 10, "perf": 3, "test": 5, "other": 8},
     "filesChanged": 156,
     "totalAdditions": 3245,
     "totalDeletions": 1023,

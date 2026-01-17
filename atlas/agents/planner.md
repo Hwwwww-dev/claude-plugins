@@ -81,43 +81,11 @@ color: purple
 ```markdown
 # 执行计划
 
-## 信息来源
-- 主要来源: gatherer (.claude/gather/<task-id>/)
-- 补充读取: [无 / 列出读取的文件及原因]
-
-## 任务概述
-[一句话描述]
-
-## 子任务列表
-
-### #1: [描述]
-- **文件**: `path/to/file.ts` (行 XX-YY)
-- **操作**: [具体操作]
-- **修改点**:
-  ```
-  // 行 XX: 原代码
-  old code here
-  // 改为
-  new code here
-  ```
-- **依赖**: 无 / 依赖 #N
-
-### #2: [描述]
-...
-
-## 执行策略
-- **模式**: parallel / sequential / mixed
-- **原因**: [选择原因]
-
-## 依赖图
-```
-#1 ──┬──> #2
-     └──> #3 ──> #4
-```
-
-## 风险评估
-- 潜在问题: [可能的问题]
-- 建议: [如何应对]
+- 信息来源: gatherer + supplementary（如有）
+- 任务概述: 一句话
+- 子任务列表: 每项包含 文件+行号+操作+修改点+依赖
+- 执行策略: mode + reason
+- 风险评估: 风险点 + 应对
 ```
 
 ### 3.2 plan.json（结构化）
@@ -126,10 +94,7 @@ color: purple
 {
   "taskId": "<task-id>",
   "timestamp": "ISO8601",
-  "source": {
-    "gatherer": ".claude/gather/<task-id>/",
-    "supplementary": []
-  },
+  "source": {"gatherer": ".claude/gather/<task-id>/", "supplementary": []},
   "summary": "任务概述",
   "subtasks": [
     {
@@ -139,13 +104,7 @@ color: purple
         {
           "path": "src/foo.ts",
           "modifications": [
-            {
-              "line": 45,
-              "type": "replace",
-              "original": "原代码",
-              "replacement": "新代码",
-              "context": "// 上下文代码"
-            }
+            {"line": 45, "type": "replace", "original": "原代码", "replacement": "新代码", "context": "// 上下文代码"}
           ]
         }
       ],
@@ -153,10 +112,7 @@ color: purple
       "context": "嵌入的相关代码片段"
     }
   ],
-  "strategy": {
-    "mode": "parallel",
-    "reason": "无依赖冲突"
-  },
+  "strategy": {"mode": "parallel", "reason": "无依赖冲突"},
   "risks": []
 }
 ```
@@ -189,11 +145,7 @@ color: purple
     "requirementsCovered": 5,
     "totalRequirements": 5,
     "uncovered": [],
-    "validation": {
-      "allModificationsComplete": true,
-      "allDependenciesDocumented": true,
-      "noOrphanedSubtasks": true
-    }
+    "validation": {"allModificationsComplete": true, "allDependenciesDocumented": true, "noOrphanedSubtasks": true}
   }
 }
 ```
@@ -261,13 +213,8 @@ color: purple
 ```json
 {
   "task": "将 app.DB 改为 app.MySQL",
-  "files": [
-    {"path": "questionnaire/internal/bootstrap/questionnaire_initializer.go", "lines": 594}
-  ],
-  "codeSnippets": [
-    {"file": "...", "line": 90, "code": "q.initRepositories(app.DB, app.Logger)"},
-    {"file": "...", "line": 181, "code": "app.DB,"}
-  ]
+  "files": [{"path": "questionnaire/internal/bootstrap/questionnaire_initializer.go", "lines": 594}],
+  "codeSnippets": [{"file": "...", "line": 90, "code": "q.initRepositories(app.DB, app.Logger)"}, {"file": "...", "line": 181, "code": "app.DB,"}]
 }
 ```
 

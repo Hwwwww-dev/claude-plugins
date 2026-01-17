@@ -78,16 +78,10 @@ P0环境检测 → 用户配置 → P1变更检测 → P2规划 → P3信息收�
 ```
 
 **自动模式行为**（跳过第二个 AskUserQuestion）：
-- 文档深度: 2
-- 文档语言: 中文
-- 符号分析: 包含符号（除非 --skip-symbols）
-- 特定功能点: 自动检测（除非 --features 指定）
-- 并发控制: 并行模式，最大并发数 2
+- 默认值：`depth=2`、`lang=中文`、`symbols=包含(除非 --skip-symbols)`、`features=自动检测(除非 --features)`、`--concurrency=2`
 
 **预览模式行为**：
-- 执行 P0-3 阶段（环境检测 → 变更检测 → 规划 → 信息收集）
-- 输出预览报告（将生成的文档列表、变更影响、PKG数据预览）
-- 跳过 P4-7 阶段（不实际生成文档）
+- 仅执行 P0-3 并输出预览报告；跳过 P4-7（不实际生成文档）
 
 ### Subagent 分配
 
@@ -191,13 +185,7 @@ P0环境检测 → 用户配置 → P1变更检测 → P2规划 → P3信息收�
 {
   "timestamp": "2024-01-15T10:30:00Z",
   "changedFiles": ["src/user.ts"],
-  "semanticChanges": {
-    "newSymbols": [{"type": "function", "name": "validateUser", "module": "user", "file": "src/user.ts"}],
-    "modifiedSymbols": [{"type": "class", "name": "OrderService", "change": "method added"}],
-    "deletedSymbols": [],
-    "affectedModules": ["user", "order"],
-    "affectedDocs": ["symbols/user-module.md", "api/endpoints.md"]
-  },
+  "semanticChanges": {"newSymbols": [{"type": "function", "name": "validateUser", "module": "user", "file": "src/user.ts"}], "modifiedSymbols": [{"type": "class", "name": "OrderService", "change": "method added"}], "deletedSymbols": [], "affectedModules": ["user", "order"], "affectedDocs": ["symbols/user-module.md", "api/endpoints.md"]},
   "impactLevel": "medium"
 }
 ```
@@ -314,35 +302,11 @@ Phase 7 - 验证:
 **project.pkg.json**:
 ```json
 {
-  "metadata": {
-    "name": "项目名称",
-    "version": "版本号",
-    "description": "描述",
-    "license": "许可证",
-    "author": "作者",
-    "repository": "仓库地址"
-  },
-  "techStack": {
-    "language": "主语言",
-    "framework": "框架",
-    "database": "数据库",
-    "packageManager": "包管理器"
-  },
-  "directory": {
-    "tree": "目录树结构",
-    "roles": {"src": "源代码", "tests": "测试"},
-    "stats": {"ts": 45, "tsx": 23}
-  },
-  "dependencies": {
-    "production": [{"name": "...", "version": "...", "purpose": "..."}],
-    "development": [...]
-  },
-  "build": {
-    "scripts": {"build": "tsc", "test": "jest"},
-    "envVars": ["DATABASE_URL", "API_KEY"],
-    "docker": "Dockerfile 概要",
-    "ci": "CI 配置概要"
-  }
+  "metadata": {"name": "项目名称", "version": "版本号", "description": "描述", "license": "许可证", "author": "作者", "repository": "仓库地址"},
+  "techStack": {"language": "主语言", "framework": "框架", "database": "数据库", "packageManager": "包管理器"},
+  "directory": {"tree": "目录树结构", "roles": {"src": "源代码", "tests": "测试"}, "stats": {"ts": 45, "tsx": 23}},
+  "dependencies": {"production": [{"name": "...", "version": "...", "purpose": "..."}], "development": [...]},
+  "build": {"scripts": {"build": "tsc", "test": "jest"}, "envVars": ["DATABASE_URL", "API_KEY"], "docker": "Dockerfile 概要", "ci": "CI 配置概要"}
 }
 ```
 
@@ -350,24 +314,10 @@ Phase 7 - 验证:
 ```json
 {
   "modules": [
-    {
-      "name": "模块名",
-      "path": "路径",
-      "entry": "入口文件",
-      "exports": ["导出符号列表"],
-      "layer": "controller|service|repository|util",
-      "patterns": ["singleton", "factory"]
-    }
+    {"name": "模块名", "path": "路径", "entry": "入口文件", "exports": ["导出符号列表"], "layer": "controller|service|repository|util", "patterns": ["singleton", "factory"]}
   ],
-  "dependencies": {
-    "graph": "Mermaid 图表代码",
-    "cycles": ["循环依赖警告"]
-  },
-  "layers": {
-    "controllers": ["文件列表"],
-    "services": ["文件列表"],
-    "repositories": ["文件列表"]
-  }
+  "dependencies": {"graph": "Mermaid 图表代码", "cycles": ["循环依赖警告"]},
+  "layers": {"controllers": ["文件列表"], "services": ["文件列表"], "repositories": ["文件列表"]}
 }
 ```
 
@@ -400,16 +350,7 @@ Phase 7 - 验证:
       "types": [...]
     }
   },
-  "apiEndpoints": [
-    {
-      "method": "GET",
-      "path": "/api/users",
-      "handler": "UserController.list",
-      "auth": true,
-      "params": [],
-      "response": "User[]"
-    }
-  ],
+  "apiEndpoints": [{"method": "GET", "path": "/api/users", "handler": "UserController.list", "auth": true, "params": [], "response": "User[]"}],
   "stats": {"total": 156, "documented": 142, "coverage": 0.91}
 }
 ```
@@ -417,17 +358,8 @@ Phase 7 - 验证:
 **quality.pkg.json**:
 ```json
 {
-  "complexity": {
-    "fileStats": [{"path": "file.ts", "lines": 245, "functions": 12}],
-    "largeFunctions": [{"path": "file.ts", "name": "bigFunc", "lines": 89}],
-    "deepNesting": [{"path": "file.ts", "name": "func", "depth": 5}]
-  },
-  "organization": {
-    "fileCount": 156,
-    "avgFileSize": 120,
-    "largeModules": ["module1", "module2"],
-    "suggestions": ["建议拆分 module1"]
-  }
+  "complexity": {"fileStats": [{"path": "file.ts", "lines": 245, "functions": 12}], "largeFunctions": [{"path": "file.ts", "name": "bigFunc", "lines": 89}], "deepNesting": [{"path": "file.ts", "name": "func", "depth": 5}]},
+  "organization": {"fileCount": 156, "avgFileSize": 120, "largeModules": ["module1", "module2"], "suggestions": ["建议拆分 module1"]}
 }
 ```
 
@@ -435,21 +367,9 @@ Phase 7 - 验证:
 ```json
 {
   "endpoints": [
-    {
-      "method": "GET",
-      "path": "/api/users",
-      "handler": "UserController.list",
-      "controller": "UserController",
-      "auth": true,
-      "middlewares": ["AuthGuard"],
-      "params": [{"name": "id", "type": "string", "in": "path"}],
-      "response": "User[]",
-      "description": "获取用户列表"
-    }
+    {"method": "GET", "path": "/api/users", "handler": "UserController.list", "controller": "UserController", "auth": true, "middlewares": ["AuthGuard"], "params": [{"name": "id", "type": "string", "in": "path"}], "response": "User[]", "description": "获取用户列表"}
   ],
-  "groups": [
-    {"prefix": "/api/users", "controller": "UserController", "endpoints": [...]}
-  ],
+  "groups": [{"prefix": "/api/users", "controller": "UserController", "endpoints": [...]}],
   "authStrategies": [{"name": "jwt", "type": "bearer", "scope": "global"}],
   "globalMiddlewares": ["LoggerMiddleware"],
   "routeMiddlewares": [{"path": "/admin/*", "middleware": "AdminGuard"}]
@@ -567,21 +487,10 @@ Phase 7 - 验证:
 **quick-lookup.json**:
 ```json
 {
-  "project": {
-    "name": "my-app",
-    "tech": ["TypeScript", "NestJS"],
-    "entryDocs": ["index.md", "architecture/overview.md"]
-  },
+  "project": {"name": "my-app", "tech": ["TypeScript", "NestJS"], "entryDocs": ["index.md", "architecture/overview.md"]},
   "quickSearch": {
-    "UserService": {
-      "type": "class",
-      "file": "src/user/user.service.ts",
-      "doc": "symbols/user-module.md#userservice"
-    },
-    "authentication": {
-      "type": "feature",
-      "doc": "features/authentication.md"
-    }
+    "UserService": {"type": "class", "file": "src/user/user.service.ts", "doc": "symbols/user-module.md#userservice"},
+    "authentication": {"type": "feature", "doc": "features/authentication.md"}
   }
 }
 ```
@@ -593,22 +502,15 @@ Phase 7 - 验证:
   "interfaces": ["IUser", "IOrder"],
   "functions": ["validateUser", "processOrder"],
   "endpoints": ["/users", "/orders"],
-  "symbolToDocs": {
-    "UserService": ["symbols/user-module.md", "api/endpoints.md"]
-  }
+  "symbolToDocs": {"UserService": ["symbols/user-module.md", "api/endpoints.md"]}
 }
 ```
 
 **doc-graph.json**:
 ```json
 {
-  "nodes": [
-    {"id": "index.md", "type": "home", "weight": 10},
-    {"id": "architecture/overview.md", "type": "arch", "weight": 8}
-  ],
-  "edges": [
-    {"from": "index.md", "to": "architecture/overview.md", "type": "reference"}
-  ]
+  "nodes": [{"id": "index.md", "type": "home", "weight": 10}, {"id": "architecture/overview.md", "type": "arch", "weight": 8}],
+  "edges": [{"from": "index.md", "to": "architecture/overview.md", "type": "reference"}]
 }
 ```
 
@@ -629,35 +531,12 @@ Phase 7 - 验证:
   "projectName": "my-app",
   "wikiPath": ".claude/repowiki",
   "entryPoints": [
-    {
-      "path": "index.md",
-      "title": "项目首页",
-      "description": "项目概览和快速开始",
-      "weight": 10
-    },
-    {
-      "path": "architecture/overview.md",
-      "title": "架构总览",
-      "description": "系统架构和核心模块",
-      "weight": 9
-    }
+    {"path": "index.md", "title": "项目首页", "description": "项目概览和快速开始", "weight": 10},
+    {"path": "architecture/overview.md", "title": "架构总览", "description": "系统架构和核心模块", "weight": 9}
   ],
-  "quickAccess": {
-    "symbols": ".index/symbol-map.json",
-    "search": ".index/quick-lookup.json",
-    "graph": ".index/doc-graph.json"
-  },
-  "metadata": {
-    "totalDocs": 12,
-    "totalSymbols": 58,
-    "coverage": 94,
-    "lastBuildMode": "FULL_BUILD"
-  },
-  "contextRules": {
-    "maxDocsPerQuery": 5,
-    "priorityDocs": ["index.md", "architecture/overview.md"],
-    "excludePatterns": ["*.pkg.json", "validation-report.md"]
-  }
+  "quickAccess": {"symbols": ".index/symbol-map.json", "search": ".index/quick-lookup.json", "graph": ".index/doc-graph.json"},
+  "metadata": {"totalDocs": 12, "totalSymbols": 58, "coverage": 94, "lastBuildMode": "FULL_BUILD"},
+  "contextRules": {"maxDocsPerQuery": 5, "priorityDocs": ["index.md", "architecture/overview.md"], "excludePatterns": ["*.pkg.json", "validation-report.md"]}
 }
 ```
 
@@ -687,52 +566,28 @@ Phase 7 - 验证:
 V1-文档验证器:
 ```json
 {
-  "checks": [
-    {"id": "D1", "name": "index.md 存在", "severity": "critical"},
-    {"id": "D2", "name": "index.md ≥10 行", "severity": "critical"},
-    {"id": "D3", "name": "architecture/overview.md 存在", "severity": "critical"},
-    {"id": "D4", "name": "guides/development.md 存在", "severity": "critical"},
-    {"id": "D5", "name": "H1/H2 结构正确", "severity": "warning"},
-    {"id": "D6", "name": "导航链接有效", "severity": "warning"},
-    {"id": "D7", "name": "无 TODO/TBD 占位符", "severity": "warning"}
-  ]
+  "checks": [{"id": "D1", "name": "index.md 存在", "severity": "critical"}, {"id": "D2", "name": "index.md ≥10 行", "severity": "critical"}, {"id": "D3", "name": "architecture/overview.md 存在", "severity": "critical"}, {"id": "D4", "name": "guides/development.md 存在", "severity": "critical"}, {"id": "D5", "name": "H1/H2 结构正确", "severity": "warning"}, {"id": "D6", "name": "导航链接有效", "severity": "warning"}, {"id": "D7", "name": "无 TODO/TBD 占位符", "severity": "warning"}]
 }
 ```
 
 V2-PKG验证器:
 ```json
 {
-  "checks": [
-    {"id": "P1", "name": "project.pkg.json 存在且有效", "severity": "critical"},
-    {"id": "P2", "name": "modules.pkg.json 与目录结构一致", "severity": "warning"},
-    {"id": "P3", "name": "symbols.pkg.json 符号覆盖率 ≥90%", "severity": "warning"},
-    {"id": "P4", "name": "api.pkg.json 端点与源码一致", "severity": "warning"},
-    {"id": "P5", "name": "PKG 中的模块 → symbols/*.md 存在", "severity": "warning"}
-  ]
+  "checks": [{"id": "P1", "name": "project.pkg.json 存在且有效", "severity": "critical"}, {"id": "P2", "name": "modules.pkg.json 与目录结构一致", "severity": "warning"}, {"id": "P3", "name": "symbols.pkg.json 符号覆盖率 ≥90%", "severity": "warning"}, {"id": "P4", "name": "api.pkg.json 端点与源码一致", "severity": "warning"}, {"id": "P5", "name": "PKG 中的模块 → symbols/*.md 存在", "severity": "warning"}]
 }
 ```
 
 V3-索引验证器:
 ```json
 {
-  "checks": [
-    {"id": "I1", "name": "quick-lookup.json 存在且格式正确", "severity": "critical"},
-    {"id": "I2", "name": "symbol-map.json 符号引用有效", "severity": "warning"},
-    {"id": "I3", "name": "doc-graph.json 节点对应实际文档", "severity": "warning"},
-    {"id": "I4", "name": "索引覆盖所有生成的文档", "severity": "warning"}
-  ]
+  "checks": [{"id": "I1", "name": "quick-lookup.json 存在且格式正确", "severity": "critical"}, {"id": "I2", "name": "symbol-map.json 符号引用有效", "severity": "warning"}, {"id": "I3", "name": "doc-graph.json 节点对应实际文档", "severity": "warning"}, {"id": "I4", "name": "索引覆盖所有生成的文档", "severity": "warning"}]
 }
 ```
 
 V4-上下文验证器:
 ```json
 {
-  "checks": [
-    {"id": "C1", "name": "wiki-context.json 存在", "severity": "critical"},
-    {"id": "C2", "name": "entryPoints 路径有效", "severity": "critical"},
-    {"id": "C3", "name": "quickAccess 索引文件存在", "severity": "warning"},
-    {"id": "C4", "name": "metadata 统计准确", "severity": "info"}
-  ]
+  "checks": [{"id": "C1", "name": "wiki-context.json 存在", "severity": "critical"}, {"id": "C2", "name": "entryPoints 路径有效", "severity": "critical"}, {"id": "C3", "name": "quickAccess 索引文件存在", "severity": "warning"}, {"id": "C4", "name": "metadata 统计准确", "severity": "info"}]
 }
 ```
 
@@ -825,225 +680,20 @@ V4-上下文验证器:
 
 **通用约束**: H1文件标题/H2章节/H3子节 | 表格左对齐空值填`-` | 代码块指定语言 | 相对路径链接 | 禁止TODO/TBD/断链/无效Mermaid
 
-### 关键文档结构示例
-
-#### index.md 完整示例
-
-```markdown
-# {项目名}
-
-> {一句话描述}
-
-## 技术栈
-
-| 类型 | 技术 | 版本 |
-|:-----|:-----|:-----|
-| 语言 | TypeScript | 5.0 |
-| 框架 | NestJS | 10.0 |
-| 数据库 | PostgreSQL | 15 |
-
-## 快速开始
-
-**环境要求**: Node.js >= 18, pnpm >= 8
-
-**安装**: `pnpm install`
-
-**启动**: `pnpm dev`
-
-## 导航
-
-| 分类 | 文档 | 说明 |
-|:-----|:-----|:-----|
-| 架构 | [Overview](./architecture/overview.md) | 系统架构 |
-| API | [Endpoints](./api/endpoints.md) | 接口列表 |
-
----
-*生成于 2024-01-15T10:30:00Z*
-```
-
-#### architecture/overview.md 完整示例
-
-```markdown
-# 架构总览
-
-## 系统架构图
-
-\`\`\`mermaid
-graph TD
-    subgraph "表现层"
-        A[Controller]
-    end
-    subgraph "业务层"
-        B[Service]
-    end
-    subgraph "数据层"
-        C[Repository]
-        D[(Database)]
-    end
-    A --> B --> C --> D
-\`\`\`
-
-## 核心模块
-
-| 模块 | 路径 | 职责 |
-|:-----|:-----|:-----|
-| User | src/user | 用户管理 |
-| Order | src/order | 订单处理 |
-
-## 技术决策
-
-| 决策 | 选型 | 理由 |
-|:-----|:-----|:-----|
-| ORM | Prisma | 类型安全 |
-| 认证 | JWT | 无状态 |
-```
-
-#### api/endpoints.md 完整示例
-
-```markdown
-# API 端点
-
-## 概览
-
-| 指标 | 值 |
-|:-----|:---|
-| 总端点 | 12 |
-| 需认证 | 10 |
-
-## 端点列表
-
-| Method | Path | Handler | Auth | Description |
-|:-------|:-----|:--------|:----:|:------------|
-| GET | /users | UserController.list | ✓ | 用户列表 |
-| POST | /users | UserController.create | ✓ | 创建用户 |
-| GET | /users/:id | UserController.find | ✓ | 用户详情 |
-
-## 错误码
-
-| 状态码 | 含义 | 场景 |
-|:-------|:-----|:-----|
-| 400 | 参数错误 | 校验失败 |
-| 401 | 未认证 | Token 无效 |
-| 404 | 不存在 | 资源未找到 |
-```
-
-#### symbols/index.md 完整示例
-
-```markdown
-# 符号索引
-
-## 统计
-
-| 类型 | 数量 |
-|:-----|:-----|
-| 类 | 15 |
-| 接口 | 8 |
-| 函数 | 23 |
-| 类型 | 12 |
-
-## 按模块分类
-
-| 模块 | 类 | 接口 | 函数 | 详情 |
-|:-----|:---|:-----|:-----|:-----|
-| User | 3 | 2 | 5 | [查看](./user-module.md) |
-| Order | 4 | 3 | 8 | [查看](./order-module.md) |
-
-## 公开 API
-
-### 类
-
-| 类名 | 模块 | 说明 |
-|:-----|:-----|:-----|
-| UserService | User | 用户服务 |
-
-### 函数
-
-| 函数 | 签名 | 说明 |
-|:-----|:-----|:-----|
-| validateUser | `(id: string) => boolean` | 验证用户 |
-```
-
-#### quality/complexity.md 完整示例
-
-```markdown
-# 复杂度分析
-
-## 文件统计
-
-| 指标 | 值 |
-|:-----|:---|
-| 总文件 | 45 |
-| 总行数 | 3,200 |
-| 平均行数 | 71 |
-
-## 文件分布
-
-| 行数 | 文件数 | 占比 |
-|:-----|:-------|:-----|
-| 1-50 | 20 | 44% |
-| 51-100 | 15 | 33% |
-| 101-200 | 8 | 18% |
-| 200+ | 2 | 5% |
-
-## 大函数警告
-
-| 文件 | 函数 | 行数 | 建议 |
-|:-----|:-----|:-----|:-----|
-| order.service.ts | processOrder | 85 | 拆分为子函数 |
-
-## 深嵌套警告
-
-| 文件 | 函数 | 层数 | 建议 |
-|:-----|:-----|:-----|:-----|
-| validator.ts | validate | 5 | 提前返回 |
-
-## 重构建议
-
-### 高优先级
-
-1. **order.service.ts**: processOrder 过长 → 拆分
-
-### 中优先级
-
-1. **validator.ts**: 嵌套过深 → 提前返回模式
-```
-
-#### features/{name}.md 完整示例
-
-```markdown
-# 认证系统
-
-## 概述
-
-基于 JWT 的无状态认证，支持 access token 和 refresh token 双令牌机制。
-
-## 核心组件
-
-| 组件 | 路径 | 职责 |
-|:-----|:-----|:-----|
-| AuthService | src/auth/auth.service.ts | 认证逻辑 |
-| JwtGuard | src/auth/jwt.guard.ts | 路由守卫 |
-| AuthController | src/auth/auth.controller.ts | 认证接口 |
-
-## 数据流
-
-\`\`\`mermaid
-sequenceDiagram
-    Client->>AuthController: POST /login
-    AuthController->>AuthService: validate
-    AuthService->>JwtService: sign
-    JwtService-->>Client: tokens
-\`\`\`
-
-## 配置项
-
-| 配置 | 类型 | 默认值 | 说明 |
-|:-----|:-----|:-------|:-----|
-| JWT_SECRET | string | - | 签名密钥 |
-| JWT_EXPIRES | string | 15m | 过期时间 |
-```
-
-**其他文档**: architecture/{dependencies,module-graph}.md 包含 Mermaid 依赖图 | quality/complexity.md 包含统计+警告+建议 | features/*.md 包含概述+组件+数据流(Mermaid)+配置
+### 关键文档必含章节（H2）
+
+| 文档 | 必含章节 | 备注 |
+|:-----|:---------|:-----|
+| index.md | 技术栈 / 快速开始 / 导航 | 末尾必须生成时间戳 |
+| architecture/overview.md | 系统架构图 / 核心模块 / 技术决策 | Mermaid 必须可渲染 |
+| api/endpoints.md | 概览 / 端点列表 / 错误码 | 路径/方法/handler 必须来自代码 |
+| symbols/index.md | 统计 / 按模块分类 / 公开 API | 链接到 symbols/{module}-module.md |
+| quality/complexity.md | 文件统计 / 大函数/深嵌套警告 / 重构建议 | 只基于实际统计 |
+| features/{name}.md | 概述 / 核心组件 / 数据流 / 配置项 | 仅对检测到的功能生成 |
+
+（下方不再给出长篇完整示例）
+
+**其他文档**: architecture/{dependencies,module-graph}.md 含 Mermaid 图；quality/complexity.md 含统计/警告/建议；features/*.md 含概述/组件/数据流/配置。
 
 ---
 
@@ -1139,10 +789,6 @@ sequenceDiagram
 ```bash
 /atlas:repo-wiki                                      # 自动检测所有参数
 /atlas:repo-wiki --preview                            # 预览模式
-/atlas:repo-wiki --lang en --scope src               # 英文+限定目录
-/atlas:repo-wiki --skip-symbols --mode sequential    # 跳过符号+串行
-/atlas:repo-wiki --features auth,payment             # 指定功能点
-/atlas:repo-wiki --force --concurrency 1             # 强制重建+限制并发
 ```
 
 **输出结构**:
@@ -1167,38 +813,4 @@ sequenceDiagram
     └── index.md
 ```
 
-Web 应用 (12+ 文档):
-```
-.claude/repowiki/
-├── .meta/
-│   ├── project.pkg.json
-│   ├── modules.pkg.json
-│   ├── quality.pkg.json
-│   ├── api.pkg.json
-│   ├── symbols.pkg.json
-│   └── validation-report.md
-├── .index/
-│   ├── quick-lookup.json
-│   ├── symbol-map.json
-│   └── doc-graph.json
-├── index.md
-├── architecture/
-│   ├── overview.md
-│   ├── structure.md
-│   ├── dependencies.md
-│   ├── modules.md
-│   ├── module-graph.md
-│   └── layers.md
-├── api/
-│   ├── endpoints.md
-│   └── types.md
-├── guides/
-│   ├── development.md
-│   └── build.md
-├── symbols/
-│   ├── index.md
-│   ├── user-module.md
-│   └── order-module.md
-└── features/
-    └── authentication.md
-```
+更多文档按「条件生成」触发（architecture/api/symbols/features/quality 等）。

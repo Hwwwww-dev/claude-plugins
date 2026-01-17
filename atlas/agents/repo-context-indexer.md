@@ -24,14 +24,11 @@ color: green
   "pkgDir": ".claude/repowiki/.meta",
   "outputDir": ".claude/repowiki/.index",
   "projectRoot": "/path/to/project",
-  "language": "zh",  // zh 或 en
-  "options": {
-    "minifyJson": true,
-    "includePrivateSymbols": false,
-    "maxMethodsPerSymbol": 50
-  }
+  "language": "zh",
+  "options": {"minifyJson": true, "includePrivateSymbols": false, "maxMethodsPerSymbol": 50}
 }
 ```
+> `language`: `zh` 或 `en`。
 
 **输入文件**：
 - `.meta/project.pkg.json` - 项目信息
@@ -55,48 +52,13 @@ color: green
   "projectName": "my-project",
   "totalSymbols": 156,
   "symbols": {
-    "UserService": {
-      "type": "class",
-      "module": "user",
-      "file": "src/user/user.service.ts",
-      "line": 45,
-      "visibility": "public",
-      "methods": [
-        "create",
-        "update",
-        "delete",
-        "findById",
-        "findAll"
-      ],
-      "properties": ["logger", "repository"],
-      "extends": "BaseService",
-      "implements": ["IUserService"],
-      "docLink": "symbols/user-module.md#UserService"
-    },
-    "CreateUserDto": {
-      "type": "interface",
-      "module": "user",
-      "file": "src/user/dto/create-user.dto.ts",
-      "line": 3,
-      "properties": ["email", "password", "name"],
-      "docLink": "api/types.md#CreateUserDto"
-    }
+    "UserService": {"type": "class", "module": "user", "file": "src/user/user.service.ts", "line": 45, "visibility": "public", "methods": ["create", "update", "delete", "findById", "findAll"], "properties": ["logger", "repository"], "extends": "BaseService", "implements": ["IUserService"], "docLink": "symbols/user-module.md#UserService"},
+    "CreateUserDto": {"type": "interface", "module": "user", "file": "src/user/dto/create-user.dto.ts", "line": 3, "properties": ["email", "password", "name"], "docLink": "api/types.md#CreateUserDto"}
   },
   "index": {
-    "byType": {
-      "class": ["UserService", "OrderService", "..."],
-      "interface": ["IUserService", "CreateUserDto", "..."],
-      "function": ["validateEmail", "hashPassword", "..."],
-      "type": ["UserId", "OrderStatus", "..."]
-    },
-    "byModule": {
-      "user": ["UserService", "CreateUserDto", "..."],
-      "order": ["OrderService", "CreateOrderDto", "..."]
-    },
-    "byVisibility": {
-      "public": ["UserService", "OrderService", "..."],
-      "internal": ["DatabaseConnection", "..."]
-    }
+    "byType": {"class": ["UserService", "OrderService", "..."], "interface": ["IUserService", "CreateUserDto", "..."], "function": ["validateEmail", "hashPassword", "..."], "type": ["UserId", "OrderStatus", "..."]},
+    "byModule": {"user": ["UserService", "CreateUserDto", "..."], "order": ["OrderService", "CreateOrderDto", "..."]},
+    "byVisibility": {"public": ["UserService", "OrderService", "..."], "internal": ["DatabaseConnection", "..."]}
   }
 }
 ```
@@ -120,50 +82,13 @@ color: green
   "generated": "2025-12-02T10:30:00Z",
   "totalEndpoints": 24,
   "endpoints": [
-    {
-      "id": "POST-/api/users",
-      "method": "POST",
-      "path": "/api/users",
-      "handler": "UserController.create",
-      "auth": true,
-      "roles": ["admin", "user"],
-      "pathParams": [],
-      "queryParams": [],
-      "bodyParams": ["CreateUserDto"],
-      "response": "User",
-      "statusCodes": [201, 400, 401, 409],
-      "docLink": "api/endpoints.md#POST-/api/users"
-    },
-    {
-      "id": "GET-/api/users/:id",
-      "method": "GET",
-      "path": "/api/users/:id",
-      "handler": "UserController.findOne",
-      "auth": true,
-      "roles": ["admin", "user"],
-      "pathParams": ["id"],
-      "queryParams": ["includeProfile"],
-      "bodyParams": [],
-      "response": "User",
-      "statusCodes": [200, 401, 404],
-      "docLink": "api/endpoints.md#GET-/api/users/:id"
-    }
+    {"id": "POST-/api/users", "method": "POST", "path": "/api/users", "handler": "UserController.create", "auth": true, "roles": ["admin", "user"], "pathParams": [], "queryParams": [], "bodyParams": ["CreateUserDto"], "response": "User", "statusCodes": [201, 400, 401, 409], "docLink": "api/endpoints.md#POST-/api/users"},
+    {"id": "GET-/api/users/:id", "method": "GET", "path": "/api/users/:id", "handler": "UserController.findOne", "auth": true, "roles": ["admin", "user"], "pathParams": ["id"], "queryParams": ["includeProfile"], "bodyParams": [], "response": "User", "statusCodes": [200, 401, 404], "docLink": "api/endpoints.md#GET-/api/users/:id"}
   ],
   "index": {
-    "byMethod": {
-      "GET": ["GET-/api/users", "GET-/api/users/:id", "..."],
-      "POST": ["POST-/api/users", "POST-/api/orders", "..."],
-      "PUT": ["PUT-/api/users/:id", "..."],
-      "DELETE": ["DELETE-/api/users/:id", "..."]
-    },
-    "byAuth": {
-      "public": ["GET-/api/health", "POST-/api/auth/login", "..."],
-      "protected": ["GET-/api/users", "POST-/api/users", "..."]
-    },
-    "byResource": {
-      "users": ["GET-/api/users", "POST-/api/users", "..."],
-      "orders": ["GET-/api/orders", "POST-/api/orders", "..."]
-    }
+    "byMethod": {"GET": ["GET-/api/users", "GET-/api/users/:id", "..."], "POST": ["POST-/api/users", "POST-/api/orders", "..."], "PUT": ["PUT-/api/users/:id", "..."], "DELETE": ["DELETE-/api/users/:id", "..."]},
+    "byAuth": {"public": ["GET-/api/health", "POST-/api/auth/login", "..."], "protected": ["GET-/api/users", "POST-/api/users", "..."]},
+    "byResource": {"users": ["GET-/api/users", "POST-/api/users", "..."], "orders": ["GET-/api/orders", "POST-/api/orders", "..."]}
   }
 }
 ```
@@ -190,16 +115,8 @@ color: green
     "src/user/user.service.ts": {
       "exports": ["UserService", "CreateUserDto"],
       "imports": ["PrismaService", "Logger", "ConfigService"],
-      "importedBy": [
-        "src/user/user.controller.ts",
-        "src/user/user.module.ts",
-        "src/auth/auth.service.ts"
-      ],
-      "relatedDocs": [
-        "symbols/user-module.md",
-        "api/endpoints.md",
-        "architecture/layers.md"
-      ],
+      "importedBy": ["src/user/user.controller.ts", "src/user/user.module.ts", "src/auth/auth.service.ts"],
+      "relatedDocs": ["symbols/user-module.md", "api/endpoints.md", "architecture/layers.md"],
       "symbols": ["UserService"],
       "endpoints": ["POST-/api/users", "GET-/api/users/:id"]
     },
@@ -213,16 +130,7 @@ color: green
     }
   },
   "dependencies": {
-    "modules": {
-      "user": {
-        "dependsOn": ["common", "database"],
-        "dependedBy": ["auth", "order"]
-      },
-      "order": {
-        "dependsOn": ["user", "payment"],
-        "dependedBy": []
-      }
-    },
+    "modules": {"user": {"dependsOn": ["common", "database"], "dependedBy": ["auth", "order"]}, "order": {"dependsOn": ["user", "payment"], "dependedBy": []}},
     "cycles": []
   }
 }
@@ -362,22 +270,9 @@ color: green
 **生成统计报告**:
 ```json
 {
-  "symbols": {
-    "total": 156,
-    "indexed": 142,
-    "skipped": 14,
-    "fileSize": "45KB"
-  },
-  "endpoints": {
-    "total": 24,
-    "indexed": 24,
-    "fileSize": "28KB"
-  },
-  "files": {
-    "total": 89,
-    "indexed": 89,
-    "fileSize": "42KB"
-  },
+  "symbols": {"total": 156, "indexed": 142, "skipped": 14, "fileSize": "45KB"},
+  "endpoints": {"total": 24, "indexed": 24, "fileSize": "28KB"},
+  "files": {"total": 89, "indexed": 89, "fileSize": "42KB"},
   "totalIndexSize": "115KB",
   "targetSize": "130KB",
   "compressionRatio": 0.88
@@ -435,41 +330,7 @@ color: green
 ✓ JSON 格式正确
 ✓ 索引完整性验证通过
 ```
-
-### 警告
-```markdown
-⚠️ AI 上下文索引生成完成（有警告）
-
-**生成文件** (4个):
-- .claude/repowiki/.index/symbols-quick-ref.json (52KB) ⚠️ 超出目标 4%
-- .claude/repowiki/.index/endpoints-quick-ref.json (28KB)
-- .claude/repowiki/.index/file-map.json (42KB)
-- .claude/repowiki/.index/README.md (8KB)
-
-**警告事项**:
-- symbols-quick-ref.json 超出目标大小 4% (52KB > 50KB)
-- 已执行二次压缩，移除了 14 个低频符号
-
-**建议**:
-- 考虑使用 --exclude-patterns 排除部分符号
-- 或手动标记不需要索引的符号（@internal JSDoc）
-```
-
-### 失败
-```markdown
-❌ AI 上下文索引生成失败
-
-**原因**: symbols.pkg.json 文件不存在
-
-**检查项**:
-✗ .meta/symbols.pkg.json 不存在
-✓ .meta/project.pkg.json 存在
-✓ .meta/modules.pkg.json 存在
-
-**建议**:
-1. 先运行 repo-wiki Phase 2 生成 PKG 文件
-2. 或使用完整的 /atlas:repo-wiki 命令
-```
+（警告/失败同理：说明超标/缺失输入/建议动作即可）
 
 ---
 

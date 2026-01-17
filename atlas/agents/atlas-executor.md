@@ -91,13 +91,7 @@ color: red
     "skipped": 0,
     "ratio": "100%",
     "details": [
-      {
-        "subtaskId": 1,
-        "file": "src/foo.ts",
-        "modificationsPlanned": 2,
-        "modificationsApplied": 2,
-        "status": "completed"
-      }
+      {"subtaskId": 1, "file": "src/foo.ts", "modificationsPlanned": 2, "modificationsApplied": 2, "status": "completed"}
     ],
     "failedItems": []
   }
@@ -112,24 +106,6 @@ color: red
 4. **生成报告**: 输出 completionStatus 字段
 
 **重要**: 如果 ratio < 100%，必须在 failedItems 中详细说明哪些未完成及原因
-
-## 示例
-
-```markdown
-✅ 子任务#2 完成
-
-**修改文件** (3个):
-- components/auth/Login.tsx
-- components/auth/Register.tsx
-- services/UserAPI.ts
-
-**执行摘要**:
-1. 为 2 个组件添加 Props 类型定义 (LoginProps, RegisterProps)
-2. 重构 UserAPI: class → 函数式模块 (fetchUsers, updateUser, deleteUser)
-3. 添加统一错误处理 wrapper
-
-**注意事项**: UserAPI 调用方需更新 import 方式
-```
 
 ## 核心约束
 

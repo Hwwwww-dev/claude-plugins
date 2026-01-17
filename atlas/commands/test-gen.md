@@ -178,10 +178,7 @@ AskUserQuestion(questions=[
 ```
 
 **自动模式行为**（跳过第二个 AskUserQuestion）：
-- 测试类型: 单元测试
-- 测试框架: 自动检测
-- 覆盖率目标: 80%
-- 规划器: atlas:planner
+- `type=unit`、框架自动检测、覆盖率目标 80%、规划器 `atlas:planner`
 
 ---
 
@@ -211,7 +208,7 @@ prompt: |
 
 ### 选项 B: 内置 Plan
 
-**特点**: 会自行探索代码，适合 gatherer 信息不足的场景
+**特点**: 会自行探索代码，适合 gatherer 信息不足场景（但仍需先用 Phase 1 产物）。
 
 ```
 Task(subagent_type="Plan")
@@ -219,33 +216,12 @@ prompt: |
   ## 任务
   为目标代码生成测试用例规划
 
-  ## ⚠️ 强制信息源（必须先读取）
-  **Phase 1 输出**: `.claude/gather/test-gen-<task-id>/`
-  - `context.json`: 目标分析数据（函数签名、分支路径、依赖项）
+  ## 强制信息源（先读）
+  `.claude/gather/test-gen-<task-id>/context.json`
 
-  **你必须**:
-  1. 首先读取上述文件
-  2. 基于已有签名和分支信息规划用例
-  3. 仅在以下情况补充读取:
-     - 分支条件不明（需查看具体逻辑）
-     - Mock 目标不清（需确认依赖接口）
-
-  ## 信息充足性检查
-  - [ ] 函数签名和参数类型
-  - [ ] 分支路径列表
-  - [ ] 依赖项（Mock 目标）
-  - [ ] 现有测试覆盖情况
-
-  如 4 项均已获取 → **禁止额外读取**，直接规划
-  如缺失 < 5项 → 针对性补充
-  如缺失 5+ 项 → 标记 gatherer 信息不足，建议重新收集
-
-  ## 输出
-  每个目标的用例列表:
-  - 正常路径测试
-  - 边界值测试
-  - 异常处理测试
-  - Mock 设置说明
+  ## 规则
+  - 优先用已给出的签名/分支/依赖规划；仅在信息缺失时补充读取（精确、少量）
+  - 输出每个目标的用例清单（正常/边界/异常）+ Mock 设置说明
 ```
 
 **用例规划示例**:
@@ -313,25 +289,8 @@ prompt: |
 
 ## 约束
 
-**生成约束**:
-- 只为公开方法/函数生成测试
-- 不修改现有测试（除非明确要求）
-- 遵循项目现有测试风格
-- 使用项目已有的 mock 库
-
-**质量约束**:
-- 每个测试必须有 Arrange-Act-Assert 结构
-- 测试命名必须描述预期行为
-- Mock 设置必须合理（不过度 mock）
-- 边界值测试必须覆盖关键边界
-
-**执行约束**:
-- Phase 1 必须使用 information-gatherer (model="haiku")
-- Phase 1.5 第一个 AskUserQuestion 必须询问执行模式和测试范围
-- Phase 1.5 第二个 AskUserQuestion 仅在交互模式下询问测试配置（测试类型、框架、覆盖率、规划器）
-- Phase 1.5 自动模式使用推荐选项（单元测试、自动检测框架、80%覆盖率、atlas:planner）
-- Phase 2 必须使用选择的规划器
-- Phase 3 必须使用 atlas-executor (在交互模式下询问用户选择模型，自动模式使用 sonnet)
+**生成/质量**: 只为公开方法/函数生成；不改既有测试（除非明确要求）；遵循项目风格与 mock 库；AAA 三段式+边界覆盖。  
+**执行**: Phase1=gatherer(haiku)；Phase1.5 必问模式+范围（交互再问 type/framework/coverage/planner）；Phase2 用选定规划器；Phase3=executor（交互询问模型，自动用 sonnet）。
 
 ---
 
@@ -339,19 +298,11 @@ prompt: |
 
 ### 基础用法
 ```bash
-# 为全项目生成测试
 /atlas:test-gen
 
-# 指定范围
 /atlas:test-gen --scope src/services
-
-# 指定框架
 /atlas:test-gen --framework vitest
-
-# 生成集成测试
 /atlas:test-gen --type integration
-
-# 设置覆盖率目标
 /atlas:test-gen --coverage-target 90
 ```
 
@@ -381,27 +332,4 @@ prompt: |
 1. 检查生成的测试是否符合业务逻辑
 2. 考虑添加更多边界情况测试
 3. 运行 `npm test` 确保所有测试通过
-```
-
-**部分失败**:
-```
-⚠️ 测试生成部分完成
-
-生成统计:
-- 新增测试文件: 5
-- 新增测试用例: 25
-- 失败用例: 3
-
-失败详情:
-1. user.service.test.ts:45 - TypeError: Cannot read property 'create' of undefined
-   建议: 检查 PrismaService mock 配置
-
-2. order.service.test.ts:78 - Expected ConflictException but got InternalServerError
-   建议: 检查异常处理逻辑
-
-覆盖率: 75% (未达目标 80%)
-
-建议:
-1. 修复失败的测试用例
-2. 添加缺失场景的测试
 ```

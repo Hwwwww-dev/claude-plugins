@@ -89,19 +89,7 @@ executor → 直接修复（无需重新扫描）
 - 完整: 全面诊断（包括代码质量、安全等）
 ```
 
-**自动模式行为**（跳过第二个 AskUserQuestion）：
-- 信息收集: 是
-- 规划器: atlas:planner
-- 诊断深度: 快速
-- 失败处理: 询问用户
-
-**快速模式行为**（跳过第二、三个 AskUserQuestion）：
-- 信息收集: 跳过
-- 检查点: 跳过
-- 规划器: 跳过（主进程直接定位）
-- Executor 模型: haiku
-- 测试: 不测试
-- 状态文件: 创建
+**默认行为**: 见 2.2 表。若用户显式传入 `--quick`，视为已选快速模式，直接进入 2.4。
 
 **第三个 AskUserQuestion: 修复和测试配置**（仅执行修复模式和自动模式）
 
@@ -128,9 +116,8 @@ executor → 直接修复（无需重新扫描）
 ```
 
 **注意**:
-- 仅诊断模式跳过第三个 AskUserQuestion
-- 自动模式和执行修复模式都需要第三个 AskUserQuestion
-- **快速模式跳过所有询问，直接进入执行**
+- 仅“执行修复/自动模式”询问修复与测试配置；仅诊断跳过
+- quick 跳过所有询问（除非用户未指定 `--quick` 且在 Step 1 手动选择）
 
 ---
 
@@ -146,27 +133,19 @@ executor → 直接修复（无需重新扫描）
 确认模式 → 主进程快速定位 → 直接修复 → 简化报告
 ```
 
-**Step Q1: 确认快速模式**
-```
-AskUserQuestion:
-问题: 执行模式
-- 快速模式 ✓
-```
+**入口**: 命令带 `--quick`；或在 Step 1 选择“快速模式”。
 
 **Step Q2: 创建状态文件**
 ```bash
-# 创建状态目录
-mkdir -p .claude/orchestrate/.state
-
-# 初始化状态文件
+mkdir -p .claude/bugfix/.state
 echo '{
   "executionId": "bugfix-<timestamp>",
   "timestamp": "<ISO-8601>",
   "task": "<用户任务>",
   "status": "in_progress",
   "currentStage": "quick_bugfix",
-  "config": { "mode": "quick", "executorModel": "haiku" }
-}' > .claude/orchestrate/.state/bugfix-<timestamp>.json
+  "config": {"mode": "quick", "executorModel": "haiku"}
+}' > .claude/bugfix/.state/bugfix-<timestamp>.json
 ```
 
 **Step Q3: 主进程快速定位**
@@ -193,7 +172,7 @@ prompt: |
 # 快速修复完成
 
 **执行 ID**: bugfix-<timestamp>
-**状态文件**: .claude/orchestrate/.state/bugfix-<timestamp>.json
+**状态文件**: .claude/bugfix/.state/bugfix-<timestamp>.json
 **问题**: [描述]
 **根因**: [定位]
 **修改文件**: [文件列表]
@@ -203,9 +182,8 @@ prompt: |
 ```
 
 **快速模式风险提示**：
-- 跳过深度诊断，可能遗漏关联问题
-- 跳过检查点，无法回滚
-- 如果 executor 失败，建议用户切换到自动模式
+- 跳过深度诊断/检查点：可能遗漏关联问题且无法回滚
+- 失败建议改用自动模式重新执行
 
 ---
 
@@ -225,33 +203,13 @@ echo '{
   "status": "initializing",
   "currentStage": "initialization",
   "mode": "<diagnose-only/execute-fix/auto>",
-  "config": {
-    "gatherInfo": "<yes/no>",
-    "planner": "<atlas:planner/Plan>",
-    "diagnosisDepth": "<quick/deep/full>",
-    "executorModel": "<haiku/sonnet/opus>",
-    "testNode": "<after-fix/none>",
-    "testMode": "<compile/unit/both>"
-  },
-  "checkpoint": {
-    "stashId": "atlas-checkpoint-bugfix-<timestamp>",
-    "created": false
-  },
+  "config": {"gatherInfo": "<yes/no>", "planner": "<atlas:planner/Plan>", "diagnosisDepth": "<quick/deep/full>", "executorModel": "<haiku/sonnet/opus>", "testNode": "<after-fix/none>", "testMode": "<compile/unit/both>"},
+  "checkpoint": {"stashId": "atlas-checkpoint-bugfix-<timestamp>", "created": false},
   "diagnosis": null,
   "fixApplied": false,
-  "iterations": {
-    "planning": 0,
-    "execution": 0
-  },
+  "iterations": {"planning": 0, "execution": 0},
   "todos": [
-    {
-      "id": 1,
-      "description": "子任务描述",
-      "subtaskId": 1,
-      "status": "pending",
-      "completedAt": null,
-      "error": null
-    }
+    {"id": 1, "description": "子任务描述", "subtaskId": 1, "status": "pending", "completedAt": null, "error": null}
   ]
 }' > .claude/bugfix/.state/bugfix-<timestamp>.json
 
@@ -274,10 +232,7 @@ prompt: |
   搜索范围: [scope]
   输出目录: .claude/gather/bugfix-<timestamp>/
 ```
-
-完成后更新状态:
-.state/bugfix-<timestamp>.json: currentStage="gathering_completed"
-```
+完成后更新状态: `.state/bugfix-<timestamp>.json: currentStage="gathering_completed"`
 
 **Step 4: 根因分析与修复规划**（支持循环修改）
 
@@ -288,19 +243,14 @@ prompt: |
 
 #### Step 4.2.5: 规划完整性验证
 
-读取诊断计划的 `completeness` 字段：
-
-1. 验证所有问题根因都有对应修复方案
-2. 验证修复方案的修改点完整
-
-**输出**:
-- 通过: `✅ 诊断规划验证通过 (覆盖: 100%)`
-- 未通过: `⚠️ 部分问题未覆盖`
+读取 `plan.json.completeness`：
+- 要求: 根因→修复方案全覆盖，修改点字段完整（覆盖率应为 100%）
+- 未通过: 列出未覆盖项 → 询问是否返回重新规划（推荐）
 
 3. **4.3 用户确认**: AskUserQuestion → 继续执行（执行修复模式）/ 修改方案 / 完成诊断（诊断模式）
 4. **4.4 重新规划（版本化）**（若用户选择修改）:
    - 使用相同规划器，传入修改意见
-   - 输出策略: 简单场景覆盖 plan.json / 复杂场景创建 plan.v2.json 等
+   - 输出策略: 简单覆盖 `plan.json`；复杂生成 `plan.v2.json`/`plan.v3.json`…
    - 返回 4.2 循环直到用户确认
 
 完成后更新状态:
@@ -315,13 +265,6 @@ prompt: |
   iterations.planning: <循环次数>
 }
 
-输出文件示例:
-.claude/plan/bugfix-<timestamp>/
-├── plan.json (或 plan.final.json)  # 最终方案
-├── plan.v1.json  # 可选: 历史版本
-└── plan.v2.json  # 可选: 历史版本
-```
-
 **Step 5: 执行修复**（仅执行修复模式，支持循环）
 
 1. **5.1 执行修复**: `Task(subagent_type="atlas:atlas-executor", model=<用户选择的模型>)`
@@ -329,14 +272,7 @@ prompt: |
 
 #### Step 5.2.5: 执行完成度验证
 
-验证修复执行完成度：
-
-1. 检查所有修复任务是否完成
-2. 更新 todos 状态
-
-**输出**:
-- 全部完成: `✅ 修复执行完成 (100%)`
-- 部分完成: `⚠️ 部分修复未完成`，询问是否重试
+对比计划与 executor 结果（含 `completionStatus`），输出完成率与未完成项；若未完成则询问重试/回滚/结束保存进度。
 
 3. **5.3 用户决策**: AskUserQuestion → 继续验证（推荐）/ 重新修复 / 回滚变更
 4. **5.4 重新执行**（若用户选择重新修复）: 返回 5.1
@@ -347,7 +283,6 @@ prompt: |
   fixApplied: true,
   iterations.execution: <循环次数>
 }
-```
 
 **Step 6: 验证测试**（根据 Step 1 选择执行）
 
@@ -378,10 +313,7 @@ prompt: |
 
 ### 3.1 任务 ID 管理原则
 
-**统一任务 ID**:
-- 格式: `bugfix-<timestamp>` (例如: `bugfix-20240115-143000`)
-- 从 Step 1 到 Step 7 使用**同一个** ID
-- 所有相关文件使用此 ID 关联
+**统一任务 ID**: `bugfix-<timestamp>`（如 `bugfix-20240115-143000`），Step 1-7 全程一致。
 
 **目录结构**:
 ```
@@ -397,15 +329,12 @@ prompt: |
 ```
 
 **版本化策略**:
-- **简单场景**: 直接覆盖 `plan.json`
-- **复杂场景**: 创建版本文件 `plan.v2.json`, `plan.v3.json` 等
-- 状态文件记录 `planVersion` 字段
+- 简单覆盖 `plan.json`；复杂生成 `plan.v2.json`/`plan.v3.json`…；状态文件用 `planVersion` 指向最终版本。
 
 ### 3.2 主进程职责
 
-**允许**: AskUserQuestion / Task 调用 / 读取 agent 输出 / Git 操作
-
-**禁止**: Read/Grep/Glob 读代码 / Edit/Write 修改文件 / 直接分析代码
+**允许**: AskUserQuestion、Task、读取 agent 输出、Git 操作。  
+**禁止**: 主进程读/改业务代码或自行做深度诊断（交给 subagent）。
 
 ### 3.3 根因分析输出格式
 
@@ -461,50 +390,20 @@ prompt: |
 7. 测试: tsc --noEmit ✓ | 输出报告: 1文件修改，根因已修复
 ```
 
-### 示例 3: 交互模式 - 复杂 bug 修复
-
-```
-用户: /bugfix 订单提交后状态不更新 --fix
-
-1. 选择执行修复 → 配置: 深度诊断 + opus + 编译+单元测试
-2. 创建检查点 + Gatherer 收集: 订单相关文件 (5个) + 状态管理 (3个)
-3. Planner 深度诊断:
-   → 根因1: store/order.ts:45 - 异步 action 未 await
-   → 根因2: api/order.ts:67 - 缺少错误处理导致静默失败
-   → 复杂度: moderate | 关联影响: 购物车、支付流程
-4. 用户审查方案 → 要求: "保留原有错误处理逻辑"
-5. Planner 重新规划 (v2): 调整修复策略，保留 try-catch 结构
-6. 用户确认 ✓ → Executor(opus): 修复 2 个文件
-7. 测试: tsc ✓ + npm test ✓ (订单相关用例全部通过)
-8. 报告: 2文件修改 | 迭代: 规划2次，执行1次 | 检查点可回滚
-```
-
 ---
 
 ## 五、核心约束
 
 ### 标准模式必须做
 
-- ✅ **Step 1**: 分阶段确认配置（第一个询问执行模式，第二个询问诊断配置，第三个询问修复和测试配置）
-- ✅ **Step 2**: 创建状态目录 `.claude/bugfix/.state/` 和状态文件（执行修复模式和自动模式）
-- ✅ **Step 2**: 在每个关键步骤完成后更新状态文件的 `currentStage` 字段
-- ✅ **Step 3**: 使用 `Task(subagent_type="atlas:information-gatherer", model="haiku")`
-- ✅ **Step 4**: 使用用户选择的规划器，输出到 `.claude/plan/bugfix-<ts>/`
-- ✅ **Step 4.2-4.4**: 展示诊断给用户，支持循环修改直到用户确认
-- ✅ **Step 5**: 从 plan.json 提取修改点嵌入 executor prompt（执行修复模式和自动模式）
-- ✅ **Step 5.2-5.4**: 展示修复结果，支持用户重新修复或调整
-- ✅ **Step 6**: 根据 Step 1 的选择执行验证测试
-- ✅ **Step 7**: 更新最终状态并输出报告
-- ✅ **Todos**: 必须使用 TodoWrite 工具生成详细的任务清单，包含每个诊断/修复任务的描述和状态，确保任务执行过程可追踪
+- ✅ Step 1 分阶段确认（模式→诊断→修复/测试）
+- ✅ 执行修复/自动模式创建并持续更新 `.claude/bugfix/.state/bugfix-<ts>.json`（`currentStage`）
+- ✅ gather → plan（含 `completeness`）→ fix（含 `completionStatus`）→ test → report
+- ✅ 使用 TodoWrite 跟踪诊断/修复任务
 
 ### 快速模式必须做
 
-- ✅ **Step Q1**: 确认用户选择快速模式
-- ✅ **Step Q2**: 创建状态文件 `.claude/orchestrate/.state/bugfix-<timestamp>.json`
-- ✅ **Step Q3**: 主进程快速定位目标文件（≤5 次工具调用）
-- ✅ **Step Q4**: 使用 `Task(subagent_type="atlas:atlas-executor", model="haiku")`
-- ✅ **Step Q5**: 输出简化报告（包含执行 ID 和状态文件路径）
-- ✅ 失败时建议用户切换到自动模式
+- ✅ 创建状态文件；主进程≤5次定位；executor(haiku) 修复；输出简报
 
 ### 快速模式允许做
 
@@ -522,6 +421,5 @@ prompt: |
 - ❌ 标准模式忘记更新状态文件的 `currentStage`
 - ❌ 在用户未确认的情况下继续执行下一步
 - ❌ 快速模式用于复杂问题（>3 个文件或涉及依赖分析）
-
-
-** 在本命令中，做任何事情都需要在 Subagent 中完成，主对话只负责调用 Subagent 和输出报告。不可在主对话中直接执行任何操作。（读取流程中的文档除外）**
+  
+**原则**: 主进程只编排/确认/汇总；诊断与修改由 subagent 完成（读取流程产物除外）。

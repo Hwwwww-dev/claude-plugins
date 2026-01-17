@@ -66,11 +66,7 @@ argument-hint: [--from tag|commit] [--to tag|commit] [--version X.Y.Z] [--format
 ```
 
 **自动模式行为**（跳过第二个 AskUserQuestion）：
-- 输出格式: keep-a-changelog
-- 版本号: auto（自动推断）
-- 分析范围: last-tag（从上一个 tag 到 HEAD）
-- 追加模式: append
-- 失败处理: 询问用户
+- 使用推荐默认值：`format=keep-a-changelog`、`version=auto`、`range=last-tag`、`mode=append`；失败询问用户
 
 **注意**:
 - 如果用户已通过参数指定选项（如 `/changelog --version 2.0.0 --format conventional`），跳过所有询问
@@ -345,59 +341,7 @@ prompt: |
 6. 输出摘要
 ```
 
-### 示例 2: 交互模式
-
-```
-用户: /changelog
-
-1. 第一个 AskUserQuestion - 执行模式:
-   - 执行模式: 交互模式 ✓
-
-2. 第二个 AskUserQuestion - 生成配置:
-   - 输出格式: conventional ✓
-   - 版本号: manual ✓
-   - 分析范围: custom ✓
-   - 追加模式: append ✓
-
-3. 用户输入:
-   - 版本号: 2.0.0
-   - 起始点: v1.5.0
-   - 结束点: HEAD
-
-4. 提交分析:
-   git log v1.5.0..HEAD
-   → 发现 BREAKING CHANGE 提交
-   → 验证版本号 2.0.0 符合 Major bump 规范
-
-5. 内容生成 (conventional 格式):
-   ## [2.0.0] (2024-01-15)
-   ### BREAKING CHANGES
-   - 移除旧版 API...
-
-6. 文件更新并输出摘要
-```
-
-### 示例 3: 指定参数（跳过所有询问）
-
-```
-用户: /changelog --version 2.0.0 --format conventional --from v1.5.0
-
-1. 跳过所有询问（已指定参数）
-
-2. 提交分析:
-   git log v1.5.0..HEAD
-   → 发现 BREAKING CHANGE 提交
-   → 验证版本号 2.0.0 符合 Major bump 规范
-
-3. 内容生成 (conventional 格式):
-   ## [2.0.0] (2024-01-15)
-   ### BREAKING CHANGES
-   - 移除旧版 API...
-
-4. 文件更新并输出摘要
-```
-
-### 示例 4: Dry-run 预览
+### 示例 2: Dry-run 预览
 
 ```
 用户: /changelog --dry-run
@@ -426,43 +370,10 @@ prompt: |
 
 ## 特殊场景处理
 
-### 首次生成（无现有 CHANGELOG）
-
-```
-检测: CHANGELOG.md 不存在
-操作: 创建新文件，包含:
-  - 标题: # Changelog
-  - 说明段落: All notable changes...
-  - 新版本内容
-```
-
-### 无 Git 标签
-
-```
-检测: git describe --tags 失败
-操作: 使用 0.0.0 作为起点
-  → 分析范围: 初始提交..HEAD
-  → 推断版本: 0.1.0（首个版本）
-```
-
-### 提交不规范
-
-```
-检测: 提交信息无 conventional commits 前缀
-操作:
-  1. 尝试智能推断（如 "Add feature" → feat）
-  2. 无法推断的归入 "Other Changes" 类别
-  3. 提示用户使用规范的提交格式
-```
-
-### 版本号冲突
-
-```
-检测: 指定版本号已存在于 CHANGELOG
-操作:
-  - 警告用户版本号重复
-  - 询问: 覆盖 / 使用新版本号 / 取消
-```
+- 首次生成: 无 `CHANGELOG.md` → 创建新文件（标题/说明/新版本内容）
+- 无 Git 标签: 起点视为 `0.0.0`（初始提交..HEAD）
+- 提交不规范: 尝试推断；无法推断归入 `Other Changes` 并提示规范化
+- 版本号冲突: 警告并询问 覆盖/换版本/取消
 
 ---
 
@@ -489,81 +400,27 @@ prompt: |
 ```bash
 # 工作流示例
 
-# 1. 生成变更日志
 /changelog --version 2.1.0
-
-# 2. 审查内容
-cat CHANGELOG.md | head -100
-
-# 3. 批量更新版本号（如需要）
-/orchestrate 更新所有 package.json 中的版本号为 2.1.0
-
-# 4. 提交和发布
-git add .
-git commit -m "chore: release v2.1.0"
-git tag -a v2.1.0 -m "Release v2.1.0"
-git push origin main --tags
+cat CHANGELOG.md | head -80
+git add CHANGELOG.md && git commit -m "docs: update changelog for v2.1.0"
 ```
 
 ---
 
 ## 输出文件示例
 
-### Keep-a-Changelog 格式
+（各格式模板见「第三步：变更分类与内容生成」）
 
 ```markdown
 # Changelog
 
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [1.3.0] - 2024-01-15
+## [X.Y.Z] - YYYY-MM-DD
 
 ### Added
-- User authentication system with JWT support (a1b2c3d)
-- Dark mode toggle in settings page (e4f5g6h)
-- Export data to CSV functionality (i7j8k9l)
-
-### Changed
-- Refactor API client to use axios instead of fetch (m0n1o2p)
-- Update UI library to v5.2.0 (q3r4s5t)
+- feat summary (commit)
 
 ### Fixed
-- Fix memory leak in WebSocket connection (u6v7w8x)
-- Resolve race condition in payment processing (y9z0a1b)
-
-### Security
-- Patch XSS vulnerability in comment rendering (c2d3e4f)
-
-## [1.2.3] - 2023-12-10
-
-...
-```
-
-### Conventional Commits 格式
-
-```markdown
-# Changelog
-
-## [1.3.0] (2024-01-15)
-
-### Features
-- **auth**: add JWT-based authentication (a1b2c3d)
-- **ui**: implement dark mode toggle (e4f5g6h)
-- **export**: support CSV data export (i7j8k9l)
-
-### Bug Fixes
-- **websocket**: fix memory leak on disconnect (u6v7w8x)
-- **payment**: resolve race condition (y9z0a1b)
-
-### Performance Improvements
-- **api**: optimize database query caching (g7h8i9j)
-
-## [1.2.3] (2023-12-10)
-
-...
+- fix summary (commit)
 ```
 
 ---

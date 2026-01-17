@@ -89,19 +89,7 @@ gatherer → .claude/gather/<task-id>/
 - specific: 指定目录/文件
 ```
 
-**自动模式行为**（跳过第二个 AskUserQuestion）：
-- 收集模式: 根据用户任务描述智能推断（如未明确，默认 project-structure）
-- 分析深度: normal
-- 分析范围: all
-
-**快速模式行为**（跳过第二个 AskUserQuestion）：
-- 收集模式: 根据用户任务描述智能推断
-- 分析深度: normal
-- 分析范围: all
-- 信息收集: 主进程直接分析（不调用 gatherer agent）
-- 状态文件: 创建
-
-**注意**: 如用户已指定参数（如 `/gather dependencies UserAPI --deep`），跳过所有询问。
+**默认行为**: 见 2.2 表；参数完整（如 `/gather dependencies UserAPI --deep`）则跳过询问。
 
 ---
 
@@ -116,12 +104,7 @@ gatherer → .claude/gather/<task-id>/
 确认模式 → 创建状态文件 → 主进程直接分析 → 更新状态 → 简化报告
 ```
 
-**Step Q1: 确认快速模式**
-```
-AskUserQuestion:
-问题: 执行模式
-- 快速模式 ✓
-```
+**入口**: 命令带 `--quick`；或在 Step 1 选择“快速模式”。
 
 **Step Q2: 创建状态文件**
 ```bash
@@ -132,7 +115,7 @@ echo '{
   "task": "<用户任务>",
   "status": "in_progress",
   "currentStage": "quick_gather",
-  "config": { "mode": "quick" }
+  "config": {"mode": "quick"}
 }' > .claude/orchestrate/.state/<task-id>.json
 ```
 
@@ -143,25 +126,10 @@ echo '{
 ```
 
 **Step Q4: 输出简化报告**
-```markdown
-# 快速收集完成
-
-**执行 ID**: <task-id>
-**状态文件**: .claude/orchestrate/.state/<task-id>.json
-**模式**: [收集模式]
-**目标**: [目标符号/模式]
-**统计**: [关键数字]
-
-**核心发现**:
-- [发现1]
-- [发现2]
-
-[如需深度分析] 建议: 使用自动模式 `/gather <目标>`
-```
+输出简报（格式见 3.3；quick 可只填“模式/目标/统计/核心发现/后续建议”）。
 
 **快速模式风险提示**：
-- 跳过深度依赖分析，可能遗漏间接引用
-- 如果分析不充分，建议用户切换到自动模式
+- 可能遗漏间接引用；不充分时建议切换标准模式（gatherer）
 
 ---
 
@@ -191,9 +159,8 @@ prompt: |
 
 ### 3.1 主进程职责
 
-**允许**: AskUserQuestion / Task 调用 / 输出摘要
-
-**禁止**: Read/Grep/Glob 读代码 / 直接分析 / 修改文件
+**允许**: AskUserQuestion、Task、输出摘要。  
+**禁止**: 标准模式下主进程读/改业务代码或自行分析（交给 gatherer）。
 
 ### 3.2 项目知识库
 
@@ -258,54 +225,19 @@ gatherer 会自动检查并复用这些文件。
    - context.json: 结构化数据（供后续命令使用）
 ```
 
-### 示例 3: 交互模式 - 依赖分析
-
-```
-用户: /gather dependencies UserAPI
-
-1. 选择交互模式 → 确认配置:
-   - 收集模式: dependencies | 深度: deep | 范围: all
-2. Gatherer(haiku): 深度分析 UserAPI 依赖
-   - LSP findReferences → 23 个直接引用
-   - LSP incomingCalls → 追踪调用链
-   - 分析影响范围和风险等级
-3. 输出: .claude/gather/dependencies-UserAPI-20240115/
-   - report.md: 23 引用点, 8 文件, 3 高风险调用
-   - context.json: 引用详情（文件路径 + 行号）
-```
-
-### 示例 4: 与 /orchestrate 配合
-
-```
-用户: /gather dependencies UserAPI
-      /orchestrate 更新所有 UserAPI 调用
-
-1. /gather 输出: .claude/gather/dependencies-UserAPI-20240115/context.json
-2. /orchestrate 自动读取 context.json → 跳过重复收集
-3. Planner 基于已有数据生成计划 → 节省 ~5 分钟
-```
-
 ---
 
 ## 五、核心约束
 
 ### 标准模式必须做
 
-- ✅ **Step 1**: 首先确认执行模式（快速/自动/交互）
-- ✅ **Step 1**: 自动模式跳过第二个 AskUserQuestion，使用推荐配置
-- ✅ **Step 1**: 交互模式需要确认所有收集配置
-- ✅ **Step 1**: 参数完整指定时跳过所有询问
-- ✅ 使用 gatherer agent 执行收集
-- ✅ 输出包含文件路径和行号
-- ✅ 结果写入 `.claude/gather/`
+- ✅ 确认模式（参数完整则跳过询问）
+- ✅ 标准模式必须调用 gatherer，写入 `.claude/gather/<task-id>/`
+- ✅ 输出包含文件路径+行号（可复用 `.claude/repowiki/`）
 
 ### 快速模式必须做
 
-- ✅ **Step Q1**: 确认用户选择快速模式
-- ✅ **Step Q2**: 创建状态文件
-- ✅ **Step Q3**: 主进程直接分析（≤5 次工具调用）
-- ✅ **Step Q4**: 输出简化报告（包含执行 ID 和状态文件路径）
-- ✅ 分析不充分时建议用户切换到自动模式
+- ✅ 创建状态文件；主进程≤5次工具分析；输出简报；不充分时提示切换标准模式
 
 ### 快速模式允许做
 

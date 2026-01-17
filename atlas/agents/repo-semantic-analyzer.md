@@ -21,10 +21,7 @@ color: cyan
   "oldPkgPath": ".claude/repowiki/.meta/symbols.pkg.json",
   "projectRoot": "/path/to/project",
   "mode": "DETECT | COMPARE | SMART",
-  "options": {
-    "skipFormatOnly": true,
-    "calculateImpact": true
-  }
+  "options": {"skipFormatOnly": true, "calculateImpact": true}
 }
 ```
 
@@ -198,72 +195,9 @@ if (semanticChanges.length === 0 && fileModified) {
 
 ## 工具使用策略
 
-### 优先级 1: LSP 工具（首选）
-
-```typescript
-// 1. 获取文件符号列表
-const symbols = await LSP({
-  operation: "documentSymbol",
-  filePath: "src/user.ts",
-  line: 1,
-  character: 1
-});
-
-// 2. 查找符号定义
-const definition = await LSP({
-  operation: "goToDefinition",
-  filePath: "src/user.ts",
-  line: 45,
-  character: 12
-});
-
-// 3. 查找引用（用于影响范围分析）
-const refs = await LSP({
-  operation: "findReferences",
-  filePath: "src/user.ts",
-  line: 45,
-  character: 12
-});
-```
-
-**优点**: 速度快、上下文消耗低、精准定位。
-
-### 优先级 2: Serena MCP（降级方案）
-
-```typescript
-// ⚠️ 仅在 LSP 不可用时使用
-const overview = await mcp__serena__get_symbols_overview({
-  relative_path: "src/user.ts",
-  max_answer_chars: 10000
-});
-
-const symbol = await mcp__serena__find_symbol({
-  name_path_pattern: "UserService/create",
-  relative_path: "src/user.ts",
-  include_body: false,
-  depth: 1
-});
-```
-
-**适用场景**: LSP 不支持的语言、需要语义分析时。
-
-### 优先级 3: Grep（兜底方案）
-
-```typescript
-// ⚠️ 仅在以下场景使用：
-// 1. LSP 索引失败
-// 2. 动态语言的动态属性
-// 3. Serena 不支持的文件类型
-
-const matches = await Grep({
-  pattern: "export (class|function|interface) UserService",
-  path: "src/user.ts",
-  output_mode: "content",
-  type: "ts"
-});
-```
-
-**限制**: 不用于精确签名对比，仅快速检测导出符号存在性，需结合 Read 验证。
+**优先级 1（首选）**: LSP `documentSymbol` / `goToDefinition` / `findReferences`（快、准、上下文低）。  
+**优先级 2（降级）**: Serena `get_symbols_overview` / `find_symbol`（LSP 不可用或需语义辅助）。  
+**优先级 3（兜底）**: Grep 仅做粗定位导出符号；**不做**精确签名对比，需结合 Read/语义工具确认。
 
 ---
 
@@ -289,26 +223,8 @@ const matches = await Grep({
   "changeType": "INCREMENTAL",
   "changeScore": 15,
   "semanticChanges": [
-    {
-      "file": "src/user.ts",
-      "symbol": "UserService.create",
-      "type": "SIGNATURE_CHANGED",
-      "old": "create(data: CreateUserDto): Promise<User>",
-      "new": "create(data: CreateUserDto, options?: CreateOptions): Promise<User>",
-      "impact": [
-        ".claude/repowiki/symbols/user-module.md",
-        ".claude/repowiki/api/endpoints.md"
-      ]
-    },
-    {
-      "file": "src/order.ts",
-      "symbol": "OrderService.cancel",
-      "type": "NEW_SYMBOL",
-      "new": "cancel(orderId: string): Promise<void>",
-      "impact": [
-        ".claude/repowiki/symbols/order-module.md"
-      ]
-    }
+    {"file": "src/user.ts", "symbol": "UserService.create", "type": "SIGNATURE_CHANGED", "old": "create(data: CreateUserDto): Promise<User>", "new": "create(data: CreateUserDto, options?: CreateOptions): Promise<User>", "impact": [".claude/repowiki/symbols/user-module.md", ".claude/repowiki/api/endpoints.md"]},
+    {"file": "src/order.ts", "symbol": "OrderService.cancel", "type": "NEW_SYMBOL", "new": "cancel(orderId: string): Promise<void>", "impact": [".claude/repowiki/symbols/order-module.md"]}
   ],
   "affectedDocs": [
     ".claude/repowiki/symbols/user-module.md",
@@ -316,13 +232,7 @@ const matches = await Grep({
     ".claude/repowiki/api/endpoints.md"
   ],
   "recommendation": "增量更新 3 个文档。仅需重新扫描 2 个变更符号，不影响架构文档。",
-  "stats": {
-    "totalChanges": 2,
-    "signatureChanges": 1,
-    "newSymbols": 1,
-    "deletedSymbols": 0,
-    "formatOnly": 0
-  }
+  "stats": {"totalChanges": 2, "signatureChanges": 1, "newSymbols": 1, "deletedSymbols": 0, "formatOnly": 0}
 }
 ```
 
@@ -439,36 +349,7 @@ Information Gatherer → 符号信息收集 → Executor → 更新文档和 PKG
 
 ## 示例场景
 
-### 场景 1: 仅修改注释
-
-**输入**:
-```typescript
-// 旧代码
-/** Get user by ID */
-async getUser(id: string): Promise<User>
-
-// 新代码
-/** Retrieve user information by user ID */
-async getUser(id: string): Promise<User>
-```
-
-**输出**:
-```json
-{
-  "changeType": "INCREMENTAL",
-  "semanticChanges": [
-    {
-      "file": "src/user.ts",
-      "symbol": "UserService.getUser",
-      "type": "FORMAT_ONLY",
-      "reason": "Only comment changed, signature unchanged"
-    }
-  ],
-  "recommendation": "跳过重新扫描，无需更新文档"
-}
-```
-
-### 场景 2: 添加可选参数
+### 场景 1: 添加可选参数
 
 **输入**:
 ```typescript
@@ -483,21 +364,12 @@ create(data: CreateUserDto, options?: CreateOptions): Promise<User>
 ```json
 {
   "changeType": "INCREMENTAL",
-  "semanticChanges": [
-    {
-      "file": "src/user.ts",
-      "symbol": "UserService.create",
-      "type": "SIGNATURE_CHANGED",
-      "old": "create(data: CreateUserDto): Promise<User>",
-      "new": "create(data: CreateUserDto, options?: CreateOptions): Promise<User>",
-      "impact": ["symbols/user-module.md", "api/endpoints.md"]
-    }
-  ],
+  "semanticChanges": [{"file": "src/user.ts", "symbol": "UserService.create", "type": "SIGNATURE_CHANGED", "old": "create(data: CreateUserDto): Promise<User>", "new": "create(data: CreateUserDto, options?: CreateOptions): Promise<User>", "impact": ["symbols/user-module.md", "api/endpoints.md"]}],
   "recommendation": "增量更新 2 个文档"
 }
 ```
 
-### 场景 3: 重构继承关系
+### 场景 2: 重构继承关系
 
 **输入**:
 ```typescript
@@ -517,21 +389,8 @@ class UserService extends EnhancedBaseService implements Loggable
       "file": "src/user.ts",
       "symbol": "UserService",
       "type": "DEFINITION_CHANGED",
-      "changes": {
-        "extends": {
-          "old": "BaseService",
-          "new": "EnhancedBaseService"
-        },
-        "implements": {
-          "old": [],
-          "new": ["Loggable"]
-        }
-      },
-      "impact": [
-        "symbols/user-module.md",
-        "architecture/layers.md",
-        "architecture/dependencies.md"
-      ]
+      "changes": {"extends": {"old": "BaseService", "new": "EnhancedBaseService"}, "implements": {"old": [], "new": ["Loggable"]}},
+      "impact": ["symbols/user-module.md", "architecture/layers.md", "architecture/dependencies.md"]
     }
   ],
   "recommendation": "智能重建，影响架构文档"

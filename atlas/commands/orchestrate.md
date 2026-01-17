@@ -47,7 +47,7 @@ executor → 直接修改文件（无需重新扫描）
 确认模式+测试 → 检查点 → 信息收集 → 选规划器 → 规划 → 选模型 → 执行 → 统一测试 → 报告
 ```
 
-**禁止**: 主进程直接读取代码 / 主进程直接修改文件 / 跳过任何步骤
+**禁止**: 主进程直接读/改代码；标准流程不允许跳步（除非 quick 或显式参数允许）。
 
 ### 2.2 模式行为定义
 
@@ -71,7 +71,7 @@ executor → 直接修改文件（无需重新扫描）
 
 ```
 问题: 执行模式
-- 快速模式: 跳过信息收集和规划，直接执行（适合 1-3 个文件的小修改，3-5 分钟）
+- 快速模式: 跳过信息收集/规划，直接执行（适合 1-3 文件的明确小改）
 - 自动模式（推荐）: 使用推荐选项，减少交互
 - 交互模式: 每个关键步骤都需要确认
 - dry-run: 只规划不执行
@@ -100,20 +100,7 @@ executor → 直接修改文件（无需重新扫描）
 - opus: 复杂质量要求高
 ```
 
-**自动模式行为**（跳过第二个 AskUserQuestion）：
-- 信息收集: 是（除非 repowiki 充足）
-- 检查点: 创建
-- 规划器: atlas:planner
-- Executor 模型: sonnet
-- 失败处理: 询问用户
-
-**快速模式行为**（跳过第二、三个 AskUserQuestion）：
-- 信息收集: 跳过
-- 检查点: 跳过
-- 规划器: 跳过（主进程直接规划）
-- Executor 模型: haiku
-- 测试: 不测试
-- 状态文件: 创建
+**默认行为**: 见 2.2 表（auto/interactive/dry-run/quick）。若用户显式传入 `--quick`，视为已选快速模式，直接进入 2.4。
 
 **第三个 AskUserQuestion: 测试配置**
 
@@ -132,30 +119,21 @@ executor → 直接修改文件（无需重新扫描）
 ```
 
 **注意**:
-- 自动模式和交互模式都会询问测试配置
-- 仅 dry-run 模式跳过测试配置询问
-- **快速模式跳过所有询问，直接进入执行**
+- 仅 auto/interactive 询问测试配置；dry-run/quick 跳过
+- quick 会跳过所有确认步骤（除非用户未指定 `--quick` 且在 Step 1 手动选择）
 
 ---
 
 ### 2.4 快速模式流程（--quick）
 
-**适用场景**：
-- 修改 1-3 个文件
-- 明确的小任务（如"修改函数签名"、"添加类型注解"、"修复单个 bug"）
-- 用户已经明确知道要改什么
+**适用**: 1-3 文件、目标明确、无需依赖分析/规划循环。
 
 **流程**：
 ```
 确认模式 → 创建状态文件 → 主进程快速定位 → 直接执行 → 更新状态 → 报告
 ```
 
-**Step Q1: 确认快速模式**
-```
-AskUserQuestion:
-问题: 执行模式
-- 快速模式 ✓
-```
+**入口**: 命令带 `--quick`；或在 Step 1 选择“快速模式”。
 
 **Step Q2: 创建状态文件**
 ```bash
@@ -166,20 +144,16 @@ echo '{
   "task": "<用户任务>",
   "status": "in_progress",
   "currentStage": "quick_mode",
-  "config": {
-    "mode": "quick",
-    "executorModel": "haiku"
-  },
+  "config": {"mode": "quick", "executorModel": "haiku"},
   "subtasks": [],
-  "progress": { "total": 1, "completed": 0, "failed": 0, "pending": 1 }
+  "progress": {"total": 1, "completed": 0, "failed": 0, "pending": 1}
 }' > .claude/orchestrate/.state/<task-id>.json
 ```
 
 **Step Q3: 主进程快速定位**
 ```
 主进程允许使用 Grep/Glob/Read 快速定位目标文件（≤5 次工具调用）
-生成简单的修改计划（不调用 planner agent）
-直接构建 executor prompt
+生成最小修改计划（不调用 planner），直接构建 executor prompt
 ```
 
 **Step Q4: 直接执行**
@@ -195,7 +169,6 @@ prompt: |
 
 **Step Q5: 更新状态并报告**
 ```bash
-# 更新状态文件
 更新 .state/<task-id>.json: {
   status: "completed",
   currentStage: "finished",
@@ -204,22 +177,11 @@ prompt: |
 }
 ```
 
-```markdown
-# 快速执行完成
-
-**任务**: [描述]
-**执行 ID**: <task-id>
-**修改文件**: [文件列表]
-**状态**: ✅ 成功 / ❌ 失败
-**状态文件**: .claude/orchestrate/.state/<task-id>.json
-
-[如果失败] 建议: 使用自动模式重新执行 `/orchestrate <任务>`
-```
+输出快速报告（格式见第 5 章）。
 
 **⚠️ 快速模式风险提示**：
-- 跳过依赖分析，可能遗漏影响点
-- 跳过检查点，无法回滚
-- 如果 executor 失败，建议用户切换到自动模式重新执行
+- 跳过依赖分析/检查点，可能遗漏影响点且无法回滚
+- 失败建议改用自动模式重新执行
 
 ---
 
@@ -237,28 +199,11 @@ echo '{
   "task": "<用户任务描述>",
   "status": "initializing",
   "currentStage": "initialization",
-  "config": {
-    "mode": "<auto/interactive/dry-run>",
-    "planner": "<atlas:planner/Plan>",
-    "executorModel": "<haiku/sonnet/opus>",
-    "testNode": "<unified/per-task/none>",
-    "testMode": "<compile/unit/both>"
-  },
-  "checkpoint": {
-    "stashId": "atlas-checkpoint-<task-id>",
-    "created": false
-  },
+  "config": {"mode": "<auto/interactive/dry-run>", "planner": "<atlas:planner/Plan>", "executorModel": "<haiku/sonnet/opus>", "testNode": "<unified/per-task/none>", "testMode": "<compile/unit/both>"},
+  "checkpoint": {"stashId": "atlas-checkpoint-<task-id>", "created": false},
   "subtasks": [],
-  "progress": {
-    "total": 0,
-    "completed": 0,
-    "failed": 0,
-    "pending": 0
-  },
-  "iterations": {
-    "planning": 0,
-    "execution": 0
-  }
+  "progress": {"total": 0, "completed": 0, "failed": 0, "pending": 0},
+  "iterations": {"planning": 0, "execution": 0}
 }' > .claude/orchestrate/.state/<task-id>.json
 
 # 创建检查点（非 dry-run）
@@ -286,32 +231,21 @@ prompt: |
 
 **Step 4: 任务规划（支持循环修改）**
 
-**重要：整个流程使用统一的 task-id，所有文件在同一目录下操作**
+**重要**: 全流程使用同一个 task-id（同目录、可续传、可版本化）。
 
 1. **4.1 执行规划（首次）**: `Task(subagent_type="<用户选择的规划器>")` → 输出 `.claude/plan/<task-id>/plan.json`
 2. **4.2 展示规划给用户**: 读取并格式化 plan.json，显示子任务列表、执行策略、影响范围
 
 #### Step 4.2.5: 规划完整性验证
 
-读取 plan.json 的 `completeness` 字段，验证规划质量：
-
-1. 检查 `coverage` 是否 >= 90%
-2. 检查 `uncovered` 数组是否为空
-3. 检查 `validation` 所有字段是否为 true
-
-**输出**:
-- 通过: `✅ 规划完整性验证通过 (覆盖率: 100%, 需求: 5/5)`
-- 未通过: `⚠️ 规划覆盖率不足 (85%), 缺失: [需求X, 需求Y]`
-
-**未通过处理**:
-- 询问用户: "规划未覆盖所有需求，是否返回重新规划？[Y/n]"
-- Y: 返回 Step 4.2 重新规划
-- n: 继续执行（用户接受风险）
+读取 `plan.json.completeness`：
+- 要求: `coverage=100%`、`uncovered=[]`、`validation` 全 true
+- 未通过: 明确列出缺失点 → 询问是否返回重新规划（推荐）
 
 3. **4.3 用户确认**: AskUserQuestion → 继续执行（推荐）/ 修改规划 / 取消任务
 4. **4.4 重新规划（版本化）**（若用户选择修改）:
    - 使用相同规划器，传入修改意见
-   - 输出策略: 方案A 覆盖 plan.json（简单场景）/ 方案B 创建 plan.v2.json 等（复杂场景）
+   - 输出策略: 简单覆盖 `plan.json`；复杂场景生成 `plan.v2.json`/`plan.v3.json`…
    - 返回 4.2 循环直到用户确认
 
 完成后更新状态:
@@ -332,13 +266,6 @@ prompt: |
   },
   iterations.planning: <循环次数>
 }
-
-输出文件示例:
-.claude/plan/<task-id>/
-├── plan.json (或 plan.final.json)  # 最终确认的计划
-├── plan.v1.json  # 可选: 第一版（如需保留历史）
-├── plan.v2.json  # 可选: 第二版（如需保留历史）
-└── ...
 ```
 
 **Step 5: 任务执行（支持循环修改）**
@@ -348,22 +275,9 @@ prompt: |
 
 #### Step 5.2.5: 执行完成度验证
 
-对比 executor 结果与 plan.json，验证执行完成度：
-
-1. 读取每个 executor 的 `completionStatus`
-2. 统计总体完成率: completed / total
-3. 更新状态文件的 todos 数组状态
-
-**输出**:
-- 全部完成: `✅ 执行完成度验证通过 (完成: 10/10, 100%)`
-- 部分完成: `⚠️ 部分任务未完成 (完成: 8/10, 80%)`
-
-**未完成处理**:
-- 列出未完成的 todos
-- 询问用户: "以下任务未完成，是否继续执行？[Y/n/r]"
-  - Y: 继续剩余任务
-  - n: 结束并保存当前进度
-  - r: 重试失败的任务
+对比 `plan.json` 与各 executor 的 `completionStatus`：
+- 输出总体完成率 + 未完成项列表（todos）
+- 询问用户: 继续/重试失败/回滚/结束保存进度
 
 3. **5.3 展示执行结果**: 成功 X 个 / 失败 Y 个（含原因）/ 修改文件列表
 4. **5.4 用户决策**: AskUserQuestion → 继续验证（推荐）/ 修复失败任务 / 调整结果 / 回滚变更
@@ -426,23 +340,12 @@ prompt: |
 
 ### 3.1 主进程职责
 
-**允许**:
-- ✅ 使用 AskUserQuestion 与用户交互
-- ✅ 使用 Task 调用 agent
-- ✅ 读取 agent 输出（`.claude/gather/`, `.claude/plan/`）
-- ✅ Git 检查点操作
-
-**禁止**:
-- ❌ 使用 Read/Grep/Glob 读取代码文件
-- ❌ 使用 Edit/Write 修改代码文件
-- ❌ 直接分析代码逻辑
+**允许**: AskUserQuestion、Task、读取 `.claude/gather/`/`.claude/plan/`、git 检查点。  
+**禁止**: 主进程读/改业务代码、做深度分析（交给 subagent）。
 
 ### 3.2 任务 ID 管理原则
 
-**统一任务 ID**:
-- 一个任务从 Step 1 到 Step 7 使用**同一个** task-id
-- 格式: `<action>-<date>-<time>` (例如: `add-types-20240115-103000`)
-- 所有相关文件使用此 ID 关联
+**统一 task-id**: Step 1-7 全程一致；格式 `<action>-<date>-<time>`（如 `add-types-20240115-103000`）。
 
 **目录结构**:
 ```
@@ -458,9 +361,7 @@ prompt: |
 ```
 
 **版本化策略**:
-- **简单场景** (1-2次修改): 直接覆盖 `plan.json`
-- **复杂场景** (3+次修改): 创建版本文件 `plan.v2.json`, `plan.v3.json` 等
-- 状态文件记录 `planVersion` 字段，指向最终使用的版本
+- 简单覆盖 `plan.json`；复杂生成 `plan.v2.json`/`plan.v3.json`…，状态文件用 `planVersion` 指向最终版本。
 
 ### 3.3 信息传递要求
 
@@ -505,74 +406,19 @@ prompt: |
   "task": "给所有 React 组件添加 TypeScript 类型",
   "status": "in_progress",
   "currentStage": "execution_completed",
-  "config": {
-    "mode": "auto",
-    "planner": "atlas:planner",
-    "executorModel": "sonnet",
-    "testNode": "unified",
-    "testMode": "compile"
-  },
-  "checkpoint": {
-    "stashId": "atlas-checkpoint-add-types-20240115-103000",
-    "created": true,
-    "cleaned": false
-  },
+  "config": {"mode": "auto", "planner": "atlas:planner", "executorModel": "sonnet", "testNode": "unified", "testMode": "compile"},
+  "checkpoint": {"stashId": "atlas-checkpoint-add-types-20240115-103000", "created": true, "cleaned": false},
   "subtasks": [
-    {
-      "id": 1,
-      "status": "completed",
-      "description": "为 auth 组件添加类型",
-      "files": ["Login.tsx", "Register.tsx"]
-    },
-    {
-      "id": 2,
-      "status": "completed",
-      "description": "为 dashboard 组件添加类型",
-      "files": ["Overview.tsx", "Analytics.tsx"]
-    },
-    {
-      "id": 3,
-      "status": "failed",
-      "description": "为 shared 组件添加类型",
-      "files": ["Button.tsx", "Input.tsx"],
-      "error": "类型定义冲突"
-    }
+    {"id": 1, "status": "completed", "description": "为 auth 组件添加类型", "files": ["Login.tsx", "Register.tsx"]},
+    {"id": 2, "status": "completed", "description": "为 dashboard 组件添加类型", "files": ["Overview.tsx", "Analytics.tsx"]},
+    {"id": 3, "status": "failed", "description": "为 shared 组件添加类型", "files": ["Button.tsx", "Input.tsx"], "error": "类型定义冲突"}
   ],
-  "progress": {
-    "total": 3,
-    "completed": 2,
-    "failed": 1,
-    "pending": 0
-  },
-  "iterations": {
-    "planning": 1,
-    "execution": 2
-  },
+  "progress": {"total": 3, "completed": 2, "failed": 1, "pending": 0},
+  "iterations": {"planning": 1, "execution": 2},
   "todos": [
-    {
-      "id": 1,
-      "description": "为 auth 组件添加类型",
-      "subtaskId": 1,
-      "status": "completed",
-      "completedAt": "2024-01-15T10:45:00Z",
-      "error": null
-    },
-    {
-      "id": 2,
-      "description": "为 dashboard 组件添加类型",
-      "subtaskId": 2,
-      "status": "completed",
-      "completedAt": "2024-01-15T10:50:00Z",
-      "error": null
-    },
-    {
-      "id": 3,
-      "description": "为 shared 组件添加类型",
-      "subtaskId": 3,
-      "status": "failed",
-      "completedAt": null,
-      "error": "类型定义冲突"
-    }
+    {"id": 1, "description": "为 auth 组件添加类型", "subtaskId": 1, "status": "completed", "completedAt": "2024-01-15T10:45:00Z", "error": null},
+    {"id": 2, "description": "为 dashboard 组件添加类型", "subtaskId": 2, "status": "completed", "completedAt": "2024-01-15T10:50:00Z", "error": null},
+    {"id": 3, "description": "为 shared 组件添加类型", "subtaskId": 3, "status": "failed", "completedAt": null, "error": "类型定义冲突"}
   ],
   "completedAt": null
 }
@@ -584,21 +430,9 @@ prompt: |
 /orchestrate --resume <task-id>
 ```
 
-**恢复流程**:
-1. 读取 `.claude/orchestrate/.state/<task-id>.json`
-2. 检查 `currentStage` 字段确定中断位置
-3. 从中断的阶段继续执行（跳过已完成的步骤）
-4. 保持用户之前的配置选项
-5. 根据 `subtasks` 和 `progress` 恢复执行进度
+**恢复要点**: 读状态文件 → 根据 `currentStage` 定位阶段 → 跳过已完成步骤 → 沿用原配置 → 依据 `subtasks/progress` 恢复进度。
 
-**状态阶段映射**:
-- `initialization` → 从 Step 2 开始
-- `checkpoint_created` → 从 Step 3 开始
-- `gathering_completed` → 从 Step 4 开始
-- `planning_approved` → 从 Step 5 开始
-- `execution_completed` → 从 Step 6 开始
-- `testing_completed` → 输出报告
-- `finished` → 已完成，无需恢复
+**阶段映射**: `initialization→Step2` | `checkpoint_created→Step3` | `gathering_completed→Step4` | `planning_approved→Step5` | `execution_completed→Step6` | `testing_completed→报告` | `finished→结束`
 
 **续传示例**:
 ```
@@ -649,35 +483,6 @@ prompt: |
 5. Executor: 并行执行 3 个子任务 → 全部成功 ✓
 6. 测试: tsc --noEmit → 通过 ✓
 7. 报告: 成功修改 6 个文件
-```
-
-### 示例 3: 交互模式（带循环修改）
-
-```
-用户: /orchestrate 重构用户认证模块
-
-1. 选择交互模式 → 逐项确认配置
-   - 信息收集: 是 | 检查点: 创建 | 规划器: atlas:planner | 模型: opus
-2. Gatherer + Planner → 展示 3 个子任务
-   → 用户: "需要先重构 middleware" → 重新规划 ✓
-3. Executor: 执行 3 个子任务
-   → middleware: 成功 | login: 失败 | register: 成功
-   → 用户选择修复 → 重试 login → 成功 ✓
-4. 测试: tsc --noEmit && npm test → 通过 ✓
-5. 报告: 成功重构用户认证模块
-```
-
-### 示例 4: dry-run 模式
-
-```
-用户: /orchestrate 批量更新 API 路由 --dry-run
-
-1. 选择 dry-run → 跳过检查点和测试配置
-2. Gatherer: 收集 API 路由信息
-3. Planner: 生成计划 → 展示预览
-   - 影响文件: 12 个 | 子任务: 4 个 | 策略: parallel
-4. 输出预览报告（不执行）
-5. 提示: 如需执行，使用 /orchestrate --resume <task-id>
 ```
 
 ---
@@ -754,27 +559,14 @@ task-20240115-103000
 
 ### 标准模式必须做
 
-- ✅ **Step 1**: 开始时一次性确认所有配置（执行模式、规划器、模型、测试选项）
-- ✅ **Step 2**: 创建状态目录 `.claude/orchestrate/.state/` 和状态文件 `<task-id>.json`
-- ✅ **Step 2**: 在每个关键步骤完成后更新状态文件的 `currentStage` 字段
-- ✅ **Step 2**: 创建 git 检查点（非 dry-run/快速模式）
-- ✅ **Step 3**: 使用 `Task(subagent_type="atlas:information-gatherer", model="haiku")`
-- ✅ **Step 4**: 使用用户选择的规划器，输出到 `.claude/plan/<task-id>/`
-- ✅ **Step 4.2-4.4**: 展示规划给用户，支持循环修改直到用户确认
-- ✅ **Step 5**: 从 plan.json 提取修改点嵌入 executor prompt
-- ✅ **Step 5.3-5.5**: 展示执行结果，支持用户修复失败任务或调整结果
-- ✅ **Step 6**: 根据 Step 1 的选择执行验证测试
-- ✅ **Step 7**: 更新最终状态为 `completed` 和输出固定格式报告
-- ✅ **Todos**: 必须使用 TodoWrite 工具生成详细的任务清单，包含每个子任务的描述和状态，确保任务执行过程可追踪
+- ✅ Step 1 一次性确认配置（模式/规划器/模型/测试）
+- ✅ 创建并持续更新状态文件（`currentStage`、`subtasks/progress/todos`）
+- ✅ 非 quick/dry-run 创建检查点；按需 `gather → plan → execute → test → report`
+- ✅ 规划必须可验证（`completeness`）；执行必须可对账（`completionStatus`）
 
 ### 快速模式必须做
 
-- ✅ **Step Q1**: 确认用户选择快速模式
-- ✅ **Step Q2**: 创建状态文件 `.claude/orchestrate/.state/<task-id>.json`
-- ✅ **Step Q3**: 主进程快速定位目标文件（≤5 次工具调用）
-- ✅ **Step Q4**: 使用 `Task(subagent_type="atlas:atlas-executor", model="haiku")`
-- ✅ **Step Q5**: 更新状态文件并输出报告
-- ✅ 失败时建议用户切换到自动模式
+- ✅ 创建状态文件；主进程≤5次工具定位；executor(haiku) 执行；更新状态并简报
 
 ### 快速模式允许做
 
@@ -792,6 +584,5 @@ task-20240115-103000
 - ❌ 标准模式忘记更新状态文件的 `currentStage`
 - ❌ 在用户未确认的情况下继续执行下一步
 - ❌ 快速模式用于复杂任务（>3 个文件或涉及依赖分析）
-
-
-** 在本协调器中，做任何事情都需要在 Subagent 中完成，主对话只负责调用 Subagent 和输出报告。不可在主对话中直接执行任何操作。（读取流程中的文档除外）**
+  
+**原则**: 能交给 subagent 的都交给 subagent；主进程只负责编排/确认/读取产物/汇总报告。

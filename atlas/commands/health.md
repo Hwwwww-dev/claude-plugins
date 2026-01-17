@@ -52,11 +52,7 @@ argument-hint: [--scope path] [--quick] [--export json|html] [--ci]
 ```
 
 **自动模式行为**(跳过第二个 AskUserQuestion):
-- 检查模式: full (完整检查5个维度)
-- 检查范围: all (整个项目)
-- 导出格式: markdown
-- 报告详细度: full
-- CI 模式: no
+- 默认值：`mode=full`、`scope=all`、`export=markdown`、`detail=full`、`ci=no`
 ---
 
 ## 第二步：环境检测（P0）
@@ -98,26 +94,10 @@ command -v yarn audit 2>/dev/null
 ```
 Task(subagent_type="atlas:code-reviewer")
 prompt: |
-  ## 任务
   任务 ID: health-security-<timestamp>
   检查类型: security
-
-  ## 范围
-  - 路径: <scope>
-  - 深度: deep
-
-  ## 检查项
-  1. 依赖漏洞检测:
-     - 运行: npm audit / yarn audit
-     - 检测: package.json 中的高危依赖
-     - 评估: CVE 漏洞等级
-
-  2. 硬编码密钥扫描:
-     - 搜索模式: API_KEY, SECRET, PASSWORD, TOKEN
-     - 检测: .env 文件泄露
-     - 检查: 配置文件中的敏感信息
-
-  ## 输出
+  范围: <scope>（deep）
+  检查要点: 依赖漏洞（npm/yarn audit）+ 硬编码密钥/敏感配置
   写入: .claude/health/.scan/security-<timestamp>.json
   格式:
   {
@@ -141,30 +121,10 @@ prompt: |
 ```
 Task(subagent_type="atlas:information-gatherer", model="haiku")
 prompt: |
-  ## 任务
   任务 ID: health-quality-<timestamp>
   检查类型: code-quality
-
-  ## 范围
-  - 路径: <scope>
-  - 文件类型: .js, .ts, .jsx, .tsx
-
-  ## 检查项
-  1. 代码复杂度:
-     - 循环嵌套深度 > 3
-     - 函数行数 > 100
-     - 文件行数 > 500
-
-  2. 代码覆盖率（如有 coverage/ 目录）:
-     - 读取: coverage/coverage-summary.json
-     - 提取: line/branch/function coverage
-
-  3. 问题模式:
-     - TODO/FIXME 数量
-     - console.log 残留
-     - 注释掉的代码块
-
-  ## 输出
+  范围: <scope>（.js/.ts/.jsx/.tsx）
+  检查要点: 嵌套>3/函数>100行/文件>500行；coverage（如有）；TODO/console/注释代码
   写入: .claude/health/.scan/quality-<timestamp>.json
   格式同上，score 和 weight(0.25)
 ```
@@ -173,24 +133,9 @@ prompt: |
 ```
 Task(subagent_type="atlas:dependency-analyzer")
 prompt: |
-  ## 任务
   任务 ID: health-dependencies-<timestamp>
   检查类型: dependency-health
-
-  ## 检查项
-  1. 过期依赖:
-     - 运行: npm outdated / yarn outdated
-     - 统计: major/minor/patch outdated
-
-  2. 依赖冲突:
-     - 检测: package-lock.json 中的重复依赖
-     - 评估: 版本不一致问题
-
-  3. 依赖体积:
-     - 统计: dependencies 数量
-     - 分析: 大型依赖（>5MB）
-
-  ## 输出
+  检查要点: outdated（major/minor/patch）；冲突/重复依赖；体积/大型依赖（>5MB）
   写入: .claude/health/.scan/dependencies-<timestamp>.json
   格式同上，score 和 weight(0.20)
 ```
@@ -199,41 +144,17 @@ prompt: |
 ```
 Task(subagent_type="atlas:code-reviewer")
 prompt: |
-  ## 任务
   任务 ID: health-architecture-<timestamp>
   检查类型: architecture
-
-  ## 检查项
-  1. 循环依赖:
-     - 分析: import 关系图
-     - 检测: 循环引用路径
-
-  2. 模块耦合:
-     - 统计: 跨模块引用数量
-     - 评估: 高耦合模块（被引用 >20 次）
-
-  3. 目录结构:
-     - 检查: 是否遵循约定目录结构
-     - 评估: 平坦化 vs 嵌套深度
-
-  ## 输出
+  检查要点: 循环依赖；高耦合模块（引用>20）；目录结构是否符合约定
   写入: .claude/health/.scan/architecture-<timestamp>.json
   格式同上，score 和 weight(0.15)
 ```
 
 #### 可维护性检查（主对话执行）
 ```
-直接在主对话中快速检查:
-1. 文档覆盖:
-   - 统计: README.md, API docs 存在性
-   - 检查: 核心模块是否有文档
-2. 命名规范:
-   - 搜索: 拼音命名、无意义变量名
-3. 注释质量:
-   - 统计: 注释行数 / 代码行数
-
-输出: .claude/health/.scan/maintainability-<timestamp>.json
-权重: 0.10
+主进程快速检查: 文档覆盖（README/API docs）/ 命名规范 / 注释比例
+输出: .claude/health/.scan/maintainability-<timestamp>.json（weight 0.10）
 ```
 
 ### Quick 模式（2个维度）
@@ -300,205 +221,27 @@ mkdir -p .claude/health/
 ```markdown
 # 项目健康检查报告
 
-**检查时间**: 2024-01-15 14:30:00
-**检查模式**: full
-**检查范围**: 整个项目
-
----
+**检查时间**: <ISO-8601>
+**检查模式**: <full|quick|security|quality>
+**检查范围**: <scope>
 
 ## 综合评分
+**分数**: <0-100> | **等级**: <A|B|C|D|F> | **状态**: <good|warning|bad|fail>
 
-### 总评
-**分数**: 78 / 100
-**等级**: B (良好)
-**状态**: 🟢 可部署
-
-### 维度评分
-
+## 维度评分
 | 维度 | 分数 | 权重 | 贡献 | 状态 |
 |------|------|------|------|------|
-| 🔒 安全性 | 75 | 30% | 22.5 | 🟡 一般 |
-| ⚙️ 代码质量 | 80 | 25% | 20.0 | 🟢 良好 |
-| 📦 依赖健康 | 70 | 20% | 14.0 | 🟡 一般 |
-| 🏗️ 架构质量 | 85 | 15% | 12.75 | 🟢 良好 |
-| 🔧 可维护性 | 90 | 10% | 9.0 | 🟢 优秀 |
+| ... | ... | ... | ... | ... |
 
----
+## 关键问题
+- Critical: X | High: Y | Medium: Z | Low: N
 
-## 详细问题
+## 改进建议（按优先级）
+- 高优先级: critical/high
+- 中优先级: 质量/架构/依赖
+- 低优先级: 覆盖率/文档/清理
 
-### 🔒 安全性 (75/100)
-
-#### ⚠️ Critical (1)
-- **CVE-2023-12345**: lodash 依赖存在原型污染漏洞
-  - 位置: package.json:23
-  - 建议: 升级至 4.17.21 或更高版本
-
-#### ⚠️ High (2)
-- **硬编码密钥**: API_KEY 暴露在源码中
-  - 位置: src/config/api.ts:15
-  - 建议: 迁移至环境变量 (.env)
-
-- **依赖漏洞**: axios 版本过低
-  - 位置: package.json:45
-  - 建议: 升级至 1.6.0+
-
-#### ℹ️ Medium (5)
-- TODO 注释中包含敏感信息
-- .env.example 缺失
-- ...
-
----
-
-### ⚙️ 代码质量 (80/100)
-
-#### ⚠️ High (3)
-- **复杂度过高**: UserService.handleRequest 圈复杂度为 25
-  - 位置: src/services/user.ts:120-185
-  - 建议: 拆分为多个小函数
-
-- **文件过大**: components/Dashboard.tsx 达 850 行
-  - 位置: src/components/Dashboard.tsx
-  - 建议: 拆分为多个子组件
-
-#### ℹ️ Medium (8)
-- 12 处 console.log 残留
-- 45 处 TODO/FIXME 注释
-- 测试覆盖率仅 65%（建议 ≥80%）
-- ...
-
----
-
-### 📦 依赖健康 (70/100)
-
-#### ⚠️ High (4)
-- **Major 版本过期**: react 16.x (最新 18.x)
-- **Major 版本过期**: webpack 4.x (最新 5.x)
-- **体积过大**: moment.js (289KB，建议替换为 date-fns)
-- **重复依赖**: lodash 出现 3 个版本 (4.17.19, 4.17.20, 4.17.21)
-
-#### ℹ️ Medium (12)
-- 23 个 minor 版本过期
-- 45 个 patch 版本过期
-- ...
-
----
-
-### 🏗️ 架构质量 (85/100)
-
-#### ⚠️ Medium (2)
-- **循环依赖**: utils/helpers.ts ↔ services/user.ts
-  - 路径: helpers → user → api → helpers
-  - 建议: 提取公共逻辑至独立模块
-
-- **高耦合**: AuthService 被 18 个模块引用
-  - 建议: 考虑依赖注入或接口抽象
-
-#### ℹ️ Low (5)
-- components/ 目录嵌套深度达 5 层
-- 部分模块缺少 index.ts 导出
-- ...
-
----
-
-### 🔧 可维护性 (90/100)
-
-#### ✅ 良好
-- README.md 完善
-- 核心模块有文档覆盖
-- 命名规范基本一致
-
-#### ℹ️ Low (3)
-- API 文档不完整（7/12 端点缺少说明）
-- 3 处拼音命名（如 yonghu, denglu）
-- 部分注释已过时
-- ...
-
----
-
-## 改进建议
-
-### 🎯 高优先级（2周内）
-1. **安全修复**:
-   - 升级 lodash 至 4.17.21+
-   - 迁移硬编码密钥至环境变量
-   - 升级 axios 至最新版本
-
-2. **代码重构**:
-   - 简化 UserService.handleRequest 复杂度
-   - 拆分 Dashboard.tsx 为子组件
-
-3. **依赖升级**:
-   - 升级 React 至 18.x（评估兼容性）
-   - 替换 moment.js 为 date-fns（减少 220KB）
-
-### 📌 中优先级（1-2月）
-4. **测试覆盖**:
-   - 提升测试覆盖率至 80%+
-   - 关键业务逻辑添加单元测试
-
-5. **架构优化**:
-   - 解决循环依赖问题
-   - 重构高耦合模块（AuthService）
-
-6. **依赖清理**:
-   - 统一 lodash 版本
-   - 清理未使用的依赖（运行 depcheck）
-
-### 💡 低优先级（持续改进）
-7. **代码清理**:
-   - 移除 console.log 和调试代码
-   - 清理过时注释
-   - 修正拼音命名
-
-8. **文档完善**:
-   - 补充 API 文档
-   - 更新过时文档
-
----
-
-## CI 集成
-
-**阈值设置**（建议）:
-- 最低评分: 70 (C 级)
-- Critical 问题: 0 个
-- High 问题: ≤3 个
-
-**CI 命令**:
-```bash
-/health --ci --export json
-
-# 或通过脚本检查
-node scripts/check-health.js
-```
-
-**失败处理**: 评分低于阈值时 CI 失败，阻止合并
-
----
-
-## 下一步行动
-
-1. **立即执行**: 修复 1 个 Critical 安全问题
-2. **本周计划**: 处理 2 个 High 级代码质量问题
-3. **本月目标**: 升级主要依赖，解决循环依赖
-4. **持续改进**: 定期执行 `/health` 检查（建议每周一次）
-
----
-
-**报告生成时间**: 2024-01-15 14:30:15
-**下次检查建议**: 2024-01-22 (7天后)
-
-**快速修复命令**:
-```bash
-# 升级依赖
-npm update lodash axios
-
-# 代码清理
-/orchestrate 移除所有 console.log
-
-# 测试覆盖
-npm run test:coverage
-```
+*生成于 <ISO-8601>*
 ```
 
 ### JSON 格式（CI 模式）
@@ -510,69 +253,14 @@ npm run test:coverage
   "timestamp": "2024-01-15T14:30:00Z",
   "mode": "full",
   "scope": ".",
-  "summary": {
-    "score": 78,
-    "grade": "B",
-    "status": "good",
-    "passCI": true
-  },
-  "dimensions": [
-    {
-      "name": "security",
-      "score": 75,
-      "weight": 0.30,
-      "contribution": 22.5,
-      "status": "warning",
-      "issues": {
-        "critical": 1,
-        "high": 2,
-        "medium": 5,
-        "low": 3
-      }
-    },
-    {
-      "name": "quality",
-      "score": 80,
-      "weight": 0.25,
-      "contribution": 20.0,
-      "status": "good",
-      "issues": {
-        "critical": 0,
-        "high": 3,
-        "medium": 8,
-        "low": 12
-      }
-    }
-    // ... 其他维度
-  ],
-  "issues": [
-    {
-      "dimension": "security",
-      "severity": "critical",
-      "type": "dependency",
-      "description": "lodash 依赖存在 CVE-2023-12345 原型污染漏洞",
-      "location": "package.json:23",
-      "recommendation": "升级至 4.17.21 或更高版本"
-    }
-    // ... 所有问题
-  ],
-  "recommendations": [
-    {
-      "priority": "high",
-      "category": "security",
-      "action": "升级 lodash 至 4.17.21+",
-      "impact": "修复 Critical 安全漏洞",
-      "effort": "low"
-    }
-    // ... 所有建议
-  ],
-  "ci": {
-    "threshold": 70,
-    "pass": true,
-    "blockers": []
-  }
+  "summary": {"score": 78, "grade": "B", "status": "good", "passCI": true},
+  "dimensions": [{"name": "security", "score": 75, "weight": 0.3, "contribution": 22.5, "status": "warning", "issues": {"critical": 1, "high": 2, "medium": 5, "low": 3}}],
+  "issues": [{"dimension": "security", "severity": "critical", "type": "dependency", "description": "lodash 依赖存在 CVE-2023-12345 原型污染漏洞", "location": "package.json:23", "recommendation": "升级至 4.17.21 或更高版本"}],
+  "recommendations": [{"priority": "high", "category": "security", "action": "升级 lodash 至 4.17.21+", "impact": "修复 Critical 安全漏洞", "effort": "low"}],
+  "ci": {"threshold": 70, "pass": true, "blockers": []}
 }
 ```
+> `dimensions/issues/recommendations` 为数组，元素结构同上例；必须覆盖所有维度/问题/建议。
 
 ### HTML 格式
 
@@ -701,30 +389,18 @@ Blockers:
 🏥 项目健康检查完成
 
 ## 综合评分
-**分数**: 78 / 100
-**等级**: B (良好)
-**状态**: 🟢 可部署
+**分数**: <0-100> | **等级**: <A-F> | **状态**: <good|warning|bad|fail>
 
 ## 维度分布
-- 🔒 安全性: 75/100 (🟡 一般)
-- ⚙️ 代码质量: 80/100 (🟢 良好)
-- 📦 依赖健康: 70/100 (🟡 一般)
-- 🏗️ 架构质量: 85/100 (🟢 良好)
-- 🔧 可维护性: 90/100 (🟢 优秀)
+- security/quality/dependencies/architecture/maintainability: <score>/<100>
 
 ## 关键问题
-- ⚠️ Critical: 1 个
-- ⚠️ High: 7 个
-- ℹ️ Medium: 28 个
+- Critical/High/Medium/Low: <count>
 
-📊 **完整报告**: .claude/health/report-20240115-143000.md
+📊 **完整报告**: `.claude/health/report-<timestamp>.(md|json|html)`
 
 ## 下一步
-1. 立即修复: 1 个 Critical 安全问题
-2. 本周计划: 处理 2 个 High 级代码质量问题
-3. 本月目标: 升级主要依赖
-
-🔄 **建议检查频率**: 每周一次
+1. <建议1>
 ```
 
 ---
@@ -738,9 +414,7 @@ Blockers:
 
 | 日期 | 评分 | 等级 | 变化 |
 |------|------|------|------|
-| 2024-01-15 | 78 | B | +5 ⬆️ |
-| 2024-01-08 | 73 | C | -2 ⬇️ |
-| 2024-01-01 | 75 | C | — |
+| <YYYY-MM-DD> | <0-100> | <A-F> | <+/-N> |
 
 **改进方向**: 安全性 +10, 代码质量 +5
 **待改进**: 依赖健康 -3
@@ -765,22 +439,9 @@ Blockers:
 
 ```json
 {
-  "thresholds": {
-    "minScore": 70,
-    "maxCritical": 0,
-    "maxHigh": 3
-  },
-  "weights": {
-    "security": 0.30,
-    "quality": 0.25,
-    "dependencies": 0.20,
-    "architecture": 0.15,
-    "maintainability": 0.10
-  },
-  "ignore": {
-    "patterns": ["**/node_modules/**", "**/dist/**"],
-    "rules": ["console-log", "todo-comments"]
-  }
+  "thresholds": {"minScore": 70, "maxCritical": 0, "maxHigh": 3},
+  "weights": {"security": 0.3, "quality": 0.25, "dependencies": 0.2, "architecture": 0.15, "maintainability": 0.1},
+  "ignore": {"patterns": ["**/node_modules/**", "**/dist/**"], "rules": ["console-log", "todo-comments"]}
 }
 ```
 

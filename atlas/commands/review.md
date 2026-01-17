@@ -144,12 +144,7 @@ code-reviewer → 读取 context.json → 输出审查结果 JSON
 确认模式 → 主进程快速定位 → 直接审查 → 简化报告
 ```
 
-**Step Q1: 确认快速模式**
-```
-AskUserQuestion:
-问题: 执行模式
-- 快速模式 ✓
-```
+**入口**: 命令带 `--quick`；或在 Step 1 选择“快速模式”。
 
 **Step Q2: 创建状态文件**
 ```bash
@@ -160,7 +155,7 @@ echo '{
   "task": "<用户任务>",
   "status": "in_progress",
   "currentStage": "quick_review",
-  "config": { "mode": "quick", "reviewerModel": "haiku" }
+  "config": {"mode": "quick", "reviewerModel": "haiku"}
 }' > .claude/orchestrate/.state/<task-id>.json
 ```
 
@@ -196,9 +191,8 @@ prompt: |
 ```
 
 **快速模式风险提示**：
-- 跳过 gatherer，可能遗漏上下文依赖
-- 不支持 --fix（需切换到标准模式）
-- 如果审查失败，建议用户切换到标准模式重新执行
+- 跳过 gatherer：可能遗漏上下文依赖；且不支持 `--fix`（需标准模式）
+- 失败建议切换标准模式重新执行
 
 ---
 
@@ -288,20 +282,7 @@ prompt: |
 6. 建议: 使用 `/review --fix` 自动修复
 ```
 
-### 示例 2: 标准审查（多维度）
-
-```
-用户: /review --scope src/services --type all
-1. AskUserQuestion: 执行模式 → 用户选择"标准模式"
-2. AskUserQuestion: Reviewer 模型 → 用户选择 sonnet
-3. Task(gatherer, haiku): 收集 12 文件 → .claude/gather/review-1704067200/
-4. 并行启动 4 个 Task(code-reviewer, sonnet): security/performance/style/architecture
-5. 聚合结果: critical=2, warning=5, info=8
-6. 输出报告 → .claude/review/report-2024-01-01.md
-7. 关键问题: SQL 注入(L45), 内存泄漏(L128), 循环依赖(services→utils→services)
-```
-
-### 示例 3: 安全审查+修复
+### 示例 2: 安全审查+修复
 
 ```
 用户: /review --type security --fix
@@ -320,21 +301,13 @@ prompt: |
 
 ### 标准模式必须做
 
-- ✅ 询问执行模式选择
-- ✅ 询问 Reviewer 模型选择
-- ✅ --fix 时询问规划器和测试选项
-- ✅ 使用 gatherer 收集代码信息
-- ✅ 不同维度并行审查
-- ✅ 问题包含文件路径和行号
+- ✅ 确认模式与 reviewer 模型；`--fix` 时确认规划器/测试
+- ✅ gatherer 收集 → 多维度 reviewer 并行 → 聚合报告
+- ✅ 问题必须包含文件路径与行号（autoFixable 慎标）
 
 ### 快速模式必须做
 
-- ✅ **Step Q1**: 确认用户选择快速模式
-- ✅ **Step Q2**: 创建状态文件到 `.claude/orchestrate/.state/<task-id>.json`
-- ✅ **Step Q3**: 主进程快速定位目标文件（≤5 次工具调用）
-- ✅ **Step Q4**: 使用 `Task(subagent_type="atlas:code-reviewer", model="haiku")`
-- ✅ **Step Q5**: 输出简化报告（包含执行 ID 和状态文件路径）
-- ✅ 失败时建议用户切换到标准模式
+- ✅ 创建状态文件；主进程≤5次定位；reviewer(haiku) 审查；输出简报
 
 ### 快速模式允许做
 

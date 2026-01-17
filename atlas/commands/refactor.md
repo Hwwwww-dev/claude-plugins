@@ -102,18 +102,7 @@ executor → 直接重构（无需重新扫描）
 - opus: 复杂质量要求高
 ```
 
-**自动模式行为**（跳过第二个 AskUserQuestion）：
-- 检查点: 创建
-- 规划器: atlas:planner
-- Executor 模型: sonnet
-
-**快速模式行为**（跳过第二、三个 AskUserQuestion）：
-- 候选识别: 跳过
-- 检查点: 跳过
-- 规划器: 跳过（主进程直接规划）
-- Executor 模型: haiku
-- 测试: 不测试
-- 状态文件: 创建
+**默认行为**: 见 2.2 表（auto/interactive/dry-run/quick）。若命令带 `--quick`，视为已选快速模式，直接进入 2.5。
 
 **第三个 AskUserQuestion: 测试配置**
 
@@ -132,9 +121,8 @@ executor → 直接重构（无需重新扫描）
 ```
 
 **注意**:
-- 自动模式和交互模式都会询问测试配置
-- 仅 dry-run 模式跳过测试配置询问
-- **快速模式跳过所有询问，直接进入执行**
+- 仅 auto/interactive 询问测试配置；dry-run/quick 跳过
+- quick 会跳过所有确认步骤（除非用户未指定 `--quick` 且在 Step 1 手动选择）
 
 ---
 
@@ -149,12 +137,7 @@ executor → 直接重构（无需重新扫描）
 确认模式 → 主进程快速定位 → 直接执行 → 简化报告
 ```
 
-**Step Q1: 确认快速模式**
-```
-AskUserQuestion:
-问题: 执行模式
-- 快速模式 ✓
-```
+**入口**: 命令带 `--quick`；或在 Step 1 选择“快速模式”。
 
 **Step Q2: 创建状态文件**
 ```bash
@@ -165,7 +148,7 @@ echo '{
   "task": "<用户任务>",
   "status": "in_progress",
   "currentStage": "quick_refactor",
-  "config": { "mode": "quick", "executorModel": "haiku" }
+  "config": {"mode": "quick", "executorModel": "haiku"}
 }' > .claude/refactor/.state/refactor-<timestamp>.json
 ```
 
@@ -201,9 +184,8 @@ prompt: |
 ```
 
 **风险提示**：
-- 跳过候选识别，可能遗漏重构点
-- 跳过检查点，无法回滚
-- 如果 executor 失败，建议用户切换到自动模式
+- 跳过候选识别/检查点：可能遗漏重构点且无法回滚
+- 失败建议改用自动模式重新执行
 
 ---
 
@@ -224,37 +206,13 @@ echo '{
   "scope": "<scope>",
   "status": "initializing",
   "currentStage": "initialization",
-  "config": {
-    "mode": "<auto/interactive/dry-run>",
-    "planner": "<atlas:planner/Plan>",
-    "executorModel": "<haiku/sonnet/opus>",
-    "testNode": "<unified/per-candidate/none>",
-    "testMode": "<compile/unit/both>"
-  },
-  "checkpoint": {
-    "stashId": "atlas-checkpoint-refactor-<timestamp>",
-    "created": false
-  },
+  "config": {"mode": "<auto/interactive/dry-run>", "planner": "<atlas:planner/Plan>", "executorModel": "<haiku/sonnet/opus>", "testNode": "<unified/per-candidate/none>", "testMode": "<compile/unit/both>"},
+  "checkpoint": {"stashId": "atlas-checkpoint-refactor-<timestamp>", "created": false},
   "candidates": [],
-  "progress": {
-    "total": 0,
-    "completed": 0,
-    "failed": 0,
-    "pending": 0
-  },
-  "iterations": {
-    "planning": 0,
-    "execution": 0
-  },
+  "progress": {"total": 0, "completed": 0, "failed": 0, "pending": 0},
+  "iterations": {"planning": 0, "execution": 0},
   "todos": [
-    {
-      "id": 1,
-      "description": "子任务描述",
-      "subtaskId": 1,
-      "status": "pending",
-      "completedAt": null,
-      "error": null
-    }
+    {"id": 1, "description": "子任务描述", "subtaskId": 1, "status": "pending", "completedAt": null, "error": null}
   ]
 }' > .claude/refactor/.state/refactor-<timestamp>.json
 
@@ -278,9 +236,7 @@ prompt: |
   输出目录: .claude/gather/refactor-<timestamp>/
 ```
 
-完成后更新状态:
-.state/refactor-<timestamp>.json: currentStage="candidates_identified"
-```
+完成后更新状态: `.state/refactor-<timestamp>.json: currentStage="candidates_identified"`
 
 **Step 4: 重构规划**（支持循环修改）
 
@@ -291,19 +247,14 @@ prompt: |
 
 #### Step 4.2.5: 规划完整性验证
 
-读取重构计划的 `completeness` 字段：
-
-1. 验证所有重构目标都有对应子任务
-2. 验证修改点完整（行号、代码）
-
-**输出**:
-- 通过: `✅ 重构规划验证通过 (覆盖: 100%)`
-- 未通过: `⚠️ 部分重构目标未覆盖`
+读取 `plan.json.completeness`：
+- 要求: 重构目标全覆盖，修改点字段完整（覆盖率应为 100%）
+- 未通过: 列出未覆盖项 → 询问是否返回重新规划（推荐）
 
 3. **4.3 用户确认**: AskUserQuestion → 继续执行（执行重构模式）/ 修改计划 / 完成预览（预览模式）
 4. **4.4 重新规划（版本化）**（若用户选择修改）:
    - 使用相同规划器，传入修改意见
-   - 输出策略: 简单场景覆盖 plan.json / 复杂场景创建 plan.v2.json 等
+   - 输出策略: 简单覆盖 `plan.json`；复杂生成 `plan.v2.json`/`plan.v3.json`…
    - 返回 4.2 循环直到用户确认
 
 完成后更新状态:
@@ -323,13 +274,6 @@ prompt: |
   iterations.planning: <循环次数>
 }
 
-输出文件示例:
-.claude/plan/refactor-<timestamp>/
-├── plan.json (或 plan.final.json)  # 最终计划
-├── plan.v1.json  # 可选: 历史版本
-└── plan.v2.json  # 可选: 历史版本
-```
-
 **Step 5: 执行重构**（执行重构模式，支持循环）
 
 1. **5.1 并发/串行执行重构**: `Task(subagent_type="atlas:atlas-executor", model=<用户选择的模型>)`，根据测试节点决定并发/串行
@@ -337,14 +281,7 @@ prompt: |
 
 #### Step 5.2.5: 执行完成度验证
 
-验证重构执行完成度：
-
-1. 检查所有重构任务是否完成
-2. 更新 todos 状态
-
-**输出**:
-- 全部完成: `✅ 重构执行完成 (100%)`
-- 部分完成: `⚠️ 部分重构未完成`，询问是否重试
+对比计划与 executor 结果（含 `completionStatus`），输出完成率与未完成项；若未完成则询问重试/回滚/结束保存进度。
 
 3. **5.3 展示结果**: 成功 X 个 / 失败 Y 个 / 修改文件列表
 4. **5.4 用户决策**: AskUserQuestion → 继续验证（推荐）/ 修复失败 / 调整结果 / 回滚变更
@@ -362,7 +299,6 @@ prompt: |
   },
   iterations.execution: <循环次数>
 }
-```
 
 **Step 6: 验证测试**（根据 Step 1 选择执行）
 
@@ -492,64 +428,20 @@ gatherer 的 context.json 必须包含：
 6. 测试: tsc --noEmit ✓ → 输出完整报告 (含回滚命令)
 ```
 
-### 示例 3: 交互模式（带循环修改）
-
-```
-用户: /refactor add-types --scope src/services --interactive
-
-1. AskUserQuestion → 用户选择「交互模式」→ 逐项确认配置
-   - 检查点: 创建 | 规划器: atlas:planner | 模型: sonnet | 测试: 编译+单元
-2. Gatherer: 识别 12 个缺失类型的函数 → Planner 生成计划
-3. 用户审查: "排除 legacy/ 目录" → 重新规划 → 剩余 8 个候选 ✓
-4. Executor 第一轮: 7 成功 / 1 失败 (PaymentService.process 类型冲突)
-5. 用户选择「修复失败」→ Executor 重试: 调整泛型约束 → 成功 ✓
-6. 测试: tsc --noEmit ✓ + npm test ✓ → 8/8 完成
-7. 输出报告: 修改 6 文件 | 新增类型定义 23 个 | iterations: planning=2, execution=2
-```
-
-### 示例 4: dry-run 模式 - 预览不执行
-
-```
-用户: /refactor modernize-js --scope src --dry-run
-
-1. AskUserQuestion → 用户选择「dry-run」→ 跳过检查点和测试配置
-2. Gatherer(haiku): 扫描 src/ → 识别 15 个现代化候选
-   - var 声明: 8 处 | callback 模式: 5 处 | 旧式循环: 2 处
-3. Planner: 生成详细重构计划 (不执行)
-4. 输出预览报告:
-   - 预计修改: 9 文件 | 预计变更: +45行 -62行
-   - 风险评估: 低 (无破坏性变更)
-5. 提示: 确认后执行 `/refactor modernize-js --scope src`
-```
-
 ---
 
 ## 五、核心约束
 
 ### 标准模式必须做
 
-- ✅ **Step 1**: 分阶段确认配置（执行模式 → 重构配置 → 测试配置）
-- ✅ **Step 1**: 自动模式跳过第二个 AskUserQuestion，直接使用推荐配置
-- ✅ **Step 1**: dry-run 模式跳过第三个 AskUserQuestion，不需要测试配置
-- ✅ **Step 2**: 创建状态目录 `.claude/refactor/.state/` 和状态文件（执行重构时）
-- ✅ **Step 2**: 在每个关键步骤完成后更新状态文件的 `currentStage` 字段
-- ✅ **Step 3**: 使用 `Task(subagent_type="atlas:information-gatherer", model="haiku")`
-- ✅ **Step 4**: 使用用户选择的规划器，输出到 `.claude/plan/refactor-<ts>/`
-- ✅ **Step 4.2-4.4**: 展示重构计划给用户，支持循环修改直到用户确认
-- ✅ **Step 5**: 从 plan.json 提取修改点嵌入 executor prompt（执行重构时）
-- ✅ **Step 5.2-5.5**: 展示重构结果，支持用户修复失败或调整结果
-- ✅ **Step 6**: 根据 Step 1 的选择执行验证测试
-- ✅ **Step 7**: 更新最终状态并输出报告
-- ✅ **Todos**: 必须使用 TodoWrite 工具生成详细的任务清单，包含每个重构任务的描述和状态，确保任务执行过程可追踪
+- ✅ Step 1 分阶段确认（模式→重构配置→测试；dry-run 跳过测试配置）
+- ✅ 执行重构时创建并持续更新 `.claude/refactor/.state/refactor-<ts>.json`（`currentStage`）
+- ✅ candidates → plan（含 `completeness`）→ execute（含 `completionStatus`）→ test → report
+- ✅ 使用 TodoWrite 跟踪候选/执行状态
 
 ### 快速模式必须做
 
-- ✅ **Step Q1**: 确认用户选择快速模式
-- ✅ **Step Q2**: 创建状态文件 `.claude/refactor/.state/refactor-<timestamp>.json`
-- ✅ **Step Q3**: 主进程快速定位目标文件（≤5 次工具调用）
-- ✅ **Step Q4**: 使用 `Task(subagent_type="atlas:atlas-executor", model="haiku")`
-- ✅ **Step Q5**: 输出简化报告（含执行 ID 和状态文件路径）
-- ✅ 失败时建议用户切换到自动模式
+- ✅ 创建状态文件；主进程≤5次定位；executor(haiku) 执行；输出简报
 
 ### 快速模式允许做
 

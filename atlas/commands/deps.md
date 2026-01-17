@@ -51,11 +51,7 @@ argument-hint: [--scope path] [--type security|outdated|conflicts|tree|all] [--f
 ```
 
 **自动模式行为**(用户指定了 `--fix` 或完整参数时):
-- 分析类型: 使用用户指定值或 `all`
-- 分析范围: 使用用户指定值或项目根目录
-- 修复策略: 根据 `--fix`/`--interactive` 参数
-- 升级策略: 使用 `--upgrade` 参数值或 `patch`
-- 依赖范围: 根据 `--no-dev` 参数
+- 用户参数优先；未指定则 `type=all`、`scope=.`、`upgrade=patch`；修复策略由 `--fix/--interactive` 决定；依赖范围由 `--no-dev` 控制
 
 **如果用户已指定(如 `/deps --type security --fix`),跳过相关询问。**
 
@@ -246,49 +242,27 @@ Phase 0 环境检测 → Phase 1 依赖扫描 → Phase 2 问题分析 → Phase
 
 **输出**: `.claude/deps/report-{date}.md`
 
-**报告包含**:
-- 概览(包管理器、总依赖数、检测到的问题数)
-- 安全报告(漏洞清单、CVSS 评分、影响包、修复命令)
-- 过期报告(当前版本、最新版本、版本差距、升级建议)
-- 冲突报告(冲突清单、涉及包、解决方案)
-- 依赖树分析(深度、大小、优化建议)
-- 修复建议(自动修复和手动修复分组)
-
-**报告示例**:
+**报告包含**: 概览 / security / outdated / conflicts / tree / 修复建议（按严重性排序）。
 
 ```markdown
 # 依赖分析报告
 
-生成时间: 2024-01-15 10:30:00
-包管理器: npm 10.2.0
-分析范围: /Users/project
+生成时间: <ISO-8601>
+包管理器: <npm|yarn|pnpm|bun> <version>
+分析范围: <scope>
 
 ## 概览
+- 总依赖数: X（direct: A, transitive: B）
+- 安全漏洞: critical/high/medium/low/total
+- 过期依赖: major/minor/patch/total
+- 冲突: N | 依赖深度: D | 体积: S
 
-- 总依赖数: 347 个(直接: 42, 传递: 305)
-- 安全漏洞: 3 个(🔴 critical: 1, 🟠 high: 2)
-- 过期依赖: 12 个(主版本: 3, 次版本: 9)
-- 版本冲突: 2 个
-- node_modules 大小: 245 MB
-
-## 🔴 安全漏洞(3)
-
-### [CVE-2024-1234] axios <1.6.0 - SSRF Vulnerability
-
-- **严重性**: 🔴 Critical (CVSS 9.1)
-- **当前版本**: 1.4.0
-- **修复版本**: ≥1.6.0
-- **影响范围**: 直接依赖
-- **修复命令**: `npm install axios@^1.6.0`
-- **自动修复**: ✅ 可以
-
-...
+## 关键问题（按严重性）
+- [CRITICAL] <pkg>@<version> → <fixedIn> | CVE/CVSS | 命令: <cmd> | autoFixable: true/false
 
 ## 后续建议
-
-1. 优先修复 critical 安全漏洞
-2. 使用 `npm dedupe` 消除重复依赖
-3. 考虑将 moment.js 替换为 date-fns(减小包大小)
+- 先修复 critical/high，再做 minor/major 升级
+- 修复后执行 install + 测试验证
 ```
 
 ---
@@ -303,11 +277,7 @@ Phase 0 环境检测 → Phase 1 依赖扫描 → Phase 2 问题分析 → Phase
 
 **输出**: 修复后的文件 + 修复报告
 
-**可自动修复的问题**:
-- 安全漏洞(版本升级)
-- 过期依赖(按 --upgrade 策略升级)
-- 重复包(dedupe)
-- 缺失的 peer dependency(安装)
+**可自动修复**: 安全漏洞升级 / outdated（按 `--upgrade`）/ dedupe / 缺失 peer 安装。
 
 **修复策略**:
 
@@ -319,32 +289,7 @@ Phase 0 环境检测 → Phase 1 依赖扫描 → Phase 2 问题分析 → Phase
 | Peer Dependency | 安装缺失依赖 | `npm install peer-pkg` |
 | 废弃包 | 寻找替代品 | (手动) |
 
-**交互式模式**(--interactive):
-```
-发现 5 个可自动修复的问题:
-
-1. [CRITICAL] axios 1.4.0 → 1.6.0(修复 CVE-2024-1234)
-2. [WARNING] lodash 4.17.15 → 4.17.21(安全更新)
-3. [INFO] react 18.2.0 → 18.3.0(功能更新)
-4. [INFO] 重复包: webpack 5.88.0 和 5.90.0
-5. [WARNING] 缺失 peer: react-dom@^18.0.0
-
-请选择修复项(空格选择,Enter 确认):
-[x] 1. axios 升级
-[x] 2. lodash 升级
-[ ] 3. react 升级
-[x] 4. webpack dedupe
-[x] 5. 安装 react-dom
-```
-
-**修复原则**:
-- 优先修复安全漏洞
-- 按 --upgrade 策略控制版本跨度
-- 保持 lockfile 一致性
-- 修复后运行 install 更新 lockfile
-- 不自动修复破坏性变更(需人工评估)
-
-**修复报告**包含:修复统计、修复详情、后续建议
+**修复原则**: 先安全后更新；不跨 major（除非显式允许）；修改 `package.json/lockfile` 后必须 install + 测试；记录所有修改。
 
 ---
 
@@ -362,83 +307,20 @@ Phase 0 环境检测 → Phase 1 依赖扫描 → Phase 2 问题分析 → Phase
 
 ## 约束
 
-**执行约束**:
-- Phase 2 必须使用 `atlas:dependency-analyzer` agent
-- Phase 4 必须使用 `atlas:atlas-executor` agent (询问用户选择模型)
-- 不同分析类型必须并行执行
-- 每个 analyzer 只处理单一类型
-
-**分析约束**:
-- 只报告问题,不擅自修复(除非 --fix)
-- 严格按 CVSS 评分判断漏洞严重性
-- 提供可操作的修复命令
-- autoFixable 必须谨慎判断
-
-**修复约束**:
-- 修复前备份 package.json 和 lockfile
-- 修复后验证依赖可安装
-- 不跨越主版本(除非 --upgrade major)
-- 记录所有修改操作
-
-**报告约束**:
-- 问题必须包含包名、版本、严重性
-- 必须提供修复命令
-- 必须按严重性排序
-- 必须说明是否可自动修复
+**执行**: Phase2 仅 `atlas:dependency-analyzer`；Phase4 仅 `atlas:atlas-executor`；按类型并行（单实例单维度）。  
+**分析/报告**: 只报告不修复（除非 `--fix`/`--interactive`）；CVSS 严格分级；每条问题给命令+autoFixable；按严重性排序。  
+**修复**: 备份 `package.json/lockfile`；不跨 major（除非 `--upgrade major`）；修复后 install + 验证；记录修改。
 
 ---
 
 ## 示例
 
-### 基础用法
-
 ```bash
-# 全面依赖分析
-/deps
-
-# 仅安全检查
-/deps --type security
-
-# 检查过期依赖
-/deps --type outdated
-
-# 检查并自动修复
-/deps --fix
-
-# 交互式修复
-/deps --interactive
-
-# 指定范围
-/deps --scope packages/core
-```
-
-### 高级用法
-
-```bash
-# 安全检查并自动修复
-/deps --type security --fix
-
-# 升级次版本
-/deps --type outdated --upgrade minor --fix
-
-# 排除开发依赖
-/deps --no-dev
-
-# 依赖树分析
-/deps --type tree
-
-# Monorepo 特定包
-/deps --scope packages/api --type security
-```
-
-### 配合其他命令
-
-```bash
-# 工作流示例
-/deps --type security              # 1. 检测安全问题
-/deps --type security --fix        # 2. 自动修复
-npm test                           # 3. 运行测试验证
-/atlas:review --scope package.json # 4. 审查变更
+/deps                               # 全量分析（默认 all）
+/deps --type security               # 仅安全
+/deps --type outdated --upgrade minor
+/deps --type security --fix         # 安全 + 自动修复
+/deps --interactive --scope packages/core
 ```
 
 ---

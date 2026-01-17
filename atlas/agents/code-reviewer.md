@@ -34,25 +34,9 @@ color: blue
   "dimension": "security",
   "timestamp": "2024-01-15T10:30:00Z",
   "issues": [
-    {
-      "ruleId": "SEC001",
-      "severity": "critical",
-      "file": "src/user.service.ts",
-      "line": 45,
-      "column": 12,
-      "code": "db.query(`SELECT * FROM users WHERE id = ${id}`)",
-      "message": "SQL 注入风险：用户输入直接拼接到 SQL 语句",
-      "suggestion": "使用参数化查询: db.query('SELECT * FROM users WHERE id = ?', [id])",
-      "autoFixable": true,
-      "fixedCode": "db.query('SELECT * FROM users WHERE id = ?', [id])"
-    }
+    {"ruleId": "SEC001", "severity": "critical", "file": "src/user.service.ts", "line": 45, "column": 12, "code": "db.query(`SELECT * FROM users WHERE id = ${id}`)", "message": "SQL 注入风险：用户输入直接拼接到 SQL 语句", "suggestion": "使用参数化查询: db.query('SELECT * FROM users WHERE id = ?', [id])", "autoFixable": true, "fixedCode": "db.query('SELECT * FROM users WHERE id = ?', [id])"}
   ],
-  "summary": {
-    "critical": 1,
-    "warning": 3,
-    "info": 5,
-    "total": 9
-  },
+  "summary": {"critical": 1, "warning": 3, "info": 5, "total": 9},
   "filesReviewed": 5,
   "linesReviewed": 420
 }
@@ -230,49 +214,6 @@ color: blue
 3. ❌ 模糊定位（必须精确到行号）
 4. ❌ 无建议的问题（必须提供修复方案）
 5. ❌ 过度标记 autoFixable（不确定就标 false）
-
-## 输出示例
-
-```json
-{
-  "dimension": "security",
-  "timestamp": "2024-01-15T10:30:00Z",
-  "issues": [
-    {
-      "ruleId": "SEC001",
-      "severity": "critical",
-      "file": "src/user.service.ts",
-      "line": 45,
-      "column": 12,
-      "code": "const result = await db.query(`SELECT * FROM users WHERE id = ${userId}`);",
-      "message": "SQL 注入风险：用户输入 userId 直接拼接到 SQL 语句中，攻击者可以通过构造恶意输入执行任意 SQL",
-      "suggestion": "使用参数化查询防止 SQL 注入",
-      "autoFixable": true,
-      "fixedCode": "const result = await db.query('SELECT * FROM users WHERE id = ?', [userId]);"
-    },
-    {
-      "ruleId": "SEC003",
-      "severity": "critical",
-      "file": "src/config/api.ts",
-      "line": 12,
-      "column": 1,
-      "code": "const API_KEY = 'sk-1234567890abcdef';",
-      "message": "硬编码 API 密钥：密钥直接暴露在源代码中，可能被泄露到版本控制系统",
-      "suggestion": "将密钥移至环境变量",
-      "autoFixable": true,
-      "fixedCode": "const API_KEY = process.env.API_KEY;"
-    }
-  ],
-  "summary": {
-    "critical": 2,
-    "warning": 0,
-    "info": 0,
-    "total": 2
-  },
-  "filesReviewed": 2,
-  "linesReviewed": 150
-}
-```
 
 ## 注意事项
 

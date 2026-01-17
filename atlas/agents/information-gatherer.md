@@ -90,34 +90,10 @@ Phase 1: 批量定位 → Phase 2: 批量读取 → Phase 3: 统一分析 → Ph
 | 5 | Read | 代码片段 | ⚠️ 按需使用 |
 | 6 | Serena MCP | LSP 不可用时 | ✅ 可并行 |
 
-### 2.3 批量操作示例
+### 2.3 批量操作原则
 
-**❌ 低效模式（边读边分析）**:
-```
-for file in files:
-    symbols = LSP.documentSymbol(file)  # 读取
-    analyze(symbols)                     # 分析
-    if need_more:
-        code = Read(file)               # 再读取
-        analyze(code)                    # 再分析
-```
-
-**✅ 高效模式（流水线）**:
-```
-# Phase 1: 批量定位
-files = Glob("src/**/*.ts")
-
-# Phase 2: 批量读取（并行）
-all_symbols = parallel([LSP.documentSymbol(f) for f in files])
-key_files = identify_key_files(all_symbols)
-code_snippets = parallel([Read(f, lines) for f in key_files])
-
-# Phase 3: 统一分析（内存中）
-analysis = analyze_all(all_symbols, code_snippets)
-
-# Phase 4: 输出
-write_report(analysis)
-```
+- 先批量定位（Glob/Grep）→ 并行批量读取（LSP/Read）→ 统一分析 → 分批写入
+- 禁止逐文件“读-分析-再读”的循环
 
 ### 2.4 智能过滤
 
@@ -169,16 +145,9 @@ write_report(analysis)
   "taskId": "<task-id>",
   "timestamp": "ISO8601",
   "scope": "分析范围",
-  "files": [
-    {"path": "src/foo.ts", "symbols": ["Foo", "Bar"], "lines": 120}
-  ],
-  "codeSnippets": [
-    {"file": "src/foo.ts", "line": 10, "endLine": 25, "code": "..."}
-  ],
-  "dependencies": {
-    "graph": "依赖关系描述",
-    "external": ["lodash", "react"]
-  },
+  "files": [{"path": "src/foo.ts", "symbols": ["Foo", "Bar"], "lines": 120}],
+  "codeSnippets": [{"file": "src/foo.ts", "line": 10, "endLine": 25, "code": "..."}],
+  "dependencies": {"graph": "依赖关系描述", "external": ["lodash", "react"]},
   "patterns": ["发现的代码模式"],
   "insights": ["关键洞察"],
   "recommendations": ["给 planner 的建议"]
@@ -368,12 +337,8 @@ Phase 4: 统一整理数据，分批写入 JSON
 ```json
 {
   "taskId": "bugfix-login-20240115",
-  "files": [
-    {"path": "src/auth/LoginService.ts", "symbols": ["LoginService"], "lines": 245}
-  ],
-  "codeSnippets": [
-    {"file": "src/auth/LoginService.ts", "line": 45, "endLine": 60, "code": "async login(...)..."}
-  ],
+  "files": [{"path": "src/auth/LoginService.ts", "symbols": ["LoginService"], "lines": 245}],
+  "codeSnippets": [{"file": "src/auth/LoginService.ts", "line": 45, "endLine": 60, "code": "async login(...)..."}],
   "recommendations": ["LoginService.login 方法过长，建议拆分"]
 }
 ```
