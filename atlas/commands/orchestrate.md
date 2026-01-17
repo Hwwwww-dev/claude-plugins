@@ -290,6 +290,24 @@ prompt: |
 
 1. **4.1 执行规划（首次）**: `Task(subagent_type="<用户选择的规划器>")` → 输出 `.claude/plan/<task-id>/plan.json`
 2. **4.2 展示规划给用户**: 读取并格式化 plan.json，显示子任务列表、执行策略、影响范围
+
+#### Step 4.2.5: 规划完整性验证
+
+读取 plan.json 的 `completeness` 字段，验证规划质量：
+
+1. 检查 `coverage` 是否 >= 90%
+2. 检查 `uncovered` 数组是否为空
+3. 检查 `validation` 所有字段是否为 true
+
+**输出**:
+- 通过: `✅ 规划完整性验证通过 (覆盖率: 100%, 需求: 5/5)`
+- 未通过: `⚠️ 规划覆盖率不足 (85%), 缺失: [需求X, 需求Y]`
+
+**未通过处理**:
+- 询问用户: "规划未覆盖所有需求，是否返回重新规划？[Y/n]"
+- Y: 返回 Step 4.2 重新规划
+- n: 继续执行（用户接受风险）
+
 3. **4.3 用户确认**: AskUserQuestion → 继续执行（推荐）/ 修改规划 / 取消任务
 4. **4.4 重新规划（版本化）**（若用户选择修改）:
    - 使用相同规划器，传入修改意见
@@ -327,6 +345,26 @@ prompt: |
 
 1. **5.1 并发启动 Executors**: `Task(subagent_type="atlas:atlas-executor", model=<用户选择的模型>)`，每个子任务一个 executor
 2. **5.2 收集执行结果**: 记录成功/失败的子任务
+
+#### Step 5.2.5: 执行完成度验证
+
+对比 executor 结果与 plan.json，验证执行完成度：
+
+1. 读取每个 executor 的 `completionStatus`
+2. 统计总体完成率: completed / total
+3. 更新状态文件的 todos 数组状态
+
+**输出**:
+- 全部完成: `✅ 执行完成度验证通过 (完成: 10/10, 100%)`
+- 部分完成: `⚠️ 部分任务未完成 (完成: 8/10, 80%)`
+
+**未完成处理**:
+- 列出未完成的 todos
+- 询问用户: "以下任务未完成，是否继续执行？[Y/n/r]"
+  - Y: 继续剩余任务
+  - n: 结束并保存当前进度
+  - r: 重试失败的任务
+
 3. **5.3 展示执行结果**: 成功 X 个 / 失败 Y 个（含原因）/ 修改文件列表
 4. **5.4 用户决策**: AskUserQuestion → 继续验证（推荐）/ 修复失败任务 / 调整结果 / 回滚变更
 5. **5.5 重新执行**（若用户选择修复/调整）: 返回 5.1 仅针对需要修改的子任务
@@ -510,6 +548,32 @@ prompt: |
     "planning": 1,
     "execution": 2
   },
+  "todos": [
+    {
+      "id": 1,
+      "description": "为 auth 组件添加类型",
+      "subtaskId": 1,
+      "status": "completed",
+      "completedAt": "2024-01-15T10:45:00Z",
+      "error": null
+    },
+    {
+      "id": 2,
+      "description": "为 dashboard 组件添加类型",
+      "subtaskId": 2,
+      "status": "completed",
+      "completedAt": "2024-01-15T10:50:00Z",
+      "error": null
+    },
+    {
+      "id": 3,
+      "description": "为 shared 组件添加类型",
+      "subtaskId": 3,
+      "status": "failed",
+      "completedAt": null,
+      "error": "类型定义冲突"
+    }
+  ],
   "completedAt": null
 }
 ```
@@ -701,6 +765,7 @@ task-20240115-103000
 - ✅ **Step 5.3-5.5**: 展示执行结果，支持用户修复失败任务或调整结果
 - ✅ **Step 6**: 根据 Step 1 的选择执行验证测试
 - ✅ **Step 7**: 更新最终状态为 `completed` 和输出固定格式报告
+- ✅ **Todos**: 必须使用 TodoWrite 工具生成详细的任务清单，包含每个子任务的描述和状态，确保任务执行过程可追踪
 
 ### 快速模式必须做
 

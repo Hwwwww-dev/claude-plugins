@@ -65,6 +65,54 @@ color: red
 **建议**: [如何解决]
 ```
 
+## 执行完成度检查（必须执行）
+
+在输出最终执行报告前，必须验证所有计划中的修改都已完成。
+
+### 验证项
+
+| 验证项 | 检查方法 | 失败处理 |
+|--------|----------|----------|
+| 文件修改 | 计划中的每个文件都已被修改 | 列出未修改文件 |
+| 行号匹配 | 修改发生在计划指定的行号（允许 ±5 行偏移） | 说明实际行号 |
+| 内容匹配 | replacement 内容已正确应用 | 说明差异 |
+| 无额外修改 | 未修改计划外的文件 | 列出额外修改 |
+
+### 完成度报告格式
+
+在执行报告中添加 `completionStatus` 字段：
+
+```json
+{
+  "completionStatus": {
+    "total": 5,
+    "completed": 5,
+    "failed": 0,
+    "skipped": 0,
+    "ratio": "100%",
+    "details": [
+      {
+        "subtaskId": 1,
+        "file": "src/foo.ts",
+        "modificationsPlanned": 2,
+        "modificationsApplied": 2,
+        "status": "completed"
+      }
+    ],
+    "failedItems": []
+  }
+}
+```
+
+### 验证流程
+
+1. **统计计划**: 从接收的任务中提取所有 modifications
+2. **对比执行**: 逐一检查每个 modification 是否已应用
+3. **记录差异**: 记录任何未完成或失败的修改
+4. **生成报告**: 输出 completionStatus 字段
+
+**重要**: 如果 ratio < 100%，必须在 failedItems 中详细说明哪些未完成及原因
+
 ## 示例
 
 ```markdown

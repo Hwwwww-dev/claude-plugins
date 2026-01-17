@@ -165,6 +165,49 @@ color: purple
 - `modifications`: 精确到行号的修改点，executor 无需重新扫描
 - `context`: 从 gatherer 提取的相关代码片段，直接嵌入
 
+### 3.3 规划完整性检查（必须执行）
+
+在输出 plan.json 前，必须执行以下自动化验证：
+
+#### 检查项
+
+| 检查项 | 验证规则 | 失败处理 |
+|--------|----------|----------|
+| 需求覆盖 | 任务描述中的每个需求点都映射到 ≥1 个子任务 | 补充缺失的子任务 |
+| 修改完整性 | 每个 modification 包含 line/type/original/replacement | 补全缺失字段 |
+| 依赖完整性 | 所有文件间依赖已记录在 dependencies 中 | 补充依赖关系 |
+| 无孤立任务 | 每个子任务都有明确的文件和修改点 | 删除或补全孤立任务 |
+
+#### 完整性报告格式
+
+在 plan.json 中添加 `completeness` 字段：
+
+```json
+{
+  "completeness": {
+    "coverage": "100%",
+    "requirementsCovered": 5,
+    "totalRequirements": 5,
+    "uncovered": [],
+    "validation": {
+      "allModificationsComplete": true,
+      "allDependenciesDocumented": true,
+      "noOrphanedSubtasks": true
+    }
+  }
+}
+```
+
+#### 验证流程
+
+1. **解析需求**: 从任务描述提取所有需求点
+2. **映射检查**: 验证每个需求至少对应一个子任务
+3. **字段验证**: 检查每个 modification 的必填字段
+4. **依赖验证**: 确认文件依赖关系已记录
+5. **输出报告**: 生成 completeness 字段
+
+**阻断规则**: 如果 coverage < 100%，必须先补充缺失部分再输出 plan.json
+
 ---
 
 ## 四、约束规则
