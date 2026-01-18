@@ -1,0 +1,16 @@
+{
+  "description": "Mnemosyne plugin hooks - Auto-save context before compact",
+  "hooks": {
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[Memory Guard] 🔔 IMPORTANT: Before compact operation, you MUST call Skill tool with skill=\"mnemosyne:save\" to preserve current context! This is critical to avoid losing conversation history.'"
+          }
+        ]
+      }
+    ]
+  }
+}
