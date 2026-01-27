@@ -17,11 +17,15 @@ argument-hint: [--scope path] [--type security|performance|style|architecture|al
 
 ### 1.2 工具说明
 
-| 工具 | 用途 |
-|------|------|
-| `AskUserQuestion` | 确认选项 |
-| `Task` | 调用 subagent |
-| `tsc` / `npm test` | 验证结果 |
+| 工具 | 用途 | 调用方式 |
+|------|------|---------|
+| `AskUserQuestion` | 确认选项 | 主进程直接调用 |
+| `Task` | 调用 subagent | `Task(subagent_type="...", model="...")` |
+| `tsc` / `npm test` | 验证结果 | Bash 执行 |
+| `TaskCreate` | 创建子任务（Task 系统） | 主进程直接调用 |
+| `TaskUpdate` | 更新任务状态/依赖（Task 系统） | 主进程直接调用 |
+| `TaskList` | 查看所有任务进度（Task 系统） | 主进程直接调用 |
+| `TaskGet` | 获取任务详情（Task 系统） | 主进程直接调用 |
 
 ### 1.3 信息传递链
 
@@ -49,6 +53,7 @@ code-reviewer → 读取 context.json → 输出审查结果 JSON
 
 | 步骤 | 快速模式 | 默认值 | --fix 时 | 可选值 |
 |------|---------|--------|---------|--------|
+| **进度管理** | **无** | **Task 系统** | 询问用户 | Task 系统 / 文件状态 |
 | 信息收集 | **跳过** | 是 | 是 | 是 / 否 |
 | 审查类型 | 用户指定 | all | all | security / performance / style / architecture / all |
 | 严重性过滤 | all | all | all | critical / warning / all |
@@ -57,7 +62,14 @@ code-reviewer → 读取 context.json → 输出审查结果 JSON
 | Executor 模型 | - | - | 询问 | haiku / sonnet / opus |
 | 测试节点 | **跳过** | - | 询问 | 修复后 / 不测试 |
 | 测试模式 | - | - | 询问 | 编译测试 / 单元测试 / 编译+单元 |
-| 状态文件 | **创建** | 创建 | 创建 | - |
+
+#### 进度管理方式说明
+
+| 方式 | 工具 | 特点 | 适用场景 |
+|------|------|------|---------|
+| **Task 系统** | TaskCreate/TaskList/TaskUpdate/TaskGet | 依赖追踪 `blockedBy/blocks`、可视化 `/todos`、实时状态 | 单会话、需要依赖管理 |
+| **文件状态** | `.claude/orchestrate/.state/<task-id>.json` | 持久化、断点续传 `--resume <id>` | 跨会话、长时间任务 |
+| **无** | - | 不追踪进度 | 快速模式简单任务 |
 
 ### 2.3 审查类型
 
@@ -101,11 +113,15 @@ code-reviewer → 读取 context.json → 输出审查结果 JSON
 如果用户使用了 **--fix** 参数，询问修复配置：
 
 ```
-问题 1: 规划器选择
+问题 1: 进度管理
+- Task 系统（推荐）: 使用 Claude Code 任务系统，依赖追踪，`/todos` 可视化
+- 文件状态: 持久化到 .claude/orchestrate/.state/，支持 `--resume` 断点续传
+
+问题 2: 规划器选择
 - atlas:planner（推荐）: 信任 gatherer 输出，最小化扫描
 - 内置 Plan: 会自行探索验证
 
-问题 2: Executor 模型
+问题 3: Executor 模型
 - haiku: 快速简单修复
 - sonnet（推荐）: 平衡性能与成本
 - opus: 复杂修复质量要求高
@@ -165,7 +181,7 @@ echo '{
 直接构建 code-reviewer prompt
 ```
 
-**Step Q4: 直接审查**
+**Step Q3: 直接审查**
 ```
 Task(subagent_type="atlas:code-reviewer", model="haiku")
 prompt: |
@@ -175,12 +191,10 @@ prompt: |
   注意: 快速模式，输出简化报告
 ```
 
-**Step Q5: 简化报告**
+**Step Q4: 简化报告**
 ```markdown
 # 快速审查完成
 
-**执行 ID**: <task-id>
-**状态文件**: .claude/orchestrate/.state/<task-id>.json
 **范围**: [文件列表]
 **审查类型**: [security/performance/style/architecture/all]
 **发现问题**: X critical, Y warning
@@ -190,6 +204,11 @@ prompt: |
 [如果有 autoFixable] 建议: 使用 `/review --fix` 自动修复
 ```
 
+**快速模式行为**：
+- 进度管理: 无（任务太简单，不需要追踪）
+- 信息收集: 跳过
+- Reviewer 模型: haiku
+
 **快速模式风险提示**：
 - 跳过 gatherer：可能遗漏上下文依赖；且不支持 `--fix`（需标准模式）
 - 失败建议切换标准模式重新执行
@@ -198,16 +217,45 @@ prompt: |
 
 ### 2.7 标准模式执行步骤
 
-**Step 3: 代码分析**
+**Step 3: 初始化进度管理**
+
+根据用户选择的进度管理方式初始化：
+
+**Task 系统:**
+```
+TaskCreate(
+  subject="代码审查: [审查范围]",
+  description="执行 [审查类型] 审查",
+  activeForm="执行代码审查"
+)
+```
+
+**文件状态模式:**
+```bash
+mkdir -p .claude/orchestrate/.state
+echo '{
+  "executionId": "<task-id>",
+  "timestamp": "<ISO-8601>",
+  "task": "代码审查",
+  "status": "in_progress",
+  "currentStage": "gathering"
+}' > .claude/orchestrate/.state/<task-id>.json
+```
+
+**Step 4: 代码分析**
 ```
 Task(subagent_type="atlas:information-gatherer", model="haiku")
 prompt: |
   任务 ID: review-<timestamp>
   目标文件: [文件列表]
   输出目录: .claude/gather/review-<timestamp>/
+
+完成后更新状态:
+- Task 系统: TaskUpdate(taskId="<id>", status="in_progress")
+- 文件状态模式: .state/<task-id>.json: currentStage="gathering_completed"
 ```
 
-**Step 4: 并行审查**
+**Step 5: 并行审查**
 ```
 Task(subagent_type="atlas:code-reviewer", model=用户选择)
 prompt: |
@@ -302,12 +350,17 @@ prompt: |
 ### 标准模式必须做
 
 - ✅ 确认模式与 reviewer 模型；`--fix` 时确认规划器/测试
+- ✅ 根据进度管理选择初始化：
+  - Task 系统: 使用 TaskCreate 创建主任务
+  - 文件状态模式: 创建 `.claude/orchestrate/.state/<task-id>.json`
 - ✅ gatherer 收集 → 多维度 reviewer 并行 → 聚合报告
 - ✅ 问题必须包含文件路径与行号（autoFixable 慎标）
+- ✅ Task 系统下使用 TaskUpdate 更新任务状态
 
 ### 快速模式必须做
 
 - ✅ 创建状态文件；主进程≤5次定位；reviewer(haiku) 审查；输出简报
+- ✅ 失败时建议用户切换到标准模式
 
 ### 快速模式允许做
 
@@ -323,3 +376,5 @@ prompt: |
 - ❌ autoFixable 判断不谨慎
 - ❌ 快速模式使用 --fix（需切换到标准模式）
 - ❌ 快速模式用于复杂审查（>3 个文件或需要依赖分析）
+- ❌ Task 系统忘记使用 TaskUpdate 更新任务状态
+- ❌ 文件状态模式忘记更新状态文件的 `currentStage`

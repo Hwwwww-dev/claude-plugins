@@ -15,10 +15,14 @@ argument-hint: <分析目标> [--quick] [--scope path] [--depth N] [--output rep
 
 ### 1.2 工具说明
 
-| 工具 | 用途 |
-|------|------|
-| `AskUserQuestion` | 确认收集选项 |
-| `Task` | 调用 subagent |
+| 工具 | 用途 | 调用方式 |
+|------|------|---------|
+| `AskUserQuestion` | 确认收集选项 | 主进程直接调用 |
+| `Task` | 调用 subagent | `Task(subagent_type="...", model="...")` |
+| `TaskCreate` | 创建子任务（Task 系统） | 主进程直接调用 |
+| `TaskUpdate` | 更新任务状态/依赖（Task 系统） | 主进程直接调用 |
+| `TaskList` | 查看所有任务进度（Task 系统） | 主进程直接调用 |
+| `TaskGet` | 获取任务详情（Task 系统） | 主进程直接调用 |
 
 ### 1.3 信息传递链
 
@@ -46,8 +50,16 @@ gatherer → .claude/gather/<task-id>/
 | 分析深度 | normal | normal | 询问用户 |
 | 分析范围 | all | all | 询问用户 |
 | 信息收集 | **主进程直接分析** | gatherer agent | gatherer agent |
-| 状态文件 | 创建 | 创建 | 创建 |
+| **进度管理** | **无** | **Task 系统** | 询问用户 |
 | 输出格式 | 简化报告 | report | report |
+
+#### 进度管理方式说明
+
+| 方式 | 工具 | 特点 | 适用场景 |
+|------|------|------|---------|
+| **Task 系统** | TaskCreate/TaskList/TaskUpdate/TaskGet | 依赖追踪 `blockedBy/blocks`、可视化 `/todos`、实时状态 | 单会话、需要依赖管理 |
+| **文件状态** | `.claude/orchestrate/.state/<task-id>.json` | 持久化、断点续传 `--resume <id>` | 跨会话、长时间任务 |
+| **无** | - | 不追踪进度 | 快速模式简单任务 |
 
 ### 2.3 收集模式说明
 
@@ -74,22 +86,41 @@ gatherer → .claude/gather/<task-id>/
 如果用户选择了**交互模式**，询问收集配置：
 
 ```
-问题 1: 收集模式
+问题 1: 进度管理
+- Task 系统（推荐）: 使用 Claude Code 任务系统，依赖追踪，`/todos` 可视化
+- 文件状态: 持久化到 .claude/orchestrate/.state/，支持 `--resume` 断点续传
+
+问题 2: 收集模式
 - project-structure: 项目结构分析
 - dependencies: 依赖关系梳理
 - code-patterns: 代码模式搜索
 - impact: 修改影响分析
 
-问题 2: 分析深度
+问题 3: 分析深度
 - normal（推荐）: 标准分析
 - deep: 深度分析，更详细
 
-问题 3: 分析范围
+问题 4: 分析范围
 - all（推荐）: 整个项目
 - specific: 指定目录/文件
 ```
 
 **默认行为**: 见 2.2 表；参数完整（如 `/gather dependencies UserAPI --deep`）则跳过询问。
+
+**自动模式行为**（跳过第二个 AskUserQuestion）：
+- 进度管理: Task 系统
+- 收集模式: 根据用户任务描述智能推断（如未明确，默认 project-structure）
+- 分析深度: normal
+- 分析范围: all
+
+**快速模式行为**（跳过第二个 AskUserQuestion）：
+- 进度管理: 无（任务太简单，不需要追踪）
+- 收集模式: 根据用户任务描述智能推断
+- 分析深度: normal
+- 分析范围: all
+- 信息收集: 主进程直接分析（不调用 gatherer agent）
+
+**注意**: 如用户已指定参数（如 `/gather dependencies UserAPI --deep`），跳过所有询问。
 
 ---
 
@@ -101,7 +132,7 @@ gatherer → .claude/gather/<task-id>/
 
 **流程**：
 ```
-确认模式 → 创建状态文件 → 主进程直接分析 → 更新状态 → 简化报告
+确认模式 → 主进程直接分析 → 简化报告
 ```
 
 **入口**: 命令带 `--quick`；或在 Step 1 选择“快速模式”。
@@ -126,7 +157,19 @@ echo '{
 ```
 
 **Step Q4: 输出简化报告**
-输出简报（格式见 3.3；quick 可只填“模式/目标/统计/核心发现/后续建议”）。
+```markdown
+# 快速收集完成
+
+**模式**: [收集模式]
+**目标**: [目标符号/模式]
+**统计**: [关键数字]
+
+**核心发现**:
+- [发现1]
+- [发现2]
+
+[如需深度分析] 建议: 使用自动模式 `/gather <目标>`
+```
 
 **快速模式风险提示**：
 - 可能遗漏间接引用；不充分时建议切换标准模式（gatherer）
@@ -149,6 +192,10 @@ prompt: |
   范围: [all/指定路径]
   深度: [normal/deep]
   输出目录: .claude/gather/<task-id>/
+
+完成后更新状态:
+- Task 系统: TaskUpdate(taskId="gather", status="completed")
+- 文件状态模式: 更新 .claude/orchestrate/.state/<task-id>.json
 ```
 
 **Step 3: 输出摘要**
@@ -232,17 +279,23 @@ gatherer 会自动检查并复用这些文件。
 ### 标准模式必须做
 
 - ✅ 确认模式（参数完整则跳过询问）
+- ✅ 根据进度管理选择初始化：
+  - Task 系统: 使用 TaskCreate 创建收集任务
+  - 文件状态模式: 创建 `.claude/orchestrate/.state/<task-id>.json`
 - ✅ 标准模式必须调用 gatherer，写入 `.claude/gather/<task-id>/`
 - ✅ 输出包含文件路径+行号（可复用 `.claude/repowiki/`）
+- ✅ Task 系统下，完成后使用 TaskUpdate 更新状态
 
 ### 快速模式必须做
 
-- ✅ 创建状态文件；主进程≤5次工具分析；输出简报；不充分时提示切换标准模式
+- ✅ 创建状态文件；主进程≤5次工具分析；输出简报
+- ✅ 分析不充分时建议用户切换到自动模式
 
 ### 快速模式允许做
 
 - ✅ 主进程使用 Grep/Glob/Read/LSP 直接分析（≤5 次）
 - ✅ 跳过 gatherer agent 调用
+- ✅ 跳过进度追踪
 
 ### 禁止做
 
@@ -252,3 +305,5 @@ gatherer 会自动检查并复用这些文件。
 - ❌ 标准模式跳过 gatherer 直接输出
 - ❌ 在自动模式下仍然询问收集配置
 - ❌ 快速模式用于复杂任务（>3 个文件或需要深度依赖分析）
+- ❌ Task 系统忘记使用 TaskUpdate 更新任务状态
+- ❌ 文件状态模式忘记更新状态文件

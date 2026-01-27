@@ -17,11 +17,15 @@ argument-hint: <问题描述> [--quick] [--scope path] [--fix] [--auto]
 
 ### 1.2 工具说明
 
-| 工具 | 用途 |
-|------|------|
-| `AskUserQuestion` | 确认选项 |
-| `Task` | 调用 subagent |
-| `git stash` | 创建检查点 |
+| 工具 | 用途 | 调用方式 |
+|------|------|---------|
+| `AskUserQuestion` | 与用户交互确认选项 | 主进程直接调用 |
+| `Task` | 调用 subagent | `Task(subagent_type="...", model="...")` |
+| `git stash` | 创建/恢复检查点 | Bash 执行 |
+| `TaskCreate` | 创建子任务（Task 系统） | 主进程直接调用 |
+| `TaskUpdate` | 更新任务状态/依赖（Task 系统） | 主进程直接调用 |
+| `TaskList` | 查看所有任务进度（Task 系统） | 主进程直接调用 |
+| `TaskGet` | 获取任务详情（Task 系统） | 主进程直接调用 |
 
 ### 1.3 信息传递链
 
@@ -48,6 +52,7 @@ executor → 直接修复（无需重新扫描）
 | 步骤 | 快速模式 | 仅诊断 | 执行修复（交互） | 自动模式 |
 |------|---------|--------|------------------|----------|
 | 执行策略 | auto | 不执行 | 手动确认 | auto |
+| **进度管理** | **无** | - | 询问用户 | Task 系统 |
 | 信息收集 | **跳过** | 询问 | 询问 | 是 |
 | 诊断深度 | **跳过** | 询问 | 询问 | 快速 |
 | 检查点 | **跳过** | - | 询问 | 创建 |
@@ -56,7 +61,14 @@ executor → 直接修复（无需重新扫描）
 | 测试节点 | **不测试** | - | 询问 | 修复后 |
 | 测试模式 | - | - | 询问 | 编译测试 |
 | 失败处理 | 询问用户 | - | 询问用户 | 询问用户 |
-| 状态文件 | **创建** | - | 创建 | 创建 |
+
+#### 进度管理方式说明
+
+| 方式 | 工具 | 特点 | 适用场景 |
+|------|------|------|---------|
+| **Task 系统** | TaskCreate/TaskList/TaskUpdate/TaskGet | 依赖追踪 `blockedBy/blocks`、可视化 `/todos`、实时状态 | 单会话、需要依赖管理 |
+| **文件状态** | `.claude/bugfix/.state/<task-id>.json` | 持久化、断点续传 `--resume <id>` | 跨会话、长时间任务 |
+| **无** | - | 不追踪进度 | 快速模式简单任务 |
 
 ### 2.3 执行步骤
 
@@ -75,21 +87,40 @@ executor → 直接修复（无需重新扫描）
 **第二个 AskUserQuestion: 诊断配置**
 
 ```
-问题 1: 信息收集
+问题 1: 进度管理
+- Task 系统（推荐）: 使用 Claude Code 任务系统，依赖追踪，`/todos` 可视化
+- 文件状态: 持久化到 .claude/bugfix/.state/，支持 `--resume` 断点续传
+
+问题 2: 信息收集
 - 是（推荐）: 使用 gatherer 收集问题相关信息
 - 否: 跳过信息收集（适用于问题范围明确的情况）
 
-问题 2: 规划器选择
+问题 3: 规划器选择
 - atlas:planner（推荐）: 信任 gatherer 输出，最小化扫描
 - 内置 Plan: 会自行探索验证
 
-问题 3: 诊断深度
+问题 4: 诊断深度
 - 快速（推荐）: 聚焦问题本身
 - 深度: 分析影响范围和潜在连锁问题
 - 完整: 全面诊断（包括代码质量、安全等）
 ```
 
 **默认行为**: 见 2.2 表。若用户显式传入 `--quick`，视为已选快速模式，直接进入 2.4。
+
+**自动模式行为**（跳过第二个 AskUserQuestion）：
+- 进度管理: Task 系统
+- 信息收集: 是
+- 规划器: atlas:planner
+- 诊断深度: 快速
+- 失败处理: 询问用户
+
+**快速模式行为**（跳过第二、三个 AskUserQuestion）：
+- 进度管理: 无（任务太简单，不需要追踪）
+- 信息收集: 跳过
+- 检查点: 跳过
+- 规划器: 跳过（主进程直接定位）
+- Executor 模型: haiku
+- 测试: 不测试
 
 **第三个 AskUserQuestion: 修复和测试配置**（仅执行修复模式和自动模式）
 
@@ -155,7 +186,7 @@ echo '{
 直接构建 executor prompt（不调用 planner agent）
 ```
 
-**Step Q4: 直接修复**
+**Step Q3: 直接修复**
 ```
 Task(subagent_type="atlas:atlas-executor", model="haiku")
 prompt: |
@@ -167,7 +198,7 @@ prompt: |
   注意: 快速模式，只做明确提及的修复
 ```
 
-**Step Q5: 简化报告**
+**Step Q4: 简化报告**
 ```markdown
 # 快速修复完成
 
@@ -232,7 +263,10 @@ prompt: |
   搜索范围: [scope]
   输出目录: .claude/gather/bugfix-<timestamp>/
 ```
-完成后更新状态: `.state/bugfix-<timestamp>.json: currentStage="gathering_completed"`
+
+完成后更新状态:
+- Task 系统: TaskUpdate(taskId="gathering", status="completed")
+- 文件状态模式: .state/bugfix-<timestamp>.json: currentStage="gathering_completed"
 
 **Step 4: 根因分析与修复规划**（支持循环修改）
 
@@ -254,6 +288,13 @@ prompt: |
    - 返回 4.2 循环直到用户确认
 
 完成后更新状态:
+
+**Task 系统:**
+```
+TaskUpdate(taskId="planning", status="completed")
+```
+
+**文件状态模式:**
 .state/bugfix-<timestamp>.json: {
   currentStage: "planning_approved",
   planVersion: "final" 或 "v2",
@@ -278,6 +319,17 @@ prompt: |
 4. **5.4 重新执行**（若用户选择重新修复）: 返回 5.1
 
 完成后更新状态:
+
+**Task 系统:**
+```
+# 执行前
+TaskUpdate(taskId="<fix-task-id>", status="in_progress")
+
+# 执行后
+TaskUpdate(taskId="<fix-task-id>", status="completed")  # 或保持 in_progress（失败时）
+```
+
+**文件状态模式:**
 .state/bugfix-<timestamp>.json: {
   currentStage: "fix_applied",
   fixApplied: true,
@@ -397,13 +449,16 @@ prompt: |
 ### 标准模式必须做
 
 - ✅ Step 1 分阶段确认（模式→诊断→修复/测试）
-- ✅ 执行修复/自动模式创建并持续更新 `.claude/bugfix/.state/bugfix-<ts>.json`（`currentStage`）
+- ✅ 根据进度管理选择初始化：
+  - Task 系统: 使用 TaskCreate 创建主任务
+  - 文件状态模式: 创建 `.claude/bugfix/.state/bugfix-<ts>.json`
 - ✅ gather → plan（含 `completeness`）→ fix（含 `completionStatus`）→ test → report
-- ✅ 使用 TodoWrite 跟踪诊断/修复任务
+- ✅ Task 系统下使用 TaskUpdate 跟踪诊断/修复任务
 
 ### 快速模式必须做
 
 - ✅ 创建状态文件；主进程≤5次定位；executor(haiku) 修复；输出简报
+- ✅ 失败时建议用户切换到自动模式
 
 ### 快速模式允许做
 
@@ -418,7 +473,8 @@ prompt: |
 - ❌ 标准模式跳过规划直接执行修复
 - ❌ executor 重新扫描文件（应使用 plan.json 或主进程提供的修改点）
 - ❌ 在 Step 1 之后还有其他的 AskUserQuestion（除了 Step 4.3 和 5.3 的确认循环）
-- ❌ 标准模式忘记更新状态文件的 `currentStage`
+- ❌ Task 系统忘记使用 TaskUpdate 更新任务状态
+- ❌ 文件状态模式忘记更新状态文件的 `currentStage`
 - ❌ 在用户未确认的情况下继续执行下一步
 - ❌ 快速模式用于复杂问题（>3 个文件或涉及依赖分析）
   

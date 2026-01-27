@@ -17,11 +17,15 @@ argument-hint: <pattern> [--quick] [--scope path] [--dry-run] [--interactive]
 
 ### 1.2 工具说明
 
-| 工具 | 用途 |
-|------|------|
-| `AskUserQuestion` | 确认选项 |
-| `Task` | 调用 subagent |
-| `tsc` / `npm test` | 验证结果 |
+| 工具 | 用途 | 调用方式 |
+|------|------|---------|
+| `AskUserQuestion` | 确认选项 | 主进程直接调用 |
+| `Task` | 调用 subagent | `Task(subagent_type="...", model="...")` |
+| `tsc` / `npm test` | 验证结果 | Bash 执行 |
+| `TaskCreate` | 创建子任务（Task 系统） | 主进程直接调用 |
+| `TaskUpdate` | 更新任务状态/依赖（Task 系统） | 主进程直接调用 |
+| `TaskList` | 查看所有任务进度（Task 系统） | 主进程直接调用 |
+| `TaskGet` | 获取任务详情（Task 系统） | 主进程直接调用 |
 
 ### 1.3 信息传递链
 
@@ -48,13 +52,21 @@ executor → 直接重构（无需重新扫描）
 | 步骤 | 快速模式 | 自动模式 | 交互模式 | dry-run |
 |------|---------|---------|---------|---------|
 | 执行策略 | auto | auto | 询问用户 | auto |
+| **进度管理** | **无** | **Task 系统** | 询问用户 | 文件状态 |
 | 候选识别 | **跳过** | 是 | 是 | 是 |
 | 检查点 | **跳过** | 创建 | 询问用户 | 跳过 |
 | 规划器选择 | **跳过（主进程直接规划）** | atlas:planner | 询问用户 | atlas:planner |
 | Executor 模型 | **haiku** | sonnet | 询问用户 | - |
 | 测试节点 | **不测试** | 统一测试 | 询问用户 | - |
 | 测试模式 | - | 编译测试 | 询问用户 | - |
-| 状态文件 | **创建** | 创建 | 创建 | 创建 |
+
+#### 进度管理方式说明
+
+| 方式 | 工具 | 特点 | 适用场景 |
+|------|------|------|---------|
+| **Task 系统** | TaskCreate/TaskList/TaskUpdate/TaskGet | 依赖追踪 `blockedBy/blocks`、可视化 `/todos`、实时状态 | 单会话、需要依赖管理 |
+| **文件状态** | `.claude/refactor/.state/<task-id>.json` | 持久化、断点续传 `--resume <id>` | 跨会话、长时间任务 |
+| **无** | - | 不追踪进度 | 快速模式简单任务 |
 
 ### 2.3 支持的重构模式
 
@@ -88,21 +100,39 @@ executor → 直接重构（无需重新扫描）
 如果用户选择了**交互模式**或 **dry-run**，询问重构配置：
 
 ```
-问题 1: 检查点
+问题 1: 进度管理
+- Task 系统（推荐）: 使用 Claude Code 任务系统，依赖追踪，`/todos` 可视化
+- 文件状态: 持久化到 .claude/refactor/.state/，支持 `--resume` 断点续传
+
+问题 2: 检查点
 - 创建（推荐）: 创建 git stash 检查点，支持回滚
 - 跳过: 不创建检查点（dry-run 默认跳过）
 
-问题 2: 规划器选择
+问题 3: 规划器选择
 - atlas:planner（推荐）: 信任 gatherer 输出，最小化扫描
 - 内置 Plan: 会自行探索验证
 
-问题 3: Executor 模型（仅执行模式）
+问题 4: Executor 模型（仅执行模式）
 - sonnet（推荐）: 平衡性能与质量
 - haiku: 快速简单重构
 - opus: 复杂质量要求高
 ```
 
 **默认行为**: 见 2.2 表（auto/interactive/dry-run/quick）。若命令带 `--quick`，视为已选快速模式，直接进入 2.5。
+
+**自动模式行为**（跳过第二个 AskUserQuestion）：
+- 进度管理: Task 系统
+- 检查点: 创建
+- 规划器: atlas:planner
+- Executor 模型: sonnet
+
+**快速模式行为**（跳过第二、三个 AskUserQuestion）：
+- 进度管理: 无（任务太简单，不需要追踪）
+- 候选识别: 跳过
+- 检查点: 跳过
+- 规划器: 跳过（主进程直接规划）
+- Executor 模型: haiku
+- 测试: 不测试
 
 **第三个 AskUserQuestion: 测试配置**
 
@@ -159,7 +189,7 @@ echo '{
 直接构建 executor prompt
 ```
 
-**Step Q4: 直接执行**
+**Step Q3: 直接执行**
 ```
 Task(subagent_type="atlas:atlas-executor", model="haiku")
 prompt: |
@@ -170,12 +200,10 @@ prompt: |
   注意: 快速模式，只做明确提及的重构
 ```
 
-**Step Q5: 简化报告**
+**Step Q4: 简化报告**
 ```markdown
 # 快速重构完成
 
-**执行 ID**: refactor-<timestamp>
-**状态文件**: .claude/refactor/.state/refactor-<timestamp>.json
 **模式**: [重构模式]
 **修改文件**: [文件列表]
 **状态**: ✅ 成功 / ❌ 失败
@@ -234,13 +262,34 @@ prompt: |
   重构模式: [pattern]
   范围: [scope]
   输出目录: .claude/gather/refactor-<timestamp>/
-```
 
-完成后更新状态: `.state/refactor-<timestamp>.json: currentStage="candidates_identified"`
+完成后更新状态:
+- Task 系统: TaskUpdate(taskId="gather", status="completed")
+- 文件状态模式: .state/refactor-<timestamp>.json: currentStage="candidates_identified"
+```
 
 **Step 4: 重构规划**（支持循环修改）
 
 **重要：使用统一的 refactor-<timestamp> ID，所有文件在同一目录操作**
+
+**4.0 创建子任务（Task 系统）**
+
+规划完成后，根据 plan.json 创建子任务：
+```
+# 为每个候选项创建 Task 项，设置依赖关系
+TaskCreate(
+  subject="候选 #1: [描述]",
+  description="[详细修改内容]",
+  activeForm="执行候选 #1"
+)
+TaskCreate(
+  subject="候选 #2: [描述]",
+  description="[详细修改内容]",
+  activeForm="执行候选 #2"
+)
+# 设置依赖（如有）
+TaskUpdate(taskId="2", addBlockedBy=["1"])
+```
 
 1. **4.1 执行规划（首次）**: `Task(subagent_type="<用户选择的规划器>")` → 输出 `.claude/plan/refactor-<ts>/plan.json`
 2. **4.2 展示重构计划**: 识别的候选项（文件:行号）、重构策略和步骤、风险评估
@@ -288,6 +337,20 @@ prompt: |
 5. **5.5 重新执行**（若用户选择修复/调整）: 返回 5.1 仅针对失败/需调整的候选
 
 完成后更新状态:
+
+**Task 系统:**
+```
+# 每个候选执行前
+TaskUpdate(taskId="<candidate-id>", status="in_progress")
+
+# 每个候选执行后
+TaskUpdate(taskId="<candidate-id>", status="completed")  # 或保持 in_progress（失败时）
+
+# 查看进度
+TaskList()  # 或用户使用 /todos
+```
+
+**文件状态模式:**
 .state/refactor-<timestamp>.json: {
   currentStage: "refactoring_completed",
   candidates: [更新每个候选的 status],
@@ -428,6 +491,36 @@ gatherer 的 context.json 必须包含：
 6. 测试: tsc --noEmit ✓ → 输出完整报告 (含回滚命令)
 ```
 
+### 示例 3: 交互模式（带循环修改）
+
+```
+用户: /refactor add-types --scope src/services --interactive
+
+1. AskUserQuestion → 用户选择「交互模式」→ 逐项确认配置
+   - 进度管理: Task 系统 | 检查点: 创建 | 规划器: atlas:planner | 模型: sonnet | 测试: 编译+单元
+2. Gatherer: 识别 12 个缺失类型的函数 → Planner 生成计划
+3. 用户审查: "排除 legacy/ 目录" → 重新规划 → 剩余 8 个候选 ✓
+4. Executor 第一轮: 7 成功 / 1 失败 (PaymentService.process 类型冲突)
+5. 用户选择「修复失败」→ Executor 重试: 调整泛型约束 → 成功 ✓
+6. 测试: tsc --noEmit ✓ + npm test ✓ → 8/8 完成
+7. 输出报告: 修改 6 文件 | 新增类型定义 23 个 | iterations: planning=2, execution=2
+```
+
+### 示例 4: dry-run 模式 - 预览不执行
+
+```
+用户: /refactor modernize-js --scope src --dry-run
+
+1. AskUserQuestion → 用户选择「dry-run」→ 跳过检查点和测试配置
+2. Gatherer(haiku): 扫描 src/ → 识别 15 个现代化候选
+   - var 声明: 8 处 | callback 模式: 5 处 | 旧式循环: 2 处
+3. Planner: 生成详细重构计划 (不执行)
+4. 输出预览报告:
+   - 预计修改: 9 文件 | 预计变更: +45行 -62行
+   - 风险评估: 低 (无破坏性变更)
+5. 提示: 确认后执行 `/refactor modernize-js --scope src`
+```
+
 ---
 
 ## 五、核心约束
@@ -435,19 +528,22 @@ gatherer 的 context.json 必须包含：
 ### 标准模式必须做
 
 - ✅ Step 1 分阶段确认（模式→重构配置→测试；dry-run 跳过测试配置）
-- ✅ 执行重构时创建并持续更新 `.claude/refactor/.state/refactor-<ts>.json`（`currentStage`）
+- ✅ 根据进度管理选择初始化：
+  - Task 系统: 使用 TaskCreate 创建主任务
+  - 文件状态模式: 创建 `.claude/refactor/.state/refactor-<ts>.json`
 - ✅ candidates → plan（含 `completeness`）→ execute（含 `completionStatus`）→ test → report
-- ✅ 使用 TodoWrite 跟踪候选/执行状态
+- ✅ Task 系统下使用 TaskUpdate 跟踪候选/执行状态
 
 ### 快速模式必须做
 
 - ✅ 创建状态文件；主进程≤5次定位；executor(haiku) 执行；输出简报
+- ✅ 失败时建议用户切换到自动模式
 
 ### 快速模式允许做
 
 - ✅ 主进程使用 Grep/Glob/Read 快速定位文件（≤5 次）
 - ✅ 主进程直接生成简单修改计划（不调用 planner）
-- ✅ 跳过候选识别、检查点
+- ✅ 跳过候选识别、检查点和进度追踪
 
 ### 禁止做
 
@@ -456,7 +552,8 @@ gatherer 的 context.json 必须包含：
 - ❌ 标准模式跳过规划直接执行
 - ❌ executor 重新扫描文件（应使用 plan.json 或主进程提供的修改点）
 - ❌ 在 Step 1 之后还有其他的 AskUserQuestion（除了 Step 4.3 和 5.4 的确认循环）
-- ❌ 标准模式忘记更新状态文件的 `currentStage`
+- ❌ Task 系统忘记使用 TaskUpdate 更新任务状态
+- ❌ 文件状态模式忘记更新状态文件的 `currentStage`
 - ❌ 在用户未确认的情况下继续执行下一步
 - ❌ "顺便"做其他优化（只执行指定模式的重构）
 - ❌ 快速模式用于复杂任务（>3 个文件或涉及依赖分析）
