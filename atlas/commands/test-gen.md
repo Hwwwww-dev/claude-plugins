@@ -42,7 +42,7 @@ Phase 0 环境检测 → Phase 1 目标分析 → Phase 1.5 配置选择 → Pha
 | 0 | 环境检测 | 主进程 | 检测测试框架和现有覆盖率 |
 | 1 | 目标分析 | `atlas:information-gatherer` | 分析目标代码 |
 | 1.5 | 配置选择 | 用户选择 | 第一次询问执行模式+测试范围，第二次询问测试配置（仅交互模式） |
-| 2 | 用例规划 | `atlas:planner` 或 `Plan` | 规划测试用例 |
+| 2 | 用例规划 | `atlas:task-planner` 或 `Plan` | 规划测试用例 |
 | 3 | 测试生成 | `atlas:atlas-executor` | 并行生成测试文件 |
 | 4 | 验证 | 主进程 | 运行测试，报告覆盖率 |
 
@@ -170,7 +170,7 @@ AskUserQuestion(questions=[
     "question": "选择用例规划器",
     "header": "Planner",
     "options": [
-      {"label": "atlas:planner（推荐）", "description": "信任 gatherer 输出，最小化额外扫描，高效规划"},
+      {"label": "atlas:task-planner（推荐）", "description": "信任 gatherer 输出，最小化额外扫描，高效规划"},
       {"label": "内置 Plan", "description": "Claude Code 内置规划器，会自行探索验证"}
     ]
   }
@@ -178,7 +178,7 @@ AskUserQuestion(questions=[
 ```
 
 **自动模式行为**（跳过第二个 AskUserQuestion）：
-- `type=unit`、框架自动检测、覆盖率目标 80%、规划器 `atlas:planner`
+- `type=unit`、框架自动检测、覆盖率目标 80%、规划器 `atlas:task-planner`
 
 ---
 
@@ -188,12 +188,12 @@ AskUserQuestion(questions=[
 
 **核心原则**：优先使用 Phase 1 输出，最小化额外读取。
 
-### 选项 A: atlas:planner（推荐）
+### 选项 A: atlas:task-planner（推荐）
 
 **特点**: 信任 gatherer 输出，基于已有信息直接规划，≤3 次补充读取
 
 ```
-Task(subagent_type="atlas:planner")
+Task(subagent_type="atlas:task-planner")
 prompt: |
   ## 任务
   为目标代码生成测试用例规划
@@ -203,7 +203,7 @@ prompt: |
   - `context.json`: 目标分析数据（函数签名、分支路径、依赖项）
 
   ## 输出要求
-  按照 planner agent 定义的固定格式输出用例规划
+  按照 task-planner agent 定义的固定格式输出用例规划
 ```
 
 ### 选项 B: 内置 Plan
@@ -290,7 +290,7 @@ prompt: |
 ## 约束
 
 **生成/质量**: 只为公开方法/函数生成；不改既有测试（除非明确要求）；遵循项目风格与 mock 库；AAA 三段式+边界覆盖。  
-**执行**: Phase1=gatherer(haiku)；Phase1.5 必问模式+范围（交互再问 type/framework/coverage/planner）；Phase2 用选定规划器；Phase3=executor（交互询问模型，自动用 sonnet）。
+**执行**: Phase1=gatherer(haiku)；Phase1.5 必问模式+范围（交互再问 type/framework/coverage/task-planner）；Phase2 用选定规划器；Phase3=executor（交互询问模型，自动用 sonnet）。
 
 ---
 

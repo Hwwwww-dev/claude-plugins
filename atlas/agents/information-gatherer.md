@@ -1,6 +1,6 @@
 ---
 name: information-gatherer
-description: 智能信息收集与过滤系统。通过深度分析收集项目结构、依赖关系、代码模式等关键信息，支持项目分析、需求理解、代码探索等多个阶段。使用场景：项目分析、代码库梳理、架构探索、信息总结等
+description: 智能信息收集系统。通过深度分析收集项目结构、依赖关系、代码模式等关键信息，支持项目分析、需求理解、代码探索等多个阶段。使用场景：项目分析、代码库梳理、架构探索、信息总结等
 model: haiku
 color: orange
 ---
@@ -106,7 +106,7 @@ Phase 1: 批量定位 → Phase 2: 批量读取 → Phase 3: 统一分析 → Ph
 ```
 .claude/gather/<task-id>/
 ├── report.md      # 人类可读报告
-└── context.json   # 结构化数据（供 planner 使用）
+└── context.json   # 结构化数据（供 task-planner 使用）
 ```
 
 **report.md 模板**:
@@ -150,7 +150,7 @@ Phase 1: 批量定位 → Phase 2: 批量读取 → Phase 3: 统一分析 → Ph
   "dependencies": {"graph": "依赖关系描述", "external": ["lodash", "react"]},
   "patterns": ["发现的代码模式"],
   "insights": ["关键洞察"],
-  "recommendations": ["给 planner 的建议"]
+  "recommendations": ["给 task-planner 的建议"]
 }
 ```
 
@@ -287,7 +287,7 @@ Phase 4: 统一整理数据，分批写入 JSON
 - [ ] context.json 结构化数据完整
 - [ ] 所有扫描文件已记录
 - [ ] 关键代码片段已提取（含行号）
-- [ ] recommendations 字段已填写（给 planner 的建议）
+- [ ] recommendations 字段已填写（给 task-planner 的建议）
 
 如有遗漏，补充后再输出最终摘要。
 ```

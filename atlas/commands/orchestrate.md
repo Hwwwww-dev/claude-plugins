@@ -12,7 +12,7 @@ argument-hint: <任务描述> [--quick] [--parallel|--sequential] [--dry-run] [-
 | Agent | 职责 | 模型 | 输出位置 |
 |-------|------|------|---------|
 | `atlas:information-gatherer` | 收集项目信息（结构、依赖、代码片段） | haiku | `.claude/gather/<task-id>/` |
-| `atlas:planner` | 基于 gatherer 输出制定执行计划 | inherit | `.claude/plan/<task-id>/` |
+| `atlas:task-planner` | 基于 gatherer 输出制定执行计划 | inherit | `.claude/plan/<task-id>/` |
 | `atlas:atlas-executor` | 执行具体子任务 | 用户选择 | 直接修改文件 |
 
 ### 1.2 工具说明
@@ -22,24 +22,20 @@ argument-hint: <任务描述> [--quick] [--parallel|--sequential] [--dry-run] [-
 | `AskUserQuestion` | 与用户交互确认选项 | 主进程直接调用 |
 | `Task` | 调用 subagent | `Task(subagent_type="...", model="...")` |
 | `git stash` | 创建/恢复检查点 | Bash 执行 |
-| `TaskCreate` | 创建子任务（Task 系统） | 主进程直接调用 |
-| `TaskUpdate` | 更新任务状态/依赖（Task 系统） | 主进程直接调用 |
-| `TaskList` | 查看所有任务进度（Task 系统） | 主进程直接调用 |
-| `TaskGet` | 获取任务详情（Task 系统） | 主进程直接调用 |
 
 ### 1.3 信息传递链
 
 ```
 gatherer → .claude/gather/<task-id>/context.json
     ↓
-planner → 读取 context.json → 输出 .claude/plan/<task-id>/plan.json
+task-planner → 读取 context.json → 输出 .claude/plan/<task-id>/plan.json
     ↓
 主进程 → 读取 plan.json → 嵌入 executor prompt
     ↓
 executor → 直接修改文件（无需重新扫描）
 ```
 
-**核心原则**: planner 输出精确修改点，executor 直接执行。
+**核心原则**: task-planner 输出精确修改点，executor 直接执行。
 
 ---
 
@@ -58,22 +54,14 @@ executor → 直接修改文件（无需重新扫描）
 | 步骤 | 快速模式 | 自动模式 | 交互模式 | dry-run |
 |------|---------|---------|---------|---------|
 | 执行策略 | auto | auto | 询问用户 | auto |
-| **进度管理** | **无** | **Task 系统** | 询问用户 | 文件状态 |
 | 信息收集 | **跳过** | 是（除非 repowiki 充足） | 询问用户 | 是 |
 | 检查点 | **跳过** | 创建 | 询问用户 | 跳过 |
-| 规划器选择 | **跳过（主进程直接规划）** | atlas:planner | 询问用户 | atlas:planner |
+| 规划器选择 | **跳过（主进程直接规划）** | atlas:task-planner | 询问用户 | atlas:task-planner |
 | Executor 模型 | **haiku** | sonnet | 询问用户 | - |
 | 测试节点 | **不测试** | 统一测试 | 询问用户 | - |
 | 测试模式 | - | 编译测试 | 询问用户 | - |
 | 失败处理 | 询问用户 | 询问用户 | 询问用户 | - |
-
-#### 进度管理方式说明
-
-| 方式 | 工具 | 特点 | 适用场景 |
-|------|------|------|---------|
-| **Task 系统** | TaskCreate/TaskList/TaskUpdate/TaskGet | 依赖追踪 `blockedBy/blocks`、可视化 `/todos`、实时状态 | 单会话、需要依赖管理 |
-| **文件状态** | `.claude/orchestrate/.state/<task-id>.json` | 持久化、断点续传 `--resume <id>` | 跨会话、长时间任务 |
-| **无** | - | 不追踪进度 | 快速模式简单任务 |
+| 状态文件 | 创建 | 创建 | 创建 | 创建 |
 
 ### 2.3 执行步骤
 
@@ -94,45 +82,25 @@ executor → 直接修改文件（无需重新扫描）
 如果用户选择了**交互模式**或 **dry-run**，询问基础配置：
 
 ```
-问题 1: 进度管理
-- Task 系统（推荐）: 使用 Claude Code 任务系统，依赖追踪，`/todos` 可视化
-- 文件状态: 持久化到 .claude/orchestrate/.state/，支持 `--resume` 断点续传
-
-问题 2: 信息收集
+问题 1: 信息收集
 - 是（推荐）: 使用 gatherer 收集项目信息
 - 否: 跳过信息收集（适用于 repowiki 已充足的情况）
 
-问题 3: 检查点
+问题 2: 检查点
 - 创建（推荐）: 创建 git stash 检查点，支持回滚
 - 跳过: 不创建检查点（dry-run 默认跳过）
 
-问题 4: 规划器选择
-- atlas:planner（推荐）: 信任 gatherer 输出，最小化扫描
+问题 3: 规划器选择
+- atlas:task-planner（推荐）: 信任 gatherer 输出，最小化扫描
 - 内置 Plan: 会自行探索验证
 
-问题 5: Executor 模型
+问题 4: Executor 模型
 - sonnet（推荐）: 平衡性能与成本
 - haiku: 快速简单任务
 - opus: 复杂质量要求高
 ```
 
 **默认行为**: 见 2.2 表（auto/interactive/dry-run/quick）。若用户显式传入 `--quick`，视为已选快速模式，直接进入 2.4。
-
-**自动模式行为**（跳过第二个 AskUserQuestion）：
-- 进度管理: Task 系统
-- 信息收集: 是（除非 repowiki 充足）
-- 检查点: 创建
-- 规划器: atlas:planner
-- Executor 模型: sonnet
-- 失败处理: 询问用户
-
-**快速模式行为**（跳过第二、三个 AskUserQuestion）：
-- 进度管理: 无（任务太简单，不需要追踪）
-- 信息收集: 跳过
-- 检查点: 跳过
-- 规划器: 跳过（主进程直接规划）
-- Executor 模型: haiku
-- 测试: 不测试
 
 **第三个 AskUserQuestion: 测试配置**
 
@@ -162,7 +130,7 @@ executor → 直接修改文件（无需重新扫描）
 
 **流程**：
 ```
-确认模式 → 主进程快速定位 → 直接执行 → 报告
+确认模式 → 创建状态文件 → 主进程快速定位 → 直接执行 → 更新状态 → 报告
 ```
 
 **入口**: 命令带 `--quick`；或在 Step 1 选择“快速模式”。
@@ -185,10 +153,10 @@ echo '{
 **Step Q3: 主进程快速定位**
 ```
 主进程允许使用 Grep/Glob/Read 快速定位目标文件（≤5 次工具调用）
-生成最小修改计划（不调用 planner），直接构建 executor prompt
+生成最小修改计划（不调用 task-planner），直接构建 executor prompt
 ```
 
-**Step Q3: 直接执行**
+**Step Q4: 直接执行**
 ```
 Task(subagent_type="atlas:atlas-executor", model="haiku")
 prompt: |
@@ -199,7 +167,7 @@ prompt: |
   注意: 快速模式，只做明确提及的修改
 ```
 
-**Step Q4: 更新状态并报告**
+**Step Q5: 更新状态并报告**
 ```bash
 更新 .state/<task-id>.json: {
   status: "completed",
@@ -209,15 +177,7 @@ prompt: |
 }
 ```
 
-```markdown
-# 快速执行完成
-
-**任务**: [描述]
-**修改文件**: [文件列表]
-**状态**: ✅ 成功 / ❌ 失败
-
-[如果失败] 建议: 使用自动模式重新执行 `/orchestrate <任务>`
-```
+输出快速报告（格式见第 5 章）。
 
 **⚠️ 快速模式风险提示**：
 - 跳过依赖分析/检查点，可能遗漏影响点且无法回滚
@@ -239,7 +199,7 @@ echo '{
   "task": "<用户任务描述>",
   "status": "initializing",
   "currentStage": "initialization",
-  "config": {"mode": "<auto/interactive/dry-run>", "planner": "<atlas:planner/Plan>", "executorModel": "<haiku/sonnet/opus>", "testNode": "<unified/per-task/none>", "testMode": "<compile/unit/both>"},
+  "config": {"mode": "<auto/interactive/dry-run>", "task-planner": "<atlas:task-planner/Plan>", "executorModel": "<haiku/sonnet/opus>", "testNode": "<unified/per-task/none>", "testMode": "<compile/unit/both>"},
   "checkpoint": {"stashId": "atlas-checkpoint-<task-id>", "created": false},
   "subtasks": [],
   "progress": {"total": 0, "completed": 0, "failed": 0, "pending": 0},
@@ -266,32 +226,12 @@ prompt: |
   输出目录: .claude/gather/<task-id>/
 
 完成后更新状态:
-- Task 系统: TaskUpdate(taskId="gather", status="completed")
-- 文件状态模式: .state/<task-id>.json: currentStage="gathering_completed"
+.state/<task-id>.json: currentStage="gathering_completed"
 ```
 
 **Step 4: 任务规划（支持循环修改）**
 
 **重要**: 全流程使用同一个 task-id（同目录、可续传、可版本化）。
-
-**4.0 创建子任务（Task 系统）**
-
-规划完成后，根据 plan.json 创建子任务：
-```
-# 为每个子任务创建 Task 项，设置依赖关系
-TaskCreate(
-  subject="子任务 #1: [描述]",
-  description="[详细修改内容]",
-  activeForm="执行子任务 #1"
-)
-TaskCreate(
-  subject="子任务 #2: [描述]",
-  description="[详细修改内容]",
-  activeForm="执行子任务 #2"
-)
-# 设置依赖（如有）
-TaskUpdate(taskId="2", addBlockedBy=["1"])
-```
 
 1. **4.1 执行规划（首次）**: `Task(subagent_type="<用户选择的规划器>")` → 输出 `.claude/plan/<task-id>/plan.json`
 2. **4.2 展示规划给用户**: 读取并格式化 plan.json，显示子任务列表、执行策略、影响范围
@@ -344,20 +284,6 @@ TaskUpdate(taskId="2", addBlockedBy=["1"])
 5. **5.5 重新执行**（若用户选择修复/调整）: 返回 5.1 仅针对需要修改的子任务
 
 完成后更新状态:
-
-**Task 系统:**
-```
-# 每个子任务执行前
-TaskUpdate(taskId="<subtask-id>", status="in_progress")
-
-# 每个子任务执行后
-TaskUpdate(taskId="<subtask-id>", status="completed")  # 或保持 in_progress（失败时）
-
-# 查看进度
-TaskList()  # 或用户使用 /todos
-```
-
-**文件状态模式:**
 .state/<task-id>.json: {
   currentStage: "execution_completed",
   subtasks: [更新每个子任务的 status: "completed"/"failed"],
@@ -426,7 +352,7 @@ TaskList()  # 或用户使用 /todos
 .claude/
 ├── gather/<task-id>/          # gatherer 输出（不变）
 │   └── context.json
-├── plan/<task-id>/             # planner 输出（版本化）
+├── plan/<task-id>/             # task-planner 输出（版本化）
 │   ├── plan.json (或 plan.final.json)
 │   ├── plan.v1.json (可选)
 │   └── plan.v2.json (可选)
@@ -441,9 +367,9 @@ TaskList()  # 或用户使用 /todos
 
 **gatherer 输出必须包含**:
 - `context.json.codeSnippets`: 关键代码片段（含行号）
-- `context.json.recommendations`: 给 planner 的建议
+- `context.json.recommendations`: 给 task-planner 的建议
 
-**planner 输出必须包含**:
+**task-planner 输出必须包含**:
 - `plan.json.subtasks[].modifications`: 精确到行号的修改点
 - `plan.json.subtasks[].context`: 嵌入的代码片段
 
@@ -480,7 +406,7 @@ TaskList()  # 或用户使用 /todos
   "task": "给所有 React 组件添加 TypeScript 类型",
   "status": "in_progress",
   "currentStage": "execution_completed",
-  "config": {"mode": "auto", "planner": "atlas:planner", "executorModel": "sonnet", "testNode": "unified", "testMode": "compile"},
+  "config": {"mode": "auto", "task-planner": "atlas:task-planner", "executorModel": "sonnet", "testNode": "unified", "testMode": "compile"},
   "checkpoint": {"stashId": "atlas-checkpoint-add-types-20240115-103000", "created": true, "cleaned": false},
   "subtasks": [
     {"id": 1, "status": "completed", "description": "为 auth 组件添加类型", "files": ["Login.tsx", "Register.tsx"]},
@@ -498,9 +424,7 @@ TaskList()  # 或用户使用 /todos
 }
 ```
 
-### 3.7 断点续传（仅文件状态模式）
-
-> **注意**: 断点续传功能仅在选择「文件状态」进度管理方式时可用。Task 系统的任务状态随会话结束而清除。
+### 3.7 断点续传
 
 ```bash
 /orchestrate --resume <task-id>
@@ -540,7 +464,7 @@ TaskList()  # 或用户使用 /todos
 2. 主进程快速定位:
    - Grep "UserAPI" → 找到 src/api/UserAPI.ts
    - Read 文件 → 定位 login 方法
-   - 生成修改计划（不调用 planner）
+   - 生成修改计划（不调用 task-planner）
 3. Executor(haiku): 修改 src/api/UserAPI.ts → 成功 ✓
 4. 简化报告: 任务完成，修改 1 个文件
 ```
@@ -551,7 +475,7 @@ TaskList()  # 或用户使用 /todos
 用户: /orchestrate 给所有 React 组件添加 TypeScript 类型
 
 1. 选择自动模式 → 使用推荐配置
-   - gatherer + planner + sonnet + 编译测试
+   - gatherer + task-planner + sonnet + 编译测试
 2. 创建检查点: git stash push -m "atlas-checkpoint-..."
 3. Gatherer: 收集组件信息 → .claude/gather/<id>/context.json
 4. Planner: 生成计划 → .claude/plan/<id>/plan.json
@@ -592,7 +516,7 @@ task-20240115-103000
 
 ## 配置
 - 执行模式: [自动/交互/dry-run]
-- 规划器: [atlas:planner/Plan]
+- 规划器: [atlas:task-planner/Plan]
 - Executor 模型: [haiku/sonnet/opus]
 - 测试节点: [统一测试/每个子任务后/不测试]
 - 测试模式: [编译测试/单元测试/编译+单元]
@@ -635,25 +559,20 @@ task-20240115-103000
 
 ### 标准模式必须做
 
-- ✅ Step 1 一次性确认配置（执行模式、进度管理、规划器、模型、测试选项）
-- ✅ 根据进度管理选择初始化：
-  - Task 系统: 使用 TaskCreate 创建主任务
-  - 文件状态模式: 创建 `.claude/orchestrate/.state/<task-id>.json`
+- ✅ Step 1 一次性确认配置（模式/规划器/模型/测试）
+- ✅ 创建并持续更新状态文件（`currentStage`、`subtasks/progress/todos`）
 - ✅ 非 quick/dry-run 创建检查点；按需 `gather → plan → execute → test → report`
 - ✅ 规划必须可验证（`completeness`）；执行必须可对账（`completionStatus`）
-- ✅ Task 系统下，根据 plan.json 使用 TaskCreate 创建子任务并设置依赖
-- ✅ Task 系统下，执行前后使用 TaskUpdate 更新状态
 
 ### 快速模式必须做
 
 - ✅ 创建状态文件；主进程≤5次工具定位；executor(haiku) 执行；更新状态并简报
-- ✅ 失败时建议用户切换到自动模式
 
 ### 快速模式允许做
 
 - ✅ 主进程使用 Grep/Glob/Read 快速定位文件（≤5 次）
-- ✅ 主进程直接生成简单修改计划（不调用 planner）
-- ✅ 跳过信息收集、检查点和进度追踪
+- ✅ 主进程直接生成简单修改计划（不调用 task-planner）
+- ✅ 跳过信息收集和检查点
 
 ### 禁止做
 
@@ -662,8 +581,7 @@ task-20240115-103000
 - ❌ 标准模式跳过规划直接执行
 - ❌ executor 重新扫描文件（应使用 plan.json 或主进程提供的修改点）
 - ❌ 在 Step 1 之后还有其他的 AskUserQuestion（除了 Step 4.3 和 5.4 的确认循环）
-- ❌ Task 系统忘记使用 TaskUpdate 更新任务状态
-- ❌ 文件状态模式忘记更新状态文件的 `currentStage`
+- ❌ 标准模式忘记更新状态文件的 `currentStage`
 - ❌ 在用户未确认的情况下继续执行下一步
 - ❌ 快速模式用于复杂任务（>3 个文件或涉及依赖分析）
   

@@ -27,7 +27,7 @@ cc-plugins/
 │   │   ├── commit-analyzer.md    # 提交分析: Git 提交历史分析
 │   │   ├── dependency-analyzer.md # 依赖分析: 依赖关系与安全检查
 │   │   ├── information-gatherer.md # 信息收集: 收集和分析项目信息
-│   │   ├── planner.md            # 规划器: 任务规划与分解
+│   │   ├── task-planner.md            # 规划器: 任务规划与分解
 │   │   ├── repo-context-indexer.md # 仓库索引: 项目上下文建立
 │   │   └── repo-semantic-analyzer.md # 语义分析: 代码语义理解
 │   ├── commands/                 # 斜杠命令 (10个)

@@ -1,5 +1,5 @@
 ---
-name: planner
+name: task-planner
 description: 信息驱动的任务规划器。基于 gatherer 收集的信息制定执行计划，最小化额外探索。优先信任已收集信息，仅在关键信息缺失时补充读取。
 version: 1.0.0
 model: inherit
