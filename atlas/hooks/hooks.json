@@ -2,34 +2,56 @@
   "description": "Atlas plugin hooks",
   "hooks": {
     "SessionStart": [
+
+    ],
+    "PreCompact": [
       {
-        "matcher": "startup|clear|compact",
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
-            "command": "test -d .claude/repowiki && echo '[RepoWiki] PRIORITY: Use wiki-query skill FIRST for project queries (API, classes, modules, dependencies). Only use Serena if wiki-query insufficient.' || echo '[Serena] No RepoWiki found. Run /atlas:repo-wiki to generate project index.'"
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreCompact\",\"additionalContext\":\"[Memory Guard] Before compacting, save context via mnemosyne:save using the Skill tool to avoid history loss.\"}}'"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SubagentStart\",\"additionalContext\":\"Current system time: '$(date '+%Y-%m-%d %A %H:%M:%S')'\"}}' ",
+            "type": "command"
+          },
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SubagentStart\",\"additionalContext\":\"For large file modifications or document outputs, use a multi-write strategy. Keep each output under 1000 characters; output in segments or chunks.\"}}'"
           }
         ]
       }
     ],
     "UserPromptSubmit": [
       {
+        "matcher": "",
+        "hooks": [
+          {
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"Current system time: '$(date '+%Y-%m-%d %A %H:%M:%S')'\"}}' ",
+            "type": "command"
+          },
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"Keep responses concise and delegate workflows to the appropriate atlas skills; do not inject additional prompts into user messages. For large file modifications or document outputs, use a multi-write strategy. Keep each output under 1000 characters; output in segments or chunks.\"}}'"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "(Edit|Write|NotebookEdit)",
         "hooks": [
           {
             "type": "command",
-            "command": "date '+Current system time: %Y-%m-%d %A %H:%M:%S'"
-          },
-          {
-            "type": "command",
-            "command": "echo \"Keep responses concise, clear, and valuable. Follow 八荣八耻, Occam's Razor, Linus spirit. When uncertain, use AskUserQuestion to clarify before acting. Actively delegate to subagents [via Task tool] for complex tasks - they run in parallel and reduce main context consumption: atlas:information-gatherer for Project analysis, structure, dependencies; atlas:atlas-executor for General task execution, code modifications, file operations; atlas:code-reviewer for Code review, security/performance/style analysis; atlas:dependency-analyzer for Dependency analysis, vulnerability scan, version conflicts; atlas:commit-analyzer for Git history analysis, changelog generation. Skip delegation for: simple Q&A, single-file edits, explicit user request.\""
-          },
-          {
-            "type": "command",
-            "command": "test -f .claude/wiki-context.json && echo '[RepoWiki Available] For project queries: 1) Read .claude/wiki-context.json to understand wiki structure 2) Use wiki-query skill for quick lookups (classes/APIs/modules) 3) Priority > Serena/Grep.' || true"
-          },
-          {
-            "type": "command",
-            "command": "echo '[Executor Model] Before calling `atlas:atlas-executor`, use AskUserQuestion to let user choose model: haiku (fast/simple) | sonnet (balanced/recommended) | opus (quality/complex).`atlas:information-gatherer` always use haiku. This applies to all executor calls.'"
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"[Protection] Main process MUST NOT directly edit business code. Route edits via atlas skills.\"}}'"
           }
         ]
       }
