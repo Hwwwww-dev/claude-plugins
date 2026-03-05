@@ -1,77 +1,77 @@
 ---
 name: dep-query
-description: 快速依赖查询。查询依赖版本、漏洞、使用位置、更新历史等。支持模糊搜索。
+description: Quick dependency query. Query dependency versions, vulnerabilities, usage locations, update history, etc. Supports fuzzy search.
 version: 1.0.0
 color: orange
 ---
 
-# Dependency Query - 依赖快速查询
+# Dependency Query - Quick Dependency Lookup
 
-从 `.claude/.meta/dependencies.pkg.json` 索引查询项目依赖信息。
+Query project dependency information from the `.claude/.meta/dependencies.pkg.json` index.
 
-## 脚本路径
+## Script Path
 
-使用 `${CLAUDE_PLUGIN_ROOT}` 环境变量（Claude Code 自动设置）：
+Use the `${CLAUDE_PLUGIN_ROOT}` environment variable (set automatically by Claude Code):
 
 ```bash
-# 脚本位置
+# Script location
 ${CLAUDE_PLUGIN_ROOT}/skills/dep-query/scripts/query_deps.py
 ```
 
-**备选**：相对路径 `scripts/query_deps.py`（依赖 Claude 自动解析 base path）
+**Fallback**: Relative path `scripts/query_deps.py` (relies on Claude to resolve the base path automatically)
 
-## 前置条件
+## Prerequisites
 
 ```bash
-# 检查依赖索引是否存在
-ls .claude/.meta/dependencies.pkg.json 2>/dev/null || echo "❌ 请先运行 /atlas:deps"
+# Check if the dependency index exists
+ls .claude/.meta/dependencies.pkg.json 2>/dev/null || echo "❌ Please run /atlas:deps first"
 ```
 
-## 查询类型
+## Query Types
 
-| 命令 | 说明 | 示例 |
-|------|------|------|
-| `pkg <name>` | 查询依赖详情 | dep-query pkg lodash |
-| `vuln [severity]` | 列出漏洞 | dep-query vuln critical |
-| `outdated` | 过期依赖 | dep-query outdated |
-| `tree <name>` | 依赖树 | dep-query tree react |
-| `usage <name>` | 使用位置 | dep-query usage axios |
-| `stats` | 统计概览 | dep-query stats |
+| Command | Description | Example |
+|---------|-------------|---------|
+| `pkg <name>` | Query dependency details | dep-query pkg lodash |
+| `vuln [severity]` | List vulnerabilities | dep-query vuln critical |
+| `outdated` | Outdated dependencies | dep-query outdated |
+| `tree <name>` | Dependency tree | dep-query tree react |
+| `usage <name>` | Usage locations | dep-query usage axios |
+| `stats` | Statistics overview | dep-query stats |
 
-## 快速查询
+## Quick Queries
 
-**所有调用必须设置 `DEPS_TARGET_DIR=$PWD`**
+**All calls must set `DEPS_TARGET_DIR=$PWD`**
 
 ```bash
-# 依赖详情
+# Dependency details
 DEPS_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/dep-query/scripts/query_deps.py" pkg <name>
 
-# 漏洞查询
-DEPS_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/dep-query/scripts/query_deps.py" vuln          # 所有漏洞
-DEPS_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/dep-query/scripts/query_deps.py" vuln critical # 仅严重漏洞
+# Vulnerability query
+DEPS_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/dep-query/scripts/query_deps.py" vuln          # All vulnerabilities
+DEPS_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/dep-query/scripts/query_deps.py" vuln critical # Critical only
 
-# 过期依赖
+# Outdated dependencies
 DEPS_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/dep-query/scripts/query_deps.py" outdated
 
-# 依赖树
+# Dependency tree
 DEPS_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/dep-query/scripts/query_deps.py" tree <name>
 
-# 使用位置
+# Usage locations
 DEPS_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/dep-query/scripts/query_deps.py" usage <name>
 
-# 统计概览
+# Statistics overview
 DEPS_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/dep-query/scripts/query_deps.py" stats
 
-# 跨项目查询
+# Cross-project query
 DEPS_TARGET_DIR="/path/to/other-project" python3 "${CLAUDE_PLUGIN_ROOT}/skills/dep-query/scripts/query_deps.py" pkg express
 ```
 
-## 内联命令（备用）
+## Inline Commands (Fallback)
 
-当脚本不可用时，可使用内联 Python：
+When the script is unavailable, use inline Python:
 
 <details>
-<summary>依赖详情查询</summary>
+<summary>Dependency details query</summary>
 
 ```bash
 python3 -c "
@@ -83,46 +83,46 @@ try:
         data = json.load(f)
         deps = data.get('dependencies', [])
 
-        # 模糊匹配
+        # Fuzzy match
         matches = [d for d in deps if pkg_name in d.get('name', '').lower()]
 
         if not matches:
-            print(f'未找到包含 \"{pkg_name}\" 的依赖')
-            print(f'\\n项目依赖 ({len(deps)} 个):')
+            print(f'No dependency containing \"{pkg_name}\" found')
+            print(f'\nProject dependencies ({len(deps)} total):')
             for d in deps[:15]:
                 print(f'  - {d.get(\"name\", \"-\")} @ {d.get(\"version\", \"-\")}')
         elif len(matches) == 1:
             d = matches[0]
-            print(f'依赖: {d.get(\"name\", \"-\")}')
-            print(f'版本: {d.get(\"version\", \"-\")}')
-            print(f'类型: {d.get(\"type\", \"-\")}')  # dependencies/devDependencies
+            print(f'Dependency: {d.get(\"name\", \"-\")}')
+            print(f'Version: {d.get(\"version\", \"-\")}')
+            print(f'Type: {d.get(\"type\", \"-\")}')  # dependencies/devDependencies
             if d.get('latest'):
-                print(f'最新: {d[\"latest\"]}')
+                print(f'Latest: {d[\"latest\"]}')
             if d.get('description'):
-                print(f'描述: {d[\"description\"]}')
+                print(f'Description: {d[\"description\"]}')
             if d.get('license'):
-                print(f'许可: {d[\"license\"]}')
+                print(f'License: {d[\"license\"]}')
             if d.get('vulnerabilities'):
                 vulns = d['vulnerabilities']
-                print(f'漏洞: {len(vulns)} 个')
+                print(f'Vulnerabilities: {len(vulns)}')
                 for v in vulns:
                     print(f'  ⚠️  [{v.get(\"severity\",\"unknown\").upper()}] {v.get(\"title\",\"-\")}')
         else:
-            print(f'找到 {len(matches)} 个匹配依赖:')
+            print(f'Found {len(matches)} matching dependencies:')
             for d in matches:
                 vuln_count = len(d.get('vulnerabilities', []))
                 vuln_mark = f' ⚠️ {vuln_count} vulns' if vuln_count > 0 else ''
                 print(f'  - {d.get(\"name\", \"-\")} @ {d.get(\"version\", \"-\")}{vuln_mark}')
 except FileNotFoundError:
-    print('❌ 依赖索引不存在，请先运行 /atlas:deps')
+    print('❌ Dependency index not found, please run /atlas:deps first')
 except Exception as e:
-    print(f'❌ 查询失败: {e}')
+    print(f'❌ Query failed: {e}')
 "
 ```
 </details>
 
 <details>
-<summary>漏洞列表</summary>
+<summary>Vulnerability list</summary>
 
 ```bash
 python3 -c "
@@ -134,7 +134,7 @@ try:
         data = json.load(f)
         deps = data.get('dependencies', [])
 
-        # 收集所有漏洞
+        # Collect all vulnerabilities
         all_vulns = []
         for d in deps:
             for v in d.get('vulnerabilities', []):
@@ -146,35 +146,35 @@ try:
                     'cve': v.get('cve', '-')
                 })
 
-        # 过滤严重性
+        # Filter by severity
         if severity_filter:
             all_vulns = [v for v in all_vulns if v['severity'].lower() == severity_filter]
 
         if not all_vulns:
             msg = f' ({severity_filter})' if severity_filter else ''
-            print(f'未发现漏洞{msg}')
+            print(f'No vulnerabilities found{msg}')
         else:
-            # 按严重性排序
+            # Sort by severity
             severity_order = {'critical': 0, 'high': 1, 'moderate': 2, 'low': 3, 'unknown': 4}
             all_vulns.sort(key=lambda x: severity_order.get(x['severity'].lower(), 5))
 
-            print(f'发现 {len(all_vulns)} 个漏洞:')
+            print(f'Found {len(all_vulns)} vulnerabilities:')
             for v in all_vulns:
                 icon = {'critical':'🔴','high':'🟠','moderate':'🟡','low':'🟢'}.get(v['severity'].lower(),'⚪')
-                print(f'\\n{icon} [{v[\"severity\"].upper()}] {v[\"title\"]}')
-                print(f'   包: {v[\"package\"]}@{v[\"version\"]}')
+                print(f'\n{icon} [{v[\"severity\"].upper()}] {v[\"title\"]}')
+                print(f'   Package: {v[\"package\"]}@{v[\"version\"]}')
                 if v['cve'] != '-':
                     print(f'   CVE: {v[\"cve\"]}')
 except FileNotFoundError:
-    print('❌ 依赖索引不存在，请先运行 /atlas:deps')
+    print('❌ Dependency index not found, please run /atlas:deps first')
 except Exception as e:
-    print(f'❌ 查询失败: {e}')
+    print(f'❌ Query failed: {e}')
 "
 ```
 </details>
 
 <details>
-<summary>过期依赖</summary>
+<summary>Outdated dependencies</summary>
 
 ```bash
 python3 -c "
@@ -185,7 +185,7 @@ try:
         data = json.load(f)
         deps = data.get('dependencies', [])
 
-        # 找出过期的依赖
+        # Find outdated dependencies
         outdated = []
         for d in deps:
             current = d.get('version', '')
@@ -199,24 +199,24 @@ try:
                 })
 
         if not outdated:
-            print('所有依赖都是最新版本！')
+            print('All dependencies are up to date!')
         else:
-            print(f'发现 {len(outdated)} 个过期依赖:')
+            print(f'Found {len(outdated)} outdated dependencies:')
             for d in outdated:
                 type_mark = '📦' if d['type'] == 'dependencies' else '🛠️'
                 print(f'  {type_mark} {d[\"name\"]}')
-                print(f'      当前: {d[\"current\"]}')
-                print(f'      最新: {d[\"latest\"]}')
+                print(f'      Current: {d[\"current\"]}')
+                print(f'      Latest:  {d[\"latest\"]}')
 except FileNotFoundError:
-    print('❌ 依赖索引不存在，请先运行 /atlas:deps')
+    print('❌ Dependency index not found, please run /atlas:deps first')
 except Exception as e:
-    print(f'❌ 查询失败: {e}')
+    print(f'❌ Query failed: {e}')
 "
 ```
 </details>
 
 <details>
-<summary>依赖树</summary>
+<summary>Dependency tree</summary>
 
 ```bash
 python3 -c "
@@ -228,11 +228,11 @@ try:
         data = json.load(f)
         tree = data.get('dependency_tree', {})
 
-        # 查找包的依赖树
+        # Find the dependency tree for the package
         matches = {k: v for k, v in tree.items() if pkg_name in k.lower()}
 
         if not matches:
-            print(f'未找到 \"{pkg_name}\" 的依赖树')
+            print(f'No dependency tree found for \"{pkg_name}\"')
         else:
             for pkg, children in matches.items():
                 print(f'{pkg}')
@@ -242,19 +242,19 @@ try:
                         prefix = '└── ' if is_last else '├── '
                         print(f'{prefix}{child}')
                 else:
-                    print('  (无依赖)')
+                    print('  (no dependencies)')
 except FileNotFoundError:
-    print('❌ 依赖索引不存在，请先运行 /atlas:deps')
+    print('❌ Dependency index not found, please run /atlas:deps first')
 except KeyError:
-    print('⚠️  依赖树数据不完整，请重新运行 /atlas:deps')
+    print('⚠️  Dependency tree data is incomplete, please re-run /atlas:deps')
 except Exception as e:
-    print(f'❌ 查询失败: {e}')
+    print(f'❌ Query failed: {e}')
 "
 ```
 </details>
 
 <details>
-<summary>使用位置</summary>
+<summary>Usage locations</summary>
 
 ```bash
 python3 -c "
@@ -266,33 +266,33 @@ try:
         data = json.load(f)
         usage = data.get('usage_locations', {})
 
-        # 查找包的使用位置
+        # Find usage locations for the package
         matches = {k: v for k, v in usage.items() if pkg_name in k.lower()}
 
         if not matches:
-            print(f'未找到 \"{pkg_name}\" 的使用位置')
+            print(f'No usage locations found for \"{pkg_name}\"')
         else:
             for pkg, locations in matches.items():
-                print(f'{pkg} 使用于:')
+                print(f'{pkg} used in:')
                 if locations:
-                    for loc in locations[:20]:  # 限制显示数量
+                    for loc in locations[:20]:  # Limit display count
                         print(f'  📄 {loc}')
                     if len(locations) > 20:
-                        print(f'  ... 还有 {len(locations) - 20} 个位置')
+                        print(f'  ... and {len(locations) - 20} more locations')
                 else:
-                    print('  (未检测到直接引用)')
+                    print('  (no direct references detected)')
 except FileNotFoundError:
-    print('❌ 依赖索引不存在，请先运行 /atlas:deps')
+    print('❌ Dependency index not found, please run /atlas:deps first')
 except KeyError:
-    print('⚠️  使用位置数据不完整，请重新运行 /atlas:deps')
+    print('⚠️  Usage location data is incomplete, please re-run /atlas:deps')
 except Exception as e:
-    print(f'❌ 查询失败: {e}')
+    print(f'❌ Query failed: {e}')
 "
 ```
 </details>
 
 <details>
-<summary>统计概览</summary>
+<summary>Statistics overview</summary>
 
 ```bash
 python3 -c "
@@ -306,45 +306,45 @@ try:
         prod_deps = [d for d in deps if d.get('type') == 'dependencies']
         dev_deps = [d for d in deps if d.get('type') == 'devDependencies']
 
-        # 统计漏洞
+        # Count vulnerabilities
         vuln_count = sum(len(d.get('vulnerabilities', [])) for d in deps)
         critical = sum(1 for d in deps for v in d.get('vulnerabilities', []) if v.get('severity') == 'critical')
         high = sum(1 for d in deps for v in d.get('vulnerabilities', []) if v.get('severity') == 'high')
 
-        # 统计过期
+        # Count outdated
         outdated = sum(1 for d in deps if d.get('latest') and d.get('version') != d.get('latest'))
 
-        print('=== 依赖统计 ===')
-        print(f'生产依赖: {len(prod_deps)} 个')
-        print(f'开发依赖: {len(dev_deps)} 个')
-        print(f'总计: {len(deps)} 个')
-        print(f'\\n过期依赖: {outdated} 个')
-        print(f'\\n安全漏洞: {vuln_count} 个')
+        print('=== Dependency Statistics ===')
+        print(f'Production dependencies: {len(prod_deps)}')
+        print(f'Dev dependencies: {len(dev_deps)}')
+        print(f'Total: {len(deps)}')
+        print(f'\nOutdated: {outdated}')
+        print(f'\nSecurity vulnerabilities: {vuln_count}')
         if critical > 0:
-            print(f'  🔴 严重: {critical}')
+            print(f'  🔴 Critical: {critical}')
         if high > 0:
-            print(f'  🟠 高危: {high}')
+            print(f'  🟠 High: {high}')
 
-        # 最大的依赖包（如果有大小信息）
+        # Largest packages (if size info is available)
         if any(d.get('size') for d in deps):
             largest = sorted([d for d in deps if d.get('size')],
                            key=lambda x: x.get('size', 0), reverse=True)[:5]
-            print(f'\\n最大的依赖:')
+            print(f'\nLargest dependencies:')
             for d in largest:
                 size_mb = d.get('size', 0) / 1024 / 1024
                 print(f'  {d.get(\"name\", \"-\")}: {size_mb:.2f} MB')
 except FileNotFoundError:
-    print('❌ 依赖索引不存在，请先运行 /atlas:deps')
+    print('❌ Dependency index not found, please run /atlas:deps first')
 except Exception as e:
-    print(f'❌ 查询失败: {e}')
+    print(f'❌ Query failed: {e}')
 "
 ```
 </details>
 
-## 注意事项
+## Notes
 
-- **支持模糊匹配** - 输入部分名称即可（如 `react` 匹配 `react-dom`、`react-router` 等）
-- **索引过期？** - 运行 `/atlas:deps` 重新生成索引
-- **数据源** - 所有数据来自 `.claude/.meta/dependencies.pkg.json`
-- **漏洞严重性级别** - critical > high > moderate > low
-- **降级方案** - 索引不存在时直接读取 `package.json` 或 `requirements.txt`
+- **Fuzzy matching supported** - Enter a partial name (e.g. `react` matches `react-dom`, `react-router`, etc.)
+- **Index stale?** - Run `/atlas:deps` to regenerate the index
+- **Data source** - All data comes from `.claude/.meta/dependencies.pkg.json`
+- **Vulnerability severity levels** - critical > high > moderate > low
+- **Fallback** - If the index does not exist, read `package.json` or `requirements.txt` directly

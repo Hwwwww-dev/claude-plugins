@@ -1,99 +1,99 @@
 # Git Query Skill
 
-Git 信息快速查询工具，用于查询提交历史、贡献者、文件变更、分支状态等。
+Quick Git information lookup tool for querying commit history, contributors, file changes, branch status, and more.
 
-## 功能特性
+## Features
 
-- 🔍 **提交搜索**: 根据关键词搜索提交信息
-- 👤 **作者查询**: 查询特定作者的提交记录
-- 📄 **文件历史**: 追踪文件的完整变更历史
-- 📊 **贡献统计**: 显示所有贡献者的提交数量
-- 🕐 **最近提交**: 快速查看最近的提交记录
-- 🌿 **分支状态**: 查看所有本地分支及其状态
-- 🏷️ **标签列表**: 列出仓库中的所有标签
-- 🔥 **热点文件**: 识别最常修改的文件
+- 🔍 **Commit search**: Search commit messages by keyword
+- 👤 **Author query**: Look up commit records for a specific author
+- 📄 **File history**: Track the full change history of a file
+- 📊 **Contribution stats**: Show commit counts for all contributors
+- 🕐 **Recent commits**: Quickly view the most recent commits
+- 🌿 **Branch status**: View all local branches and their status
+- 🏷️ **Tag list**: List all tags in the repository
+- 🔥 **Hot files**: Identify the most frequently modified files
 
-## 快速开始
+## Quick Start
 
-### 使用脚本查询
+### Using the Script
 
 ```bash
-# 搜索提交
+# Search commits
 python3 "${CLAUDE_PLUGIN_ROOT}/skills/git-query/scripts/query.py" search "fix bug"
 
-# 查询作者
+# Query by author
 python3 "${CLAUDE_PLUGIN_ROOT}/skills/git-query/scripts/query.py" author "Zhang San"
 
-# 文件历史
+# File history
 python3 "${CLAUDE_PLUGIN_ROOT}/skills/git-query/scripts/query.py" file src/main.js
 
-# 贡献统计
+# Contribution stats
 python3 "${CLAUDE_PLUGIN_ROOT}/skills/git-query/scripts/query.py" stats
 
-# 最近提交
+# Recent commits
 python3 "${CLAUDE_PLUGIN_ROOT}/skills/git-query/scripts/query.py" recent 10
 
-# 分支状态
+# Branch status
 python3 "${CLAUDE_PLUGIN_ROOT}/skills/git-query/scripts/query.py" branches
 
-# 标签列表
+# Tag list
 python3 "${CLAUDE_PLUGIN_ROOT}/skills/git-query/scripts/query.py" tags
 
-# 热点文件
+# Hot files
 python3 "${CLAUDE_PLUGIN_ROOT}/skills/git-query/scripts/query.py" hotfiles
 ```
 
-### 直接使用 Git 命令
+### Direct Git Commands
 
 ```bash
-# 搜索提交
+# Search commits
 git log --oneline --grep="keyword" -20
 
-# 贡献者排名
+# Contributor ranking
 git shortlog -sn --no-merges | head -20
 
-# 热点文件
+# Hot files
 git log --pretty=format: --name-only --since="3 months ago" | grep -v '^$' | sort | uniq -c | sort -rn | head -20
 ```
 
-## 输出示例
+## Example Output
 
-### 搜索提交
+### Commit Search
 
 ```
-🔍 搜索提交信息: "fix bug"
+🔍 Searching commits: "fix bug"
 
-提交哈希 | 日期       | 作者     | 提交信息
+Hash    | Date       | Author    | Message
 --------------------------------------------------------------------------------
 a1b2c3d | 2025-12-06 | Zhang San | fix: resolve bug in auth module
-e4f5g6h | 2025-12-05 | Li Si | fix: bug in payment flow
+e4f5g6h | 2025-12-05 | Li Si     | fix: bug in payment flow
 
-✅ 找到 2 条匹配记录（最多显示 20 条）
+✅ Found 2 matches (up to 20 shown)
 ```
 
-### 热点文件
+### Hot Files
 
 ```
-🔥 热点文件（最近 3 months ago）
+🔥 Hot files (last 3 months)
 
-修改次数 | 文件路径
+Changes | File Path
 --------------------------------------------------------------------------------
-      48 | src/main.js
-      32 | package.json
-      28 | README.md
+     48 | src/main.js
+     32 | package.json
+     28 | README.md
 
-✅ 共 120 个文件被修改（显示前 20 个）
+✅ 120 files modified in total (showing top 20)
 ```
 
-## 详细文档
+## Full Documentation
 
-参见 [SKILL.md](./SKILL.md) 获取完整的使用说明和高级功能。
+See [SKILL.md](./SKILL.md) for complete usage instructions and advanced features.
 
-## 依赖
+## Dependencies
 
 - Python 3.6+
 - Git 2.0+
 
-## 许可证
+## License
 
 MIT

@@ -30,20 +30,19 @@ cc-plugins/
 │   │   ├── task-planner.md            # 规划器: 任务规划与分解
 │   │   ├── repo-context-indexer.md # 仓库索引: 项目上下文建立
 │   │   └── repo-semantic-analyzer.md # 语义分析: 代码语义理解
-│   ├── commands/                 # 斜杠命令 (10个)
-│   │   ├── orchestrate.md        # /orchestrate 任务协调
-│   │   ├── gather.md             # /gather 信息收集
-│   │   ├── review.md             # /review 代码审查
-│   │   ├── refactor.md           # /refactor 智能重构
-│   │   ├── bugfix.md             # /bugfix 问题诊断与修复
-│   │   ├── test-gen.md           # /test-gen 测试生成
-│   │   ├── deps.md               # /deps 依赖管理
-│   │   ├── health.md             # /health 健康检查
-│   │   ├── changelog.md          # /changelog 变更日志
-│   │   └── repo-wiki.md          # /repo-wiki 仓库文档生成
 │   ├── hooks/                    # Hooks 配置
 │   │   └── hooks.json            # PreToolUse hooks: 防止嵌套调用
-│   └── skills/                   # 查询 skills (3个)
+│   └── skills/                   # Skills (13个)
+│       ├── orchestrate/          # 任务协调与并发执行引擎
+│       ├── gather/               # 智能信息收集
+│       ├── review/               # 多维度代码审查
+│       ├── refactor/             # 智能重构
+│       ├── bugfix/               # 问题诊断与修复
+│       ├── test-gen/             # 自动化测试生成
+│       ├── deps/                 # 依赖管理
+│       ├── health/               # 项目健康检查
+│       ├── changelog/            # 变更日志生成
+│       ├── repo-wiki/            # 仓库文档编排
 │       ├── dep-query/            # 依赖查询: 版本、漏洞、使用位置
 │       ├── git-query/            # Git 查询: 提交、贡献者、分支
 │       └── wiki-query/           # Wiki 查询: 项目结构、API、模块
@@ -89,13 +88,12 @@ cc-plugins/
 1. **Marketplace**: 通过 `.claude-plugin/marketplace.json` 定义,包含插件列表和市场元数据
 2. **Plugin**: 每个插件有独立目录,通过 `.claude-plugin/plugin.json` 定义元数据
 3. **Agents**: 专业化的子代理,用 markdown 文件定义,包含 frontmatter (name, description, model, color) 和提示词
-4. **Commands**: 斜杠命令,用 markdown 文件定义,通过 `/command-name` 调用
-5. **Skills**: 可复用的工作流,包含 SKILL.md 定义和必要的资源文件
-6. **Hooks**: 系统级约束机制,通过 `hooks/hooks.json` 定义,用于强制执行规则（如防止嵌套调用）
+4. **Skills**: 可复用的工作流,包含 SKILL.md 定义和必要的资源文件,通过 Skill tool 调用
+5. **Hooks**: 系统级约束机制,通过 `hooks/hooks.json` 定义,用于强制执行规则（如防止嵌套调用）
 
 ### Atlas 工作流程
 
-1. 用户通过 `/orchestrate <任务>` 或触发词("批量"、"所有"、"项目级"等)触发
+1. 用户通过 `atlas:orchestrate` skill 或触发词("批量"、"所有"、"项目级"等)触发
 2. (可选) Information Gatherer agent 收集项目信息并缓存到 Memory
 3. Plan agent 分析任务并生成详细的执行计划
 4. 根据计划并发启动多个 atlas-executor agents
@@ -218,7 +216,6 @@ grep -E '"version"' .claude-plugin/marketplace.json atlas/.claude-plugin/plugin.
 ### 修改现有组件
 
 - **修改 Agent**: 直接编辑对应的 `.md` 文件,更新提示词或流程
-- **修改 Command**: 编辑 `commands/` 目录下的对应文件
 - **修改 Skill**: 编辑 `skills/` 目录下的 `SKILL.md`
 - 注意: 修改后需要卸载并重新安装插件才能生效
 

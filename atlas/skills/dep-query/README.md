@@ -1,144 +1,144 @@
 # Dependency Query Skill
 
-依赖快速查询工具 - 从索引快速查询项目依赖信息。
+Quick dependency lookup tool - query project dependency information from an index.
 
-## 功能特性
+## Features
 
-- 📦 **依赖详情查询** - 查看版本、许可证、描述等信息
-- 🔒 **安全漏洞检查** - 按严重性级别查看已知漏洞
-- ⚠️  **过期依赖检测** - 对比当前版本与最新版本
-- 🌳 **依赖树展示** - 查看包的依赖关系树
-- 📍 **使用位置追踪** - 找到包在项目中的引用位置
-- 📊 **统计概览** - 整体依赖健康状况统计
+- 📦 **Dependency details** - View version, license, description, and more
+- 🔒 **Security vulnerability check** - View known vulnerabilities by severity level
+- ⚠️  **Outdated dependency detection** - Compare current version against the latest
+- 🌳 **Dependency tree** - View the dependency relationship tree for a package
+- 📍 **Usage location tracking** - Find where a package is referenced in the project
+- 📊 **Statistics overview** - Overall dependency health summary
 
-## 前置条件
+## Prerequisites
 
-1. 需要先运行 `/atlas:deps` 生成依赖索引
-2. 索引文件位置: `.claude/.meta/dependencies.pkg.json`
+1. Run `/atlas:deps` first to generate the dependency index
+2. Index file location: `.claude/.meta/dependencies.pkg.json`
 
-## 使用方式
+## Usage
 
-### 方法 1: 通过 Skill 调用
+### Method 1: Via Skill
 
 ```bash
-# 在 Claude Code 中
+# In Claude Code
 /skill dep-query
 
-# 然后按提示执行查询命令
+# Then follow the prompts to run query commands
 ```
 
-### 方法 2: 直接调用脚本
+### Method 2: Direct script invocation
 
 ```bash
-# 设置环境变量（可选，默认使用当前目录）
+# Set environment variable (optional, defaults to current directory)
 export DEPS_TARGET_DIR=/path/to/your/project
 
-# 查询依赖详情
+# Query dependency details
 python3 scripts/query_deps.py pkg lodash
 
-# 查看所有漏洞
+# View all vulnerabilities
 python3 scripts/query_deps.py vuln
 
-# 只看严重漏洞
+# View critical vulnerabilities only
 python3 scripts/query_deps.py vuln critical
 
-# 查看过期依赖
+# View outdated dependencies
 python3 scripts/query_deps.py outdated
 
-# 查看依赖树
+# View dependency tree
 python3 scripts/query_deps.py tree react
 
-# 查看使用位置
+# View usage locations
 python3 scripts/query_deps.py usage axios
 
-# 统计概览
+# Statistics overview
 python3 scripts/query_deps.py stats
 ```
 
-## 查询命令详解
+## Query Commands in Detail
 
-### pkg - 依赖详情
+### pkg - Dependency Details
 
 ```bash
 python3 scripts/query_deps.py pkg <name>
 ```
 
-支持模糊匹配，显示：
-- 版本信息（当前/最新）
-- 依赖类型（生产/开发）
-- 许可证信息
-- 安全漏洞（如有）
-- 包描述和主页
+Supports fuzzy matching. Displays:
+- Version info (current / latest)
+- Dependency type (production / dev)
+- License info
+- Security vulnerabilities (if any)
+- Package description and homepage
 
-**示例输出**:
+**Example output**:
 ```
-📦 依赖: lodash
-   版本: 4.17.20
-   类型: dependencies
-   最新: 4.17.21 ⚠️  过期
-   许可: MIT
+📦 Dependency: lodash
+   Version: 4.17.20
+   Type: dependencies
+   Latest: 4.17.21 ⚠️  Outdated
+   License: MIT
 
-⚠️  漏洞 (1 个):
+⚠️  Vulnerabilities (1):
    🟠 [HIGH] Prototype Pollution
       CVE: CVE-2021-23337
 ```
 
-### vuln - 漏洞列表
+### vuln - Vulnerability List
 
 ```bash
 python3 scripts/query_deps.py vuln [severity]
 ```
 
-可选的严重性过滤：
-- `critical` - 严重漏洞
-- `high` - 高危漏洞
-- `moderate` - 中危漏洞
-- `low` - 低危漏洞
+Optional severity filter:
+- `critical` - Critical vulnerabilities
+- `high` - High severity vulnerabilities
+- `moderate` - Moderate vulnerabilities
+- `low` - Low severity vulnerabilities
 
-**示例输出**:
+**Example output**:
 ```
-⚠️  发现 3 个漏洞:
+⚠️  Found 3 vulnerabilities:
 
 🔴 [CRITICAL] Remote Code Execution
-   包: express@4.17.1
+   Package: express@4.17.1
    CVE: CVE-2022-24999
-   详情: https://...
+   Details: https://...
 
 🟠 [HIGH] Prototype Pollution
-   包: lodash@4.17.20
+   Package: lodash@4.17.20
    CVE: CVE-2021-23337
 ```
 
-### outdated - 过期依赖
+### outdated - Outdated Dependencies
 
 ```bash
 python3 scripts/query_deps.py outdated
 ```
 
-列出所有版本落后于最新版的依赖包。
+Lists all dependencies whose version is behind the latest release.
 
-**示例输出**:
+**Example output**:
 ```
-⚠️  发现 5 个过期依赖:
+⚠️  Found 5 outdated dependencies:
 
 📦 lodash
-   当前: 4.17.20
-   最新: 4.17.21
+   Current: 4.17.20
+   Latest:  4.17.21
 
 🛠️  jest
-   当前: 27.0.0
-   最新: 29.5.0
+   Current: 27.0.0
+   Latest:  29.5.0
 ```
 
-### tree - 依赖树
+### tree - Dependency Tree
 
 ```bash
 python3 scripts/query_deps.py tree <name>
 ```
 
-显示包的直接依赖关系树。
+Displays the direct dependency tree for a package.
 
-**示例输出**:
+**Example output**:
 ```
 📦 react-dom@18.2.0
 ├── react
@@ -146,54 +146,54 @@ python3 scripts/query_deps.py tree <name>
 └── loose-envify
 ```
 
-### usage - 使用位置
+### usage - Usage Locations
 
 ```bash
 python3 scripts/query_deps.py usage <name>
 ```
 
-找出项目中引用该包的文件位置。
+Finds all files in the project that reference the package.
 
-**示例输出**:
+**Example output**:
 ```
-📦 axios 使用于:
+📦 axios used in:
    1. 📄 src/api/client.ts
    2. 📄 src/services/user.service.ts
    3. 📄 tests/api.test.ts
-  ... 还有 12 个位置
+  ... and 12 more locations
 ```
 
-### stats - 统计概览
+### stats - Statistics Overview
 
 ```bash
 python3 scripts/query_deps.py stats
 ```
 
-显示项目依赖的整体健康状况。
+Displays the overall health of project dependencies.
 
-**示例输出**:
+**Example output**:
 ```
-=== 依赖统计 ===
+=== Dependency Statistics ===
 
-📦 生产依赖: 45 个
-🛠️  开发依赖: 23 个
-📊 总计: 68 个
+📦 Production dependencies: 45
+🛠️  Dev dependencies: 23
+📊 Total: 68
 
-⚠️  过期依赖: 5 个
+⚠️  Outdated: 5
 
-🔒 安全漏洞: 3 个
-   🔴 严重 (Critical): 1
-   🟠 高危 (High): 2
+🔒 Security vulnerabilities: 3
+   🔴 Critical: 1
+   🟠 High: 2
 
-💾 最大的依赖:
+💾 Largest dependencies:
    webpack: 5.23 MB
    typescript: 3.45 MB
    eslint: 2.17 MB
 ```
 
-## 数据结构
+## Data Structure
 
-依赖索引文件 (`dependencies.pkg.json`) 预期结构：
+Expected structure of the dependency index file (`dependencies.pkg.json`):
 
 ```json
 {
@@ -226,23 +226,23 @@ python3 scripts/query_deps.py stats
 }
 ```
 
-## 注意事项
+## Notes
 
-1. **索引过期** - 如果依赖有更新，需要重新运行 `/atlas:deps` 生成索引
-2. **模糊匹配** - 所有查询支持部分名称匹配（如 `react` 匹配 `react-dom`）
-3. **跨项目查询** - 通过 `DEPS_TARGET_DIR` 可以查询其他项目的依赖
-4. **数据完整性** - 部分功能（如依赖树、使用位置）依赖索引的完整性
+1. **Stale index** - If dependencies have been updated, re-run `/atlas:deps` to regenerate the index
+2. **Fuzzy matching** - All queries support partial name matching (e.g. `react` matches `react-dom`)
+3. **Cross-project queries** - Use `DEPS_TARGET_DIR` to query dependencies in other projects
+4. **Data completeness** - Some features (e.g. dependency tree, usage locations) rely on index completeness
 
-## 常见问题
+## FAQ
 
-### Q: 提示"依赖索引不存在"？
-A: 运行 `/atlas:deps` 生成索引。
+### Q: Getting "dependency index not found"?
+A: Run `/atlas:deps` to generate the index.
 
-### Q: 依赖树或使用位置显示"数据不可用"？
-A: 索引可能不完整，重新运行 `/atlas:deps` 并确保包含这些功能。
+### Q: Dependency tree or usage locations show "data unavailable"?
+A: The index may be incomplete. Re-run `/atlas:deps` and ensure those features are included.
 
-### Q: 如何查询其他项目的依赖？
-A: 设置 `DEPS_TARGET_DIR` 环境变量指向目标项目目录。
+### Q: How do I query dependencies for another project?
+A: Set the `DEPS_TARGET_DIR` environment variable to point to the target project directory.
 
-### Q: 支持哪些包管理器？
-A: 取决于 `/atlas:deps` 命令的实现，通常支持 npm/yarn/pnpm (JS) 和 pip (Python)。
+### Q: Which package managers are supported?
+A: Depends on the `/atlas:deps` command implementation. Typically supports npm/yarn/pnpm (JS) and pip (Python).
