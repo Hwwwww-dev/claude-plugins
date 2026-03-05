@@ -1,48 +1,46 @@
 ---
-description: 显示上下文存储的统计信息。
+description: Use when user says "stats" or wants to see context storage statistics
 argument-hint:
 ---
 
-# /mnemosyne:stats - 统计信息
+> Schema reference: All field names follow the index.json v4.0.0 schema defined in context-save/SKILL.md.
 
----
+# /mnemosyne:stats (Enhanced Inline)
 
-## 流程
+## Capabilities
+- Add usage pattern analysis: which contexts were loaded/how often.
+- Add storage optimization advice: recommend cleanup strategies based on stats.
+- Add overall health score.
 
-1. 读取 `.claude/mnemosyne/index.json`
-2. 统计：总数量、标签分布、时间分布、质量分布、存储占用
+## Steps
+1. Read `.claude/mnemosyne/index.json` and compute statistics.
+2. Output a report with health score and optimization advice.
+3. AskUserQuestion to provide follow-up options. Example:
+```json
+{
+  "title":"Stats Actions",
+  "style":"single-select",
+  "options":["Clean...","List top 10 most accessed...","Close"]
+}
+```
 
----
-
-## 输出示例
-
+## Output
 ```markdown
-## Mnemosyne 统计
+## Mnemosyne Statistics
+**Health Score**: <A-F> (based on age, quality_score, access rate)
 
-### 概览
-| 指标 | 值 |
-|------|------|
-| 总上下文数 | <N> |
-| 存储位置 | .claude/mnemosyne/ |
-| 占用空间 | <X> MB |
-| 最新记录 | <YYYY-MM-DD> |
+| Metric | Value |
+|--------|-------|
+| Total contexts | <N> |
+| Total size | <X> MB |
+| Avg. quality (quality_score) | <Q> |
 
-### 标签分布
-| 标签 | 数量 |
-|------|------|
-| <tag> | <n> |
+### Usage Pattern
+| Top 3 Accessed | Accesses (access_count) |
+|----------------|----------|
+| <id1>          | <n>      |
 
-### 质量评分
-| 评分 | 数量 |
-|------|------|
-| <score> | <n> |
-```
-
----
-
-## 空数据
-
-```
-暂无保存的上下文
-使用 `/mnemosyne:save` 开始保存会话上下文
+### Optimization Advice
+- <N> records are older than 90 days and unused. Consider `/mnemosyne:clean --days 90 --unused-days 90`
+- <M> records have quality_score below 40. Consider `/mnemosyne:clean --quality-below 40`
 ```

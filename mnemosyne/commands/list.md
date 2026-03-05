@@ -1,39 +1,30 @@
 ---
-description: 查看所有保存的会话上下文列表。
-argument-hint: [--limit N] [--tag tag]
+description: Use when user says "list" or wants to see all saved session contexts
+argument-hint: [--limit N] [--tag tag] [--sort time|tag|quality_score|last_accessed] [--group tag|date]
 ---
 
-# /mnemosyne:list - 列表查看
+> Schema reference: All field names follow the index.json v4.0.0 schema defined in context-save/SKILL.md.
 
-用户输入: $ARGUMENTS
+# /mnemosyne:list (Enhanced Inline)
 
----
+## Capabilities
+- Sorting: by time/tag/quality_score/last_accessed;
+- Grouping: by tag or date;
+- Post-action interactions: load/delete/search.
 
-## 流程
-
-- 读取 `.claude/mnemosyne/index.json`
-- 支持：`--limit N`（默认 10），`--tag <tag>` 过滤
-- 输出表格：ID/标题/标签/时间/质量
-
----
-
-## 输出示例
-
-```markdown
-## 📚 已保存的上下文 (共 <N> 个)
-
-| # | ID | 标题 | 标签 | 时间 | 质量 |
-|---|-----|------|------|------|------|
-| 1 | <id> | <title> | <tags> | <time> | <score> |
-
-💡 `/mnemosyne:load <ID>` 加载；`/mnemosyne:search <关键词>` 搜索
+## Steps
+1. Read `.claude/mnemosyne/index.json`, sort/group per params and paginate (default `--limit 10`).
+2. Output table: ID/Title/Tags/created_at/quality_score/last_accessed.
+3. AskUserQuestion: choose to load/delete an entry, or go to search. Example:
+```json
+{
+  "title":"List Actions",
+  "style":"single-select",
+  "options":["Load <id>","Delete <id>","Search...","Close"]
+}
 ```
 
----
-
-## 空列表
-
+## Empty List
 ```
-📭 暂无保存的上下文
-使用 `/mnemosyne:save` 保存当前会话上下文
+No saved contexts yet. Use /mnemosyne:save first.
 ```

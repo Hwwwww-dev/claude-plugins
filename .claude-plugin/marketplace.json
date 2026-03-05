@@ -46,31 +46,10 @@
       "category": "productivity"
     },
     {
-      "name": "ideation",
-      "source": "./ideation",
-      "description": "多角色头脑风暴框架。13位专业专家从不同视角辩论，支持智能推荐与交互式选择，深度探索问题本质。",
-      "version": "1.1.0",
-      "author": {
-        "name": "Hwwwww"
-      },
-      "homepage": "https://github.com/Hwwwww-dev/cc-plugins",
-      "repository": "https://github.com/Hwwwww-dev/cc-plugins.git",
-      "license": "MIT",
-      "keywords": [
-        "brainstorm",
-        "multi-agent",
-        "debate",
-        "expert-panel",
-        "collaboration",
-        "decision-making"
-      ],
-      "category": "productivity"
-    },
-    {
       "name": "mnemosyne",
       "source": "./mnemosyne",
       "description": "上下文记忆管理插件。一键保存会话上下文，快速恢复历史进度，支持智能标签和全文搜索。",
-      "version": "1.3.0",
+      "version": "2.0.0",
       "author": {
         "name": "Hwwwww"
       },

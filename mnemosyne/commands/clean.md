@@ -1,47 +1,41 @@
 ---
-description: 清理过期或无用的上下文记录。
-argument-hint: [--days N] [--dry-run]
+description: Use when user says "clean" or wants to remove expired/low-value contexts
+argument-hint: [--days N] [--quality-below Q] [--unused-days M] [--dry-run]
 ---
 
-# /mnemosyne:clean - 清理上下文
+> Schema reference: All field names follow the index.json v4.0.0 schema defined in context-save/SKILL.md.
 
-用户输入: $ARGUMENTS
+# /mnemosyne:clean (Enhanced Inline)
 
----
+## Iron Law
+NO BATCH DELETE WITHOUT DRY-RUN FIRST.
 
-## 规则
+## Strategies (Composable)
+- Time: `--days N` deletes records created before N days ago (archived/normal; pinned never cleaned).
+- Quality: `--quality-below Q` deletes records with quality score < Q.
+- Access: `--unused-days M` deletes records not accessed for M days (`last_accessed`).
+- Never clean: skip all with `importance=pin`.
 
-- `--days N`：删除 N 天前记录（默认 90）
-- `--dry-run`：只预览不删除
-
----
-
-## 流程
-
-1. 扫描索引，计算待清理集合
-2. 预览列表（数量 + 预计释放空间）
-3. AskUserQuestion 确认（或调整天数）
-4. 执行删除并更新 `index.json`
-
----
-
-## 预览示例
-
-```markdown
-## 清理预览
-
-将清理 <days> 天前的上下文记录（共 <N> 条）
-| # | ID | 标题 | 时间 |
-|---|-----|------|------|
-| 1 | <id> | <title> | <date> |
-
-确认清理吗？
+## Steps
+1. Compute candidates (index filtering + physically delete archived >30 days; others soft-delete to `.archive/`).
+2. Preview (Dry-Run): count/estimated size/sample list.
+3. AskUserQuestion to allow selecting exclusions. Example:
+```json
+{
+  "title":"Cleanup Preview",
+  "style":"multi-select",
+  "description":"Select records to exclude; unselected will be cleaned",
+  "options":["<id1> <title1>","<id2> <title2>"]
+}
 ```
+4. Execute cleanup and update index.
 
----
+## Gate Conditions
+- Gate 1: Dry-Run must be completed first (explicit or implicit).
+- Gate 2: User confirms in interaction (or `--dry-run` for preview only).
+- Final Gate: All moves/deletions succeed and index consistency passes.
 
-## 输出示例
-
+## Output
 ```
-清理完成：已删除 <N> 个过期上下文，释放 <X> MB
+Cleanup complete: deleted <N> contexts (archived <A>, purged <P>), freed <X> MB
 ```

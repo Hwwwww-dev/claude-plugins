@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '[Memory Guard] 🔔 IMPORTANT: Before compact operation, you MUST call Skill tool with skill=\"mnemosyne:save\" to preserve current context! This is critical to avoid losing conversation history.'"
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreCompact\",\"additionalContext\":\"[Memory Guard] IMPORTANT: Before compact operation, you MUST call Skill tool with skill mnemosyne:save to preserve current context. This is critical to avoid losing conversation history.\"}}'"
           }
         ]
       }
