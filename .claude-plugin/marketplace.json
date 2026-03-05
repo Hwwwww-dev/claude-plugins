@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Community marketplace for Claude Code plugins",
-    "version": "2.25.0"
+    "version": "2.26.0"
   },
   "plugins": [
     {
