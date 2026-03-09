@@ -1,7 +1,6 @@
 ---
 description: "Use when user wants to search or find historical session contexts. Do not summarize workflow."
 argument-hint: "<keyword> [--tag tag] [--from date] [--to date]"
-disable-model-invocation: true
 ---
 
 <IMPORTANT>

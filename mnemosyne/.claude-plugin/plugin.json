@@ -1,7 +1,7 @@
 {
   "name": "mnemosyne",
   "description": "上下文记忆管理插件。一键保存会话上下文，快速恢复历史进度，支持智能标签和全文搜索。",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "author": {
     "name": "Hwwwww"
   },

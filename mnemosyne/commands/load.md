@@ -1,7 +1,6 @@
 ---
 description: "Use when user says load or wants to restore a previous session context. Do not summarize workflow."
 argument-hint: "[id] [--latest] [--recommend]"
-disable-model-invocation: true
 ---
 
 <IMPORTANT>
