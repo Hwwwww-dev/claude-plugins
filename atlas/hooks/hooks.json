@@ -1,60 +1,45 @@
 {
   "description": "Atlas plugin hooks",
   "hooks": {
-    "SessionStart": [
-
-    ],
-    "PreCompact": [
-      {
-        "matcher": "",
-        "hooks": [
+      "PreCompact": [
           {
-            "type": "command",
-            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreCompact\",\"additionalContext\":\"[Memory Guard] Before compacting, save context via mnemosyne:save using the Skill tool to avoid history loss.\"}}'"
+              "hooks": [
+                  {
+                      "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreCompact\",\"additionalContext\":\"[Memory Guard] IMPORTANT: Before compact operation, you MUST call Skill tool with skill **mnemosyne:save** to preserve current context. This is critical to avoid losing conversation history.\"}}'",
+                      "type": "command"
+                  }
+              ],
+              "matcher": ""
           }
-        ]
-      }
-    ],
-    "SubagentStart": [
-      {
-        "matcher": "",
-        "hooks": [
+      ],
+      "SubagentStart": [
           {
-            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SubagentStart\",\"additionalContext\":\"Current system time: '$(date '+%Y-%m-%d %A %H:%M:%S')'\"}}' ",
-            "type": "command"
-          },
-          {
-            "type": "command",
-            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SubagentStart\",\"additionalContext\":\"For large file modifications or document outputs, use a multi-write strategy. Keep each output under 1000 characters; output in segments or chunks.\"}}'"
+              "hooks": [
+                  {
+                      "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SubagentStart\",\"additionalContext\":\"Current system time: '$(date '+%Y-%m-%d %A %H:%M:%S')'\"}}' ",
+                      "type": "command"
+                  },
+                  {
+                      "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SubagentStart\",\"additionalContext\":\"Now, You are in Subagent, not main conversation! **DO NOT CALL ANY SKILLS!** Skills may spawn nested subagents (Agent), and subagent nesting causes system crashes.\"}}' ",
+                      "type": "command"
+                  }
+              ],
+              "matcher": ""
           }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "matcher": "",
-        "hooks": [
+      ],
+      "UserPromptSubmit": [
           {
-            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"Current system time: '$(date '+%Y-%m-%d %A %H:%M:%S')'\"}}' ",
-            "type": "command"
-          },
-          {
-            "type": "command",
-            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"Keep responses concise and delegate workflows to the appropriate atlas skills; do not inject additional prompts into user messages. For large file modifications or document outputs, use a multi-write strategy. Keep each output under 1000 characters; output in segments or chunks.\"}}'"
+              "hooks": [
+                  {
+                      "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"Current system time: '$(date '+%Y-%m-%d %A %H:%M:%S')'\"}}' ",
+                      "type": "command"
+                  },
+                  {
+                      "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"Keep responses concise, clear, and valuable. Follow Occams Razor and Linus spirit. When uncertain, use AskUserQuestion to clarify before acting. Actively delegate to subagents [via Agent] for complex tasks - they run in parallel and reduce main context consumption. \"}}'",
+                      "type": "command"
+                  }
+              ]
           }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "(Edit|Write|NotebookEdit)",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"[Protection] Main process MUST NOT directly edit business code. Route edits via atlas skills.\"}}'"
-          }
-        ]
-      }
-    ]
+      ]
   }
 }
