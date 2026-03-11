@@ -20,7 +20,7 @@
                       "type": "command"
                   },
                   {
-                      "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SubagentStart\",\"additionalContext\":\"Now, You are in Subagent, not main conversation! **DO NOT CALL ANY SKILLS!** Skills may spawn nested subagents (Agent), and subagent nesting causes system crashes.\"}}' ",
+                      "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SubagentStart\",\"additionalContext\":\"Now, You are in Subagent, not main conversation! **DO NOT CALL ANY SKILLS!** Skills may spawn nested Subagents, and subagent nesting causes system crashes.\"}}' ",
                       "type": "command"
                   }
               ],
@@ -35,7 +35,7 @@
                       "type": "command"
                   },
                   {
-                      "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"Keep responses concise, clear, and valuable. Follow Occams Razor and Linus spirit. When uncertain, use AskUserQuestion to clarify before acting. Actively delegate to subagents [via Agent] for complex tasks - they run in parallel and reduce main context consumption. \"}}'",
+                      "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"Keep responses concise, clear, and valuable. When uncertain, use AskUserQuestion to clarify before acting. Complete task by using the appropriate combination of agents、tools and skills. Actively delegate to subagents [via Explore, Plan, atlas:atlas-executor, Agent, etc] for complex tasks - they run in parallel and reduce main context consumption. \"}}'",
                       "type": "command"
                   }
               ]
