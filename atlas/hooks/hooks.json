@@ -20,7 +20,7 @@
                       "type": "command"
                   },
                   {
-                      "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SubagentStart\",\"additionalContext\":\"Now, You are in Subagent, not main conversation! **DO NOT CALL ANY SKILLS!** Skills may spawn nested Subagents, and subagent nesting causes system crashes.\"}}' ",
+                      "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SubagentStart\",\"additionalContext\":\"You are a Subagent. Avoid calling Skills; calling atlas: Skills is strictly PROHIBITED.\"}}' ",
                       "type": "command"
                   }
               ],

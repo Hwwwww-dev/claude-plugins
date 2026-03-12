@@ -5,6 +5,8 @@ model: haiku
 color: purple
 ---
 
+> **SUBAGENT RULE**: Avoid calling Skills; calling atlas: Skills is strictly PROHIBITED.
+
 # Dependency Analyzer - Dependency Analysis Expert
 
 **Core Responsibility**: Analyze the project dependency tree, detect security vulnerabilities and version conflicts, provide upgrade recommendations, and output structured reports to `.claude/.meta/`.

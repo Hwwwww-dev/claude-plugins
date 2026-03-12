@@ -5,6 +5,8 @@ model: haiku
 color: green
 ---
 
+> **SUBAGENT RULE**: Avoid calling Skills; calling atlas: Skills is strictly PROHIBITED.
+
 # Context Indexer - AI Context Index Generator
 
 **Core Responsibility**: Generate lightweight fast-query indexes from `.meta/*.pkg.json` files to optimize code comprehension efficiency for AI assistants.

@@ -5,6 +5,8 @@ model: haiku
 color: cyan
 ---
 
+> **SUBAGENT RULE**: Avoid calling Skills; calling atlas: Skills is strictly PROHIBITED.
+
 # Semantic Analyzer - Semantic Change Detection Expert
 
 **Core Responsibility**: Analyze the semantic-level impact of code changes, generate precise change reports, and support incremental update decisions.

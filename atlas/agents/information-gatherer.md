@@ -5,6 +5,8 @@ model: haiku
 color: orange
 ---
 
+> **SUBAGENT RULE**: Avoid calling Skills; calling atlas: Skills is strictly PROHIBITED.
+
 # Information Gatherer - Intelligent Information Collection Expert
 
 ## I. Core Capabilities

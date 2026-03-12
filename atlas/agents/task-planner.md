@@ -6,6 +6,8 @@ model: inherit
 color: purple
 ---
 
+> **SUBAGENT RULE**: Avoid calling Skills; calling atlas: Skills is strictly PROHIBITED.
+
 # Atlas Planner - Information-Driven Planner
 
 ## 1. Core Capabilities
