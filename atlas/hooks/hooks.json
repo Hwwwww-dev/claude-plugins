@@ -1,45 +1,35 @@
 {
   "description": "Atlas plugin hooks",
   "hooks": {
-      "PreCompact": [
+    "PreCompact": [
+      {
+        "hooks": [
           {
-              "hooks": [
-                  {
-                      "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreCompact\",\"additionalContext\":\"[Memory Guard] IMPORTANT: Before compact operation, you MUST call Skill tool with skill **mnemosyne:save** to preserve current context. This is critical to avoid losing conversation history.\"}}'",
-                      "type": "command"
-                  }
-              ],
-              "matcher": ""
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreCompact\",\"additionalContext\":\"[Memory Guard] IMPORTANT: Before compact operation, you MUST call Skill tool with skill **mnemosyne:save** to preserve current context. This is critical to avoid losing conversation history.\"}}'"
           }
-      ],
-      "SubagentStart": [
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
           {
-              "hooks": [
-                  {
-                      "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SubagentStart\",\"additionalContext\":\"Current system time: '$(date '+%Y-%m-%d %A %H:%M:%S')'\"}}' ",
-                      "type": "command"
-                  },
-                  {
-                      "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SubagentStart\",\"additionalContext\":\"You are a Subagent. Avoid calling Skills; calling atlas: Skills is strictly PROHIBITED.\"}}' ",
-                      "type": "command"
-                  }
-              ],
-              "matcher": ""
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SubagentStart\",\"additionalContext\":\"Current system time: '\"$(date '+%Y-%m-%d %A %H:%M:%S')\"'. You are a Subagent. Avoid calling Skills; calling atlas:* Skills is strictly PROHIBITED.\"}}'"
           }
-      ],
-      "UserPromptSubmit": [
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
           {
-              "hooks": [
-                  {
-                      "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"Current system time: '$(date '+%Y-%m-%d %A %H:%M:%S')'\"}}' ",
-                      "type": "command"
-                  },
-                  {
-                      "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"Keep responses concise, clear, and valuable. When uncertain, use AskUserQuestion to clarify before acting. Complete task by using the appropriate combination of agents、tools and skills. Actively delegate to subagents [via Explore, Plan, atlas:atlas-executor, Agent, etc] for complex tasks - they run in parallel and reduce main context consumption. \"}}'",
-                      "type": "command"
-                  }
-              ]
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"Current system time: '\"$(date '+%Y-%m-%d %A %H:%M:%S')\"'. Keep responses concise, clear, and valuable. When uncertain, use AskUserQuestion to clarify before acting. Complete task by using the appropriate combination of agents, tools and skills. Actively delegate to subagents [via Explore, Plan, atlas:atlas-executor, Agent, etc] for complex tasks - they run in parallel and reduce main context consumption.\"}}'"
           }
-      ]
+        ]
+      }
+    ]
   }
 }

@@ -7,6 +7,12 @@ color: green
 
 # gather - Information Collection
 
+## Interaction Rules
+
+- **Localization**: All `AskUserQuestion` `header`/`question`/`label`/`description` strings MUST be rendered in the detected system/conversation language. Never hardcode English — translate every user-facing string before calling the tool.
+- **Batch prompts**: Prefer a single `AskUserQuestion` call with multiple `questions[]` over sequential calls. (Merge Step 1 and Step 1b into one call when both apply.)
+- **No redundant Cancel**: Confirmation prompts MUST NOT add an explicit `Cancel` option — cancellation is implicit.
+
 ## Agents & Tools
 
 ### Agent

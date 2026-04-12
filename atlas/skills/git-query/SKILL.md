@@ -45,6 +45,19 @@ ls .claude/.meta/commits.pkg.json 2>/dev/null && echo "✅ Cache available" || e
 | tags | Tag list | git tag -l |
 | hotfiles | Hot files | git log --name-only |
 
+## Language
+
+The script supports bilingual output (Chinese / English) via the `--lang` option:
+
+```bash
+python3 query.py --lang en recent 10   # force English
+python3 query.py --lang zh recent 10   # force Chinese
+```
+
+When `--lang` is omitted, the language is inferred from the environment:
+`$ATLAS_LANG` > `$LC_ALL` > `$LANG` (values starting with `zh` -> Chinese,
+everything else -> English). Default is English when nothing is set.
+
 ## Quick Queries
 
 **All calls use the current project path**

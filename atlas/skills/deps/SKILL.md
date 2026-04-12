@@ -1,11 +1,14 @@
 ---
 name: deps
-description: Dependency management. Analyzes project dependencies, detects vulnerabilities, version conflicts, and upgrade suggestions. Supports auto-fix.
-version: 1.0.0
+description: Dependency ANALYSIS (write-path). Performs vulnerability scans, version-conflict detection, and upgrade planning; may execute fixes. For read-only lookups use `dep-query` instead.
+version: 1.1.0
 color: purple
 ---
 
-# deps - Dependency Management
+# deps - Dependency Analysis (write-path)
+
+> **Scope**: Analysis & remediation. This skill writes reports and may modify lockfiles/package manifests when auto-fix is enabled.
+> **Not this skill**: For quick read-only queries (version, CVE lookup, usage location) use `atlas:dep-query`.
 
 User input: $ARGUMENTS
 

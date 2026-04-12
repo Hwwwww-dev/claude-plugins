@@ -1,11 +1,14 @@
 ---
 name: dep-query
-description: Quick dependency query. Query dependency versions, vulnerabilities, usage locations, update history, etc. Supports fuzzy search.
-version: 1.0.0
+description: Dependency LOOKUP (read-only). Quick fuzzy queries over a pre-built `.claude/.meta/dependencies.pkg.json` index: versions, CVEs, usage locations, update history. For scanning/auto-fix use `deps` instead.
+version: 1.1.0
 color: orange
 ---
 
-# Dependency Query - Quick Dependency Lookup
+# dep-query - Dependency Lookup (read-only)
+
+> **Scope**: Fast, read-only queries against a pre-built index. Never writes to disk.
+> **Not this skill**: For vulnerability scans, conflict detection, or remediation use `atlas:deps`.
 
 Query project dependency information from the `.claude/.meta/dependencies.pkg.json` index.
 
@@ -37,6 +40,19 @@ ls .claude/.meta/dependencies.pkg.json 2>/dev/null || echo "❌ Please run /atla
 | `tree <name>` | Dependency tree | dep-query tree react |
 | `usage <name>` | Usage locations | dep-query usage axios |
 | `stats` | Statistics overview | dep-query stats |
+
+## Language
+
+The script supports bilingual output (Chinese / English) via the `--lang` option:
+
+```bash
+python3 query_deps.py --lang en stats   # force English
+python3 query_deps.py --lang zh stats   # force Chinese
+```
+
+When `--lang` is omitted, the language is inferred from the environment:
+`$ATLAS_LANG` > `$LC_ALL` > `$LANG` (values starting with `zh` -> Chinese,
+everything else -> English). Default is English when nothing is set.
 
 ## Quick Queries
 
