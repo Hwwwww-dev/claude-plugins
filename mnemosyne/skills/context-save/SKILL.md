@@ -49,45 +49,37 @@ Weighted by section completeness: Intent(15)+Decisions(10)+Changes(20)+Progress(
 
 ### Step 1 (Gate 1) User Confirmation
 - Generate quick preview: one-line summary, estimated rounds/file changes, involved modules.
-- Immediately call AskUserQuestion (MCP) to collect Title/Tags/Action.
-- Example (call the AskUserQuestion MCP tool):
+- **Localization**: Detect the system/conversation language (e.g., `zh-CN`, `en`, `ja`) and render ALL `header`/`question`/`label`/`description` strings in that language. Never hardcode English. If the user has been conversing in Chinese, the prompt MUST be in Chinese.
+- **Dynamic Tags**: Do NOT use a fixed tag list. Derive 4–6 candidate tags from the actual conversation context — involved modules, file paths, tech stack, domain keywords, and the auto-classified `category`. Each candidate's `description` should cite why (e.g., "detected in `src/auth/*` edits").
+- Call AskUserQuestion (MCP) to collect **Title** and **Tags** only. Do NOT ask a separate "Action" question — proceeding to Step 2 after the user answers is the implicit confirmation; cancellation is handled by the user declining/aborting the prompt.
+- Example skeleton (replace strings with the detected language; replace Tags options with context-derived candidates):
 ```json
 {
   "questions": [
     {
-      "header": "Title",
-      "question": "Choose a title for this save (you may adjust the auto-generated title)",
+      "header": "<Title i18n>",
+      "question": "<Choose a title for this save i18n>",
       "options": [
-        {"label": "Use suggested title", "description": "Adopt the system-generated <auto-title>"},
-        {"label": "Custom title", "description": "I will enter a custom title"}
+        {"label": "<Use suggested i18n>", "description": "<auto-title>"},
+        {"label": "<Custom i18n>", "description": "<I will enter a custom title i18n>"}
       ],
       "multiSelect": false
     },
     {
-      "header": "Tags",
-      "question": "Select or confirm tags (max 4)",
+      "header": "<Tags i18n>",
+      "question": "<Select tags (max 4) i18n>",
       "options": [
-        {"label": "mnemosyne", "description": "Default base tag"},
-        {"label": "feature", "description": "Feature-related"},
-        {"label": "bugfix", "description": "Bug fix related"},
-        {"label": "refactor", "description": "Refactoring related"}
+        {"label": "<dynamic-tag-1>", "description": "<why this tag, from context>"},
+        {"label": "<dynamic-tag-2>", "description": "<why this tag, from context>"},
+        {"label": "<dynamic-tag-3>", "description": "<why this tag, from context>"},
+        {"label": "<dynamic-tag-4>", "description": "<why this tag, from context>"}
       ],
       "multiSelect": true
-    },
-    {
-      "header": "Action",
-      "question": "Confirm whether to proceed with save?",
-      "options": [
-        {"label": "Confirm", "description": "Proceed and write to disk"},
-        {"label": "Modify", "description": "I want to adjust content before saving"},
-        {"label": "Cancel", "description": "Cancel this save"}
-      ],
-      "multiSelect": false
     }
   ]
 }
 ```
-- Gate condition: User explicitly selects Confirm and provides Title/Tags.
+- Gate condition: User provides Title and at least 1 Tag.
 
 ### Step 2 (Gate 2) Dedup Detection (Similar Entry Alert)
 - Read history from `.claude/mnemosyne/index.json`, flag candidates by title Jaccard≥0.8 or Levenshtein≤0.2, summary similarity≥0.75.

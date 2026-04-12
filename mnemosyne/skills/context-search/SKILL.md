@@ -13,6 +13,9 @@ version: 4.0.0
 ## Iron Law
 Only trust index.json as the source of truth; do not fabricate entries.
 
+## Localization Rule
+All AskUserQuestion `header`/`question`/`label`/`description` strings MUST be rendered in the detected system/conversation language. Never hardcode English. The JSON blocks below are structural templates — translate every user-facing string before calling the tool.
+
 ## Gate Protocol (6 Steps)
 1. Parse query → 2. Load index → 3. Filter → 4. Match (incl. fuzzy) → 5. Sort → 6. Post-result interaction
 
@@ -42,13 +45,22 @@ Only trust index.json as the source of truth; do not fabricate entries.
 
 ### Step 6 (Final Gate) Result Display + Interaction
 - Show result summary (ID/Title/Tags/Time/Match).
-- Immediately call AskUserQuestion: whether to load an entry directly or refine filter.
+- Immediately call AskUserQuestion: whether to load an entry directly or refine filter. Options are derived from the actual result set (Top-N ids). Translate all strings to the current language.
 ```json
 {
-  "title":"Search Results",
-  "style":"single-select",
-  "description":"Choose a record to load, or cancel to refine",
-  "options":["Load <id1>","Load <id2>","Refine","Cancel"]
+  "questions": [
+    {
+      "header": "<Results i18n>",
+      "question": "<Choose a record to load, or refine/cancel i18n>",
+      "options": [
+        {"label": "<Load id1>", "description": "<title1>"},
+        {"label": "<Load id2>", "description": "<title2>"},
+        {"label": "<Refine i18n>", "description": "<Back to Step 1 i18n>"},
+        {"label": "<Cancel i18n>", "description": "<End search i18n>"}
+      ],
+      "multiSelect": false
+    }
+  ]
 }
 ```
 - If Load <idX> → call `mnemosyne:context-load`; Refine → back to Step 1; Cancel ends.

@@ -15,6 +15,9 @@ NO LOAD WITHOUT EXISTENCE VERIFICATION.
 
 > Violating the letter of this rule IS violating the spirit.
 
+## Localization Rule
+All AskUserQuestion `header`/`question`/`label`/`description` strings MUST be rendered in the detected system/conversation language (e.g., `zh-CN`, `en`, `ja`). Never hardcode English. The JSON blocks below are structural templates — translate every user-facing string before calling the tool.
+
 ## Overall Flow (5 Gates)
 1. Mode selection (AskUserQuestion) → 2. Target resolution & existence check → 3. Conflict detection (unsaved work) → 4. Stale warning (>7 days) → 5. Load & counters update
 
