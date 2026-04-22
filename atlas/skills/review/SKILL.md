@@ -9,17 +9,17 @@ color: orange
 
 ## Interaction Rules
 
-- **Localization**: All `AskUserQuestion` `header`/`question`/`label`/`description` strings MUST be rendered in the detected system/conversation language. Never hardcode English — the JSON examples below are structural templates; translate every user-facing string before calling the tool.
-- **Batch prompts**: Prefer a single `AskUserQuestion` call with multiple `questions[]` over sequential calls. Only split when a later question genuinely depends on the earlier answer.
-- **No redundant Cancel**: Confirmation prompts MUST NOT add an explicit `Cancel` option — cancellation is implicit. Keep only branches that drive different follow-up behavior.
+- **Localization**: Render all `AskUserQuestion` `header`/`question`/`label`/`description` strings in the detected system language. JSON below is structural — translate user-facing strings before calling.
+- **Batch prompts**: Prefer one `AskUserQuestion` with multiple `questions[]`. Split only when a later question depends on an earlier answer.
+- **No redundant Cancel**: Cancellation is implicit. Keep only branches that drive different follow-up behavior.
 
 ## Agents
 
 | Agent | Role | Model | Output |
 |-------|------|-------|--------|
 | `atlas:information-gatherer` | Collect target code info | haiku | `.claude/gather/review-<ts>/` |
-| `atlas:code-reviewer` | Execute single-dimension review | user choice | returns review result JSON |
-| `atlas:atlas-executor` | Execute auto-fix | user choice | modifies files directly |
+| `atlas:code-reviewer` | Single-dimension review | user choice | review result JSON |
+| `atlas:atlas-executor` | Auto-fix | user choice | modifies files directly |
 
 ## Information Flow
 
@@ -60,12 +60,12 @@ main process → aggregate report → .claude/review/report-<date>.md
 
 ### Quick Mode (--quick)
 
-**Use when**: reviewing 1-3 files or a specific code snippet.
+**Use when**: reviewing 1-3 files or a specific snippet.
 
-1. Ask user to confirm mode (or auto-select if `--quick` flag present)
+1. Confirm mode (or auto-select with `--quick`)
 2. Create state file at `.claude/orchestrate/.state/<task-id>.json`
-3. Main process locates target files via Grep/Glob/Read (max 5 tool calls)
-4. `Task(atlas:code-reviewer, haiku)` — review with specified dimensions
+3. Main process locates files via Grep/Glob/Read (max 5 calls)
+4. `Task(atlas:code-reviewer, haiku)` with specified dimensions
 5. Output simplified report
 
 **State file schema (quick)**:
@@ -99,14 +99,14 @@ main process → aggregate report → .claude/review/report-<date>.md
 
 ### Standard Mode
 
-**Step 1: Determine scope**
+**Step 1: Scope**
 - No `--scope`: git diff (uncommitted changes)
 - `--scope .`: entire project
 - `--scope src`: specified directory
 
 **Step 2: Confirm options (AskUserQuestion)**
 
-- Q1: Execution mode — Quick / Standard (recommended)
+- Q1: Mode — Quick / Standard (recommended)
 - Q2 (standard only): Reviewer model — haiku / sonnet (recommended) / opus
 - Q3 (--fix only): Planner — `atlas:task-planner` (recommended) / built-in Plan; Executor model
 - Q4 (--fix only): Test node — after-fix (recommended) / none; Test mode — compile / unit / compile+unit
@@ -128,8 +128,7 @@ Task(atlas:code-reviewer, <user model>)
 With `--type all`: launch 4 code-reviewers in parallel.
 
 **Step 5: Aggregate report**
-- Merge results from all dimensions
-- Sort by severity
+- Merge all dimensions, sort by severity
 - Output to `.claude/review/report-<date>.md`
 
 **Step 6: (--fix) Auto-fix**
@@ -175,25 +174,25 @@ Each `code-reviewer` outputs:
 
 ### Standard Mode — Must Do
 
-- ✅ Confirm mode and reviewer model; confirm planner/test config when using `--fix`
-- ✅ gatherer → parallel reviewer(s) → aggregate report
-- ✅ Issues must include file path and line number; mark `autoFixable` with care
+- Confirm mode and reviewer model; confirm planner/test config for `--fix`
+- gatherer → parallel reviewer(s) → aggregate report
+- Issues must include file path and line; mark `autoFixable` with care
 
 ### Quick Mode — Must Do
 
-- ✅ Create state file; main process max 5 tool calls; use reviewer(haiku); output simplified report
+- Create state file; main process max 5 tool calls; reviewer(haiku); simplified report
 
 ### Quick Mode — Allowed
 
-- ✅ Main process uses Grep/Glob/Read to locate files (max 5 calls)
-- ✅ Main process builds code-reviewer prompt directly (no gatherer)
-- ✅ Skip checkpoints
+- Main process uses Grep/Glob/Read to locate files (max 5 calls)
+- Main process builds code-reviewer prompt directly (no gatherer)
+- Skip checkpoints
 
 ### Forbidden
 
-- ❌ Main process reads code directly (standard mode)
-- ❌ Main process modifies files directly
-- ❌ Auto-fix without `--fix` flag
-- ❌ Marking `autoFixable` carelessly
-- ❌ Using `--fix` in quick mode (requires standard mode)
-- ❌ Using quick mode for complex reviews (>3 files or requiring dependency analysis)
+- Main process reads code directly (standard mode)
+- Main process modifies files directly
+- Auto-fix without `--fix` flag
+- Marking `autoFixable` carelessly
+- `--fix` in quick mode (requires standard mode)
+- Quick mode for complex reviews (>3 files or dependency analysis needed)

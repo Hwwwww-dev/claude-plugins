@@ -4,48 +4,48 @@ description: Search historical session contexts with fuzzy matching and post-res
 version: 4.0.0
 ---
 
-**Path Rule:** All `.claude` paths refer to the project root `.claude/`.
+**Path Rule:** `.claude` = project root `.claude/`.
 
-> Schema reference: All field names follow the index.json v4.0.0 schema defined in context-save/SKILL.md.
+> Schema: field names follow index.json v4.0.0 in context-save/SKILL.md.
 
 # Context-Search v4.0
 
 ## Iron Law
-Only trust index.json as the source of truth; do not fabricate entries.
+index.json is the sole source of truth; never fabricate entries.
 
 ## Localization Rule
-All AskUserQuestion `header`/`question`/`label`/`description` strings MUST be rendered in the detected system/conversation language. Never hardcode English. The JSON blocks below are structural templates — translate every user-facing string before calling the tool.
+All AskUserQuestion `header`/`question`/`label`/`description` MUST render in detected system/conversation language. Never hardcode English. JSON blocks below are structural templates — translate every user-facing string before invoking.
 
 ## Gate Protocol (6 Steps)
 1. Parse query → 2. Load index → 3. Filter → 4. Match (incl. fuzzy) → 5. Sort → 6. Post-result interaction
 
 ### Step 1 (Gate 1) Parse Query
-- `$ARGUMENTS`: `<keyword> [--tag tag] [--from date] [--to date]`; no keyword means "list all".
-- Gate: Identify keyword (or list-all), tag, and date range.
+- `$ARGUMENTS`: `<keyword> [--tag tag] [--from date] [--to date]`; no keyword = "list all".
+- Gate: identify keyword (or list-all), tag, date range.
 
 ### Step 2 (Gate 2) Load Index
-- Read `.claude/mnemosyne/index.json` (array). If missing/empty → output empty-result template and suggest saving first.
-- Gate: Either parsed successfully or empty-result branch triggered.
+- Read `.claude/mnemosyne/index.json` (array). Missing/empty → output no-result template and suggest saving first.
+- Gate: parsed OR empty-result branch triggered.
 
 ### Step 3 (Gate 3) Filter
-- First filter candidates by tag and date window.
-- Gate: Obtain 0..N candidates.
+- Pre-filter candidates by tag and date window.
+- Gate: 0..N candidates.
 
 ### Step 4 (Gate 4) Matching (Exact + Fuzzy)
-- Priority levels: title (P1) > summary (P2) > content (P3, read files only if P1/P2 both 0).
+- Priority: title (P1) > summary (P2) > content (P3, read files only if P1/P2 both 0).
 - Fuzzy:
-  - Substring/case-insensitive matching;
-  - Approximate: Jaro-Winkler≥0.88 or Levenshtein ratio≤0.25 counts as a hit;
-  - Split keywords and take max match.
-- Gate: Annotate each record with match-level and score.
+  - substring/case-insensitive;
+  - Jaro-Winkler≥0.88 or Levenshtein ratio≤0.25 = hit;
+  - split keywords, take max match.
+- Gate: annotate each record with match-level + score.
 
 ### Step 5 (Gate 5) Sorting
-- Sort by match level first, then recency (`created_at` DESC), tie-break by similarity score DESC.
-- Gate: Produce final ordered result set.
+- match level → recency (`created_at` DESC) → similarity score DESC.
+- Gate: final ordered result set.
 
 ### Step 6 (Final Gate) Result Display + Interaction
 - Show result summary (ID/Title/Tags/Time/Match).
-- Immediately call AskUserQuestion: whether to load an entry directly or refine filter. Options are derived from the actual result set (Top-N ids). Translate all strings to the current language.
+- Call AskUserQuestion: load an entry or refine. Options derived from actual result set (Top-N ids); translate all strings.
 ```json
 {
   "questions": [
@@ -63,7 +63,7 @@ All AskUserQuestion `header`/`question`/`label`/`description` strings MUST be re
   ]
 }
 ```
-- If Load <idX> → call `mnemosyne:context-load`; Refine → back to Step 1; Cancel ends.
+- Load <idX> → call `mnemosyne:context-load`; Refine → Step 1; Cancel → end.
 
 ## No-Result Output
 ```markdown
@@ -74,6 +74,6 @@ No matching contexts found for "<keyword>".
 ```
 
 ## Red Lines
-- Skipping index and reading files one-by-one for full-text search (allowed only when P1/P2 produce zero results).
-- Constructing or displaying non-existent records.
-- Arbitrarily changing sorting criteria.
+- Skipping index for file-by-file full-text search (allowed only when P1/P2 = 0).
+- Fabricating or displaying non-existent records.
+- Arbitrarily changing sort criteria.

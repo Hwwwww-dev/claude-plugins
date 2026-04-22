@@ -4,25 +4,25 @@ description: Interactive loading of historical contexts: supports by ID, smart r
 version: 4.0.0
 ---
 
-**Path Rule:** All `.claude` paths refer to the project root `.claude/`.
+**Path Rule:** `.claude` = project root `.claude/`.
 
-> Schema reference: All field names follow the index.json v4.0.0 schema defined in context-save/SKILL.md.
+> Schema: field names follow index.json v4.0.0 in context-save/SKILL.md.
 
 # Context Load v4.0
 
 ## Iron Law
 NO LOAD WITHOUT EXISTENCE VERIFICATION.
 
-> Violating the letter of this rule IS violating the spirit.
+> Violating the letter IS violating the spirit.
 
 ## Localization Rule
-All AskUserQuestion `header`/`question`/`label`/`description` strings MUST be rendered in the detected system/conversation language (e.g., `zh-CN`, `en`, `ja`). Never hardcode English. The JSON blocks below are structural templates — translate every user-facing string before calling the tool.
+All AskUserQuestion `header`/`question`/`label`/`description` MUST render in detected system/conversation language (`zh-CN`, `en`, `ja`, ...). Never hardcode English. JSON blocks below are structural templates — translate every user-facing string before invoking.
 
 ## Overall Flow (5 Gates)
-1. Mode selection (AskUserQuestion) → 2. Target resolution & existence check → 3. Conflict detection (unsaved work) → 4. Stale warning (>7 days) → 5. Load & counters update
+1. Mode selection → 2. Target resolution & existence check → 3. Conflict detection (unsaved work) → 4. Stale warning (>7d) → 5. Load & counters update
 
 ### Step 1 (Gate 1) Mode Selection
-- Immediately call AskUserQuestion to choose: By ID / Recommend / Search.
+- Call AskUserQuestion: By ID / Recommend / Search.
 ```json
 {
   "questions": [
@@ -42,17 +42,16 @@ All AskUserQuestion `header`/`question`/`label`/`description` strings MUST be re
 - Gate: User makes a clear choice.
 
 ### Step 2 (Gate 2) Target Resolution & Existence Check
-- By ID: Match ID exactly from `.claude/mnemosyne/index.json`, and verify the directory and `context.md` exist.
-- Recommend: Rank Top-N by current repo context:
-  - Intersection between `file_map` and paths from `git --no-pager status --porcelain` (more overlap → higher rank);
-  - Tag/keyword similarity to current branch name/working directory name;
+- By ID: exact ID match from `.claude/mnemosyne/index.json`; verify directory and `context.md` exist.
+- Recommend: Top-N ranked by:
+  - `file_map` ∩ `git --no-pager status --porcelain` paths (more overlap → higher rank);
+  - Tag/keyword similarity to branch name / cwd name;
   - Recency (created_at DESC).
-- Search: Reuse context-search filtering/sorting rules.
-- Gate: Candidates exist (≥1) and the chosen record's directory/files exist.
+- Search: reuse context-search filtering/sorting.
+- Gate: ≥1 candidate exists; chosen record's directory/files exist.
 
 ### Step 3 (Gate 3) Conflict Detection (Unsaved Work)
-- Run `git --no-pager status --porcelain`; if there are unstaged or uncommitted changes:
-  - Call AskUserQuestion:
+- Run `git --no-pager status --porcelain`; on unstaged/uncommitted changes, AskUserQuestion:
 ```json
 {
   "questions": [
@@ -69,7 +68,7 @@ All AskUserQuestion `header`/`question`/`label`/`description` strings MUST be re
   ]
 }
 ```
-- Gate: If Save first, must trigger `mnemosyne:context-save` first; if Proceed, continue; Cancel exits.
+- Gate: Save first → trigger `mnemosyne:context-save` first; Proceed → continue; Cancel → exit.
 
 ### Step 4 (Gate 4) Stale Warning
 - If `now - created_at > 7d`, warn as `stale`:
@@ -88,12 +87,12 @@ All AskUserQuestion `header`/`question`/`label`/`description` strings MUST be re
   ]
 }
 ```
-- Gate: User confirms to continue.
+- Gate: User confirms continue.
 
 ### Step 5 (Final Gate) Load & Update Counters
-- Read `context.md` and output to user: Title/saved time/one-line summary/Completion/Next Steps.
+- Read `context.md`; output: Title / saved time / one-line summary / Completion / Next Steps.
 - Update index: `access_count += 1`, `last_accessed = now()`.
-- Success criteria: Content displayed successfully and index persisted with updates.
+- Success: content displayed; index persisted.
 
 ## Output Template
 ```markdown
@@ -113,20 +112,20 @@ All AskUserQuestion `header`/`question`/`label`/`description` strings MUST be re
 
 ## Red Flags (Self-Check)
 
-If you find yourself thinking any of the following, **STOP immediately**:
+Thinking any of these → **STOP**:
 
-- "I know which context to load, skip the question" → WRONG. Always let the user choose.
-- "No need to check for unsaved work" → WRONG. Conflict detection protects the user.
-- "This old context is probably still valid" → WRONG. Always warn if >7 days stale.
-- "I'll skip the recommendation step" → WRONG. Smart recommendations save user time.
-- "Existence check is unnecessary, the file should be there" → WRONG. Iron Law: NO LOAD WITHOUT EXISTENCE VERIFICATION.
+- "I know which context to load, skip the question" → WRONG. Let user choose.
+- "No need to check unsaved work" → WRONG. Conflict detection protects user.
+- "Old context probably still valid" → WRONG. Always warn if >7d.
+- "Skip recommendation step" → WRONG. Saves user time.
+- "File should be there, skip existence check" → WRONG. Iron Law: NO LOAD WITHOUT EXISTENCE VERIFICATION.
 
 ## Rationalization Prevention
 
 | Your Excuse | The Truth |
 |---|---|
-| "The user specified an ID, no need to ask" | Verify existence first. IDs can be wrong. |
-| "Current work is trivial, no conflict risk" | Even trivial work matters. Always check git status. |
-| "The context was saved recently, it's fresh" | "Recently" is subjective. Check the actual timestamp. |
-| "Recommendation is slow, just load directly" | Speed without accuracy is waste. Recommend first. |
-| "The user knows what they want" | Informed choice > assumed choice. Present options. |
+| "User specified an ID, no need to ask" | Verify existence. IDs can be wrong. |
+| "Trivial work, no conflict risk" | Always check git status. |
+| "Saved recently, it's fresh" | "Recently" is subjective. Check timestamp. |
+| "Recommendation is slow" | Speed without accuracy = waste. |
+| "User knows what they want" | Informed > assumed. Present options. |

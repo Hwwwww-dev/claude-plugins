@@ -23,7 +23,7 @@
 - 🔧 **代码审查与重构**: 专业的代码质量检查和智能重构
 - 📦 **依赖管理**: 安全漏洞检测、版本冲突分析、升级建议
 - 🏥 **项目健康检查**: 一键诊断项目健康度，输出综合评分
-- 📝 **自动化文档**: 变更日志生成、仓库 Wiki 文档自动编排
+- 🐛 **问题诊断与修复**: 根因分析、修复方案、可选自动执行
 
 **适用场景**:
 - 批量文件操作和项目级代码重构
@@ -31,8 +31,7 @@
 - 项目结构分析和代码探索
 - 代码审查和质量保障
 - 依赖管理和安全审计
-- 测试生成和覆盖率提升
-- 项目文档自动生成
+- 问题诊断与自动修复
 
 **文档**: 查看 [atlas/](./atlas/) 目录
 
@@ -64,7 +63,7 @@
 - 📥 **快速恢复**: 在新会话中加载历史上下文，无缝继续工作
 - 🔍 **全文搜索**: 按标题、标签、内容搜索历史会话
 - 🏷️ **自动标签**: 根据内容自动生成技术栈、任务类型等标签
-- ✅ **质量检查**: 内置 8 章节完整性检查，确保上下文可恢复
+- ✅ **质量检查**: 内置完整性检查，确保上下文可恢复
 
 **适用场景**:
 - 长期项目的进度保存与恢复
@@ -106,131 +105,55 @@
 
 ### Atlas 插件
 
-Atlas 提供 9 个命令和 3 个快速查询 Skill：
+Atlas 提供 7 个编排/分析 Skill 与 2 个只读查询 Skill，加上 5 个专业化 agent：
 
-#### 核心命令
+#### 编排 / 分析类 Skill
 
-##### /atlas:orchestrate - 任务协调
-```bash
-# 基本用法
-/atlas:orchestrate 给所有 React 组件添加 TypeScript 类型定义
+| Skill | 用途 |
+|-------|------|
+| `atlas:orchestrate` | 任务编排与并发执行引擎 |
+| `atlas:gather` | 智能信息收集 |
+| `atlas:review` | 多维度代码审查（security / performance / style / architecture） |
+| `atlas:refactor` | 智能重构（模式识别 + 自动化改写） |
+| `atlas:bugfix` | 问题诊断与修复建议 |
+| `atlas:deps` | 依赖管理（漏洞、冲突、升级建议，支持自动修复） |
+| `atlas:health` | 项目健康检查（5 维度综合评分） |
 
-# 强制并行执行
-/atlas:orchestrate 批量重构所有 class components --parallel
-
-# 预览模式
-/atlas:orchestrate 给所有组件添加 error boundary --dry-run
-
-# 自动回滚支持
-/atlas:orchestrate 重构认证模块 --auto-rollback
-
-# 断点续传
-/atlas:orchestrate --resume <task-id>
-```
-
-##### /atlas:gather - 信息收集
-```bash
-# 分析项目结构
-/atlas:gather project-structure --cache project-map
-
-# 梳理依赖关系
-/atlas:gather dependencies UserAPI
-
-# 搜索代码模式
-/atlas:gather code-patterns "useState" --focus src/components
-
-# 评估修改影响
-/atlas:gather impact AuthService
-```
-
-##### /atlas:review - 代码审查
-```bash
-# 全面审查
-/atlas:review --scope src/ --type all
-
-# 仅安全审查
-/atlas:review --type security --severity critical
-
-# 自动修复
-/atlas:review --type style --fix
-```
-
-##### /atlas:refactor - 智能重构
-```bash
-# 提取重复代码
-/atlas:refactor extract-duplicates --scope src/
-
-# 重命名模式
-/atlas:refactor rename "oldPattern" "newPattern" --dry-run
-
-# 交互式确认
-/atlas:refactor simplify-conditionals --interactive
-```
-
-##### /atlas:test-gen - 测试生成
-```bash
-# 生成单元测试
-/atlas:test-gen --scope src/services --type unit
-
-# 指定框架和覆盖率目标
-/atlas:test-gen --framework jest --coverage-target 80
-
-# 生成集成测试
-/atlas:test-gen --type integration --scope src/api
-```
-
-##### /atlas:deps - 依赖管理
-```bash
-# 检查所有问题
-/atlas:deps --type all
-
-# 安全漏洞扫描
-/atlas:deps --type security --fix
-
-# 升级建议
-/atlas:deps --upgrade minor
-```
-
-##### /atlas:health - 项目健康检查
-```bash
-# 完整健康检查
-/atlas:health
-
-# 快速检查
-/atlas:health --quick
-
-# 导出报告
-/atlas:health --export json --ci
-```
-
-##### /atlas:changelog - 变更日志
-```bash
-# 生成 CHANGELOG
-/atlas:changelog --from v1.0.0 --to HEAD
-
-# 指定格式
-/atlas:changelog --format conventional --version 2.0.0
-```
-
-##### /atlas:repo-wiki - 仓库文档生成
-```bash
-# 生成完整 Wiki
-/atlas:repo-wiki --lang zh --depth 3
-
-# 并行模式加速
-/atlas:repo-wiki --mode parallel --concurrency 4
-
-# 预览不写入
-/atlas:repo-wiki --preview
-```
-
-#### 快速查询 Skills
+#### 查询 Skill（只读，低成本）
 
 | Skill | 用途 | 示例 |
 |-------|------|------|
-| `dep-query` | 依赖版本、漏洞、使用位置查询 | "axios 有什么漏洞？" |
-| `git-query` | 提交历史、贡献者、分支状态查询 | "最近谁改了 auth 模块？" |
-| `wiki-query` | 项目 API、类方法、模块依赖查询 | "UserService 有哪些方法？" |
+| `atlas:dep-query` | 依赖版本、漏洞、使用位置查询 | "axios 有什么漏洞？" |
+| `atlas:git-query` | 提交历史、贡献者、分支状态查询 | "最近谁改了 auth 模块？" |
+
+> 💡 项目级 API / 类方法 / 模块依赖查询建议直接使用 LSP 的 `workspaceSymbol` / `documentSymbol` 或 Serena MCP。
+
+#### 使用示例
+
+```bash
+# 任务编排（触发词：批量、所有、项目级 …）
+/skill atlas:orchestrate
+→ "给所有 React 组件添加 TypeScript 类型定义"
+
+# 代码审查
+/skill atlas:review
+→ scope=src/ type=security,performance
+
+# 问题诊断与修复
+/skill atlas:bugfix
+→ "登录后 token 有时丢失，定位根因并给出修复方案"
+
+# 智能重构
+/skill atlas:refactor
+→ "extract-duplicates scope=src/"
+
+# 依赖管理
+/skill atlas:deps
+→ --type security --fix
+
+# 项目健康检查
+/skill atlas:health
+```
 
 信息收集也支持自动触发：
 ```
@@ -311,81 +234,56 @@ Mnemosyne 提供 7 个命令用于会话上下文管理：
 /mnemosyne:clean --before 30d
 ```
 
-#### 上下文结构（15 章节）
-
-保存的上下文包含以下章节，确保完整可恢复：
-
-| 章节 | 内容 |
-|------|------|
-| 1. 起点 | 用户意图、核心目标、约束条件 |
-| 2. 过程 | 关键决策、选择理由 |
-| 3. 产出 | 代码变更、新建/修改文件 |
-| 4. 状态 | 任务进度、完成度 |
-| 5. 障碍 | 遇到的问题与解决方案 |
-| 6. 环境 | 技术栈、项目信息 |
-| 7. 地图 | 核心文件、依赖关系 |
-| 8. 路标 | 续作指引、下一步行动 |
-| 9. 会话统计 | 对话规模、工具使用、会话时长 |
-| 10. 代码质量 | 代码规模、质量检查、风格评估 |
-| 11. 代码片段 | 核心函数/类、重要修改 |
-| 12. 时间线 | 关键事件、里程碑时刻 |
-| 13. 学习笔记 | 新知识点、踩坑记录、最佳实践 |
-| 14. 关联资源 | 文档链接、参考资料、搜索关键词 |
-| 15. 影响分析 | 影响范围、风险评估、测试建议 |
-
 ## 插件结构
 
 ```
 cc-plugins/
 ├── .claude-plugin/
 │   └── marketplace.json            # Marketplace 配置
-├── atlas/                           # Atlas 插件
+├── atlas/                           # Atlas 插件 (v3.0.0)
 │   ├── .claude-plugin/
 │   │   └── plugin.json             # 插件元数据
-│   ├── agents/                     # 专业化 agents (7个)
-│   │   ├── atlas-executor.md       # 任务执行器 - 执行具体子任务
-│   │   ├── code-reviewer.md        # 代码审查 - 多维度代码质量检查
-│   │   ├── commit-analyzer.md      # 提交分析 - Git 提交历史分析
-│   │   ├── dependency-analyzer.md  # 依赖分析 - 安全漏洞与版本冲突
-│   │   ├── information-gatherer.md # 信息收集 - 项目结构分析
-│   │   ├── repo-context-indexer.md # 仓库上下文索引 - 生成项目索引
-│   │   └── repo-semantic-analyzer.md # 语义分析 - 深度代码理解
-│   ├── commands/                   # 斜杠命令 (9个)
-│   │   ├── orchestrate.md          # /atlas:orchestrate - 任务协调
-│   │   ├── gather.md               # /atlas:gather - 信息收集
-│   │   ├── review.md               # /atlas:review - 代码审查
-│   │   ├── refactor.md             # /atlas:refactor - 智能重构
-│   │   ├── test-gen.md             # /atlas:test-gen - 测试生成
-│   │   ├── deps.md                 # /atlas:deps - 依赖管理
-│   │   ├── health.md               # /atlas:health - 健康检查
-│   │   ├── changelog.md            # /atlas:changelog - 变更日志
-│   │   └── repo-wiki.md            # /atlas:repo-wiki - 仓库文档
+│   ├── agents/                     # 专业化 agents (5个)
+│   │   ├── atlas-executor.md       # 任务执行器
+│   │   ├── code-reviewer.md        # 代码审查
+│   │   ├── dependency-analyzer.md  # 依赖分析
+│   │   ├── information-gatherer.md # 信息收集
+│   │   └── task-planner.md         # 任务规划
 │   ├── hooks/
-│   │   └── hooks.json              # Hooks 配置 (防止嵌套调用)
-│   └── skills/                     # 快速查询 Skills (3个)
+│   │   └── hooks.json              # Hooks 配置
+│   └── skills/                     # Skills (9个)
+│       ├── orchestrate/            # 任务协调与并发执行
+│       ├── gather/                 # 智能信息收集
+│       ├── review/                 # 代码审查
+│       ├── refactor/               # 智能重构
+│       ├── bugfix/                 # 问题诊断与修复
+│       ├── deps/                   # 依赖管理
+│       ├── health/                 # 健康检查
 │       ├── dep-query/              # 依赖查询
-│       ├── git-query/              # Git 查询
-│       └── wiki-query/             # Wiki 查询
+│       └── git-query/              # Git 查询
 ├── ideation/                        # Ideation 插件
 │   ├── .claude-plugin/
 │   │   └── plugin.json             # 插件元数据
-│   ├── agents/
-│   │   └── debate-moderator.md     # 辩论主持人
+│   ├── agents/                     # 14 位专家 agent
 │   ├── commands/
 │   │   └── brainstorm.md           # /ideation:brainstorm 命令
 │   └── skills/
-│       └── brainstorm/SKILL.md     # 头脑风暴工作流
-├── mnemosyne/                       # Mnemosyne 插件
+│       └── brainstorm/             # 头脑风暴工作流
+├── mnemosyne/                       # Mnemosyne 插件 (v2.1.0)
 │   ├── .claude-plugin/
 │   │   └── plugin.json             # 插件元数据
-│   └── commands/                   # 命令 (7个)
-│       ├── save.md                 # /mnemosyne:save - 保存上下文
-│       ├── load.md                 # /mnemosyne:load - 加载上下文
-│       ├── list.md                 # /mnemosyne:list - 列表查看
-│       ├── search.md               # /mnemosyne:search - 搜索
-│       ├── delete.md               # /mnemosyne:delete - 删除
-│       ├── stats.md                # /mnemosyne:stats - 统计
-│       └── clean.md                # /mnemosyne:clean - 清理
+│   ├── commands/                   # 命令 (7个)
+│   │   ├── save.md                 # /mnemosyne:save
+│   │   ├── load.md                 # /mnemosyne:load
+│   │   ├── list.md                 # /mnemosyne:list
+│   │   ├── search.md               # /mnemosyne:search
+│   │   ├── delete.md               # /mnemosyne:delete
+│   │   ├── stats.md                # /mnemosyne:stats
+│   │   └── clean.md                # /mnemosyne:clean
+│   └── skills/                     # 实现引擎 (3个)
+│       ├── context-save/
+│       ├── context-load/
+│       └── context-search/
 ├── docs/                            # 参考文档
 ├── README.md                        # 英文文档
 └── README_zh.md                     # 本文件（中文）

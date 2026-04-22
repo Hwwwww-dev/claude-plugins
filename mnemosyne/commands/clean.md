@@ -3,23 +3,22 @@ description: Use when user says "clean" or wants to remove expired/low-value con
 argument-hint: [--days N] [--quality-below Q] [--unused-days M] [--dry-run]
 ---
 
-> Schema reference: All field names follow the index.json v4.0.0 schema defined in context-save/SKILL.md.
+> Schema: index.json v4.0.0 (see context-save/SKILL.md).
 
-# /mnemosyne:clean (Enhanced Inline)
+# /mnemosyne:clean
 
 ## Iron Law
 NO BATCH DELETE WITHOUT DRY-RUN FIRST.
 
-## Strategies (Composable)
-- Time: `--days N` deletes records created before N days ago (archived/normal; pinned never cleaned).
-- Quality: `--quality-below Q` deletes records with quality score < Q.
-- Access: `--unused-days M` deletes records not accessed for M days (`last_accessed`).
-- Never clean: skip all with `importance=pin`.
+## Strategies (composable; `importance=pin` never cleaned)
+- `--days N`: created >N days ago (archived/normal).
+- `--quality-below Q`: quality_score < Q.
+- `--unused-days M`: `last_accessed` >M days ago.
 
 ## Steps
-1. Compute candidates (index filtering + physically delete archived >30 days; others soft-delete to `.archive/`).
-2. Preview (Dry-Run): count/estimated size/sample list.
-3. AskUserQuestion to allow selecting exclusions. Example:
+1. Compute candidates; physically purge archived >30 days; soft-delete others to `.archive/`.
+2. Dry-Run preview: count / estimated size / sample list.
+3. AskUserQuestion to exclude entries:
 ```json
 {
   "title":"Cleanup Preview",
@@ -28,12 +27,12 @@ NO BATCH DELETE WITHOUT DRY-RUN FIRST.
   "options":["<id1> <title1>","<id2> <title2>"]
 }
 ```
-4. Execute cleanup and update index.
+4. Execute cleanup; update index.
 
-## Gate Conditions
-- Gate 1: Dry-Run must be completed first (explicit or implicit).
-- Gate 2: User confirms in interaction (or `--dry-run` for preview only).
-- Final Gate: All moves/deletions succeed and index consistency passes.
+## Gates
+- G1: Dry-Run completed (explicit or implicit)
+- G2: user confirmed (or `--dry-run` preview-only)
+- Final: all moves/deletions succeed; index consistent
 
 ## Output
 ```

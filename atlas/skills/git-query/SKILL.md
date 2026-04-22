@@ -26,7 +26,7 @@ ${CLAUDE_PLUGIN_ROOT}/skills/git-query/scripts/query.py        # Standard query
 # Check if inside a git repository
 git rev-parse --is-inside-work-tree 2>/dev/null || echo "❌ Not a Git repository"
 
-# Optional: check for cache file (generated after running /atlas:changelog)
+# Optional: check for external cache file at `.claude/.meta/commits.pkg.json`
 ls .claude/.meta/commits.pkg.json 2>/dev/null && echo "✅ Cache available" || echo "⚠️ No cache, using live query"
 ```
 
@@ -237,7 +237,7 @@ git tag -n
 
 ## PKG Data Source (Optional)
 
-If `/atlas:changelog` has been run, cached commit data is available:
+If an external pre-built cache exists at `.claude/.meta/commits.pkg.json`, it can be used directly:
 
 ```bash
 # Check cache

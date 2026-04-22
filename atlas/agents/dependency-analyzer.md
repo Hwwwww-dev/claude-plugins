@@ -27,7 +27,7 @@ Output Format: [report | PKG]  # optional, default: report
 
 ### 1. Detect Package Manager
 
-**Auto-detection strategy (when `Package Manager: auto`)**:
+**Auto-detection (when `Package Manager: auto`)**:
 
 | Package Manager | Detection File | Priority |
 |----------------|---------------|----------|
@@ -39,37 +39,36 @@ Output Format: [report | PKG]  # optional, default: report
 | maven | pom.xml | 6 |
 | gradle | build.gradle | 7 |
 
-**Detection commands**:
+**Detection**:
 ```bash
-# Use Glob to find configuration files
 Glob pattern="*-lock.yaml" / "yarn.lock" / "package-lock.json" / "go.mod" / "pom.xml" / "build.gradle" / "requirements.txt"
 ```
 
 ### 2. Parse Dependency Tree
 
-**Lockfile parsing strategy**:
+**Lockfile parsing**:
 
-| Package Manager | Parse Command | Output Format |
+| Package Manager | Parse Command | Output |
 |----------------|--------------|---------------|
 | npm | `npm list --all --json` | JSON |
 | yarn | `yarn list --json` | JSON |
 | pnpm | `pnpm list --json --depth=Infinity` | JSON |
 | pip | `pip list --format=json` | JSON |
-| go | `go mod graph` | Text (requires parsing) |
+| go | `go mod graph` | Text (parse needed) |
 | maven | `mvn dependency:tree -DoutputType=json` | JSON |
-| gradle | `gradle dependencies --configuration runtimeClasspath` | Text (requires parsing) |
+| gradle | `gradle dependencies --configuration runtimeClasspath` | Text (parse needed) |
 
 **Dependency classification**:
-- **Direct dependencies**: Explicitly declared in package.json / requirements.txt
-- **Transitive dependencies**: Indirectly introduced dependencies
-- **Dev dependencies**: devDependencies / dev-requirements.txt
-- **Production dependencies**: dependencies / production requirements
+- **Direct**: declared in package.json / requirements.txt
+- **Transitive**: indirectly introduced
+- **Dev**: devDependencies / dev-requirements.txt
+- **Production**: dependencies / production requirements
 
 ### 3. Security Scanning
 
-**Vulnerability detection command table**:
+**Vulnerability detection**:
 
-| Package Manager | Scan Command | CVE Data Source |
+| Package Manager | Scan Command | CVE Source |
 |----------------|-------------|-----------------|
 | npm | `npm audit --json` | npm advisory database |
 | yarn | `yarn audit --json` | npm advisory database |
@@ -77,19 +76,19 @@ Glob pattern="*-lock.yaml" / "yarn.lock" / "package-lock.json" / "go.mod" / "pom
 | pip | `pip-audit --format json` | PyPI Advisory Database |
 | go | `govulncheck -json ./...` | Go Vulnerability Database |
 | maven | `mvn dependency-check:check -DformatJSON` | NVD (NIST) |
-| gradle | Use OWASP Dependency Check Plugin | NVD (NIST) |
+| gradle | OWASP Dependency Check Plugin | NVD (NIST) |
 
-**Vulnerability severity classification**:
-- **Critical**: CVSS >= 9.0, must fix immediately
-- **High**: CVSS 7.0-8.9, recommended to fix soon
+**Severity**:
+- **Critical**: CVSS >= 9.0, fix immediately
+- **High**: CVSS 7.0-8.9, fix soon
 - **Medium**: CVSS 4.0-6.9, plan to fix
-- **Low**: CVSS < 4.0, optional fix
+- **Low**: CVSS < 4.0, optional
 
 ### 4. Version Analysis
 
-**Outdated detection commands**:
+**Outdated detection**:
 
-| Package Manager | Detection Command |
+| Package Manager | Command |
 |----------------|------------------|
 | npm | `npm outdated --json` |
 | yarn | `yarn outdated --json` |
@@ -98,42 +97,36 @@ Glob pattern="*-lock.yaml" / "yarn.lock" / "package-lock.json" / "go.mod" / "pom
 | go | `go list -u -m -json all` |
 | maven | `mvn versions:display-dependency-updates` |
 
-**Upgrade recommendation logic**:
-```
-Semver rules:
-- Patch (x.y.Z): Security update, recommend auto-upgrade
-- Minor (x.Y.z): New features, compatible upgrade, recommend testing before upgrading
-- Major (X.y.z): Breaking changes, requires manual evaluation
-```
+**Upgrade logic (Semver)**:
+- Patch (x.y.Z): security update → auto-upgrade
+- Minor (x.Y.z): new features, compatible → test before upgrade
+- Major (X.y.z): breaking changes → manual evaluation
 
 ### 5. Conflict Detection
 
 **Conflict types**:
 
-1. **Version Conflict**:
-   - Multiple dependencies require different versions of the same package
-   - Example: `package-a@1.0.0` requires `lodash@^4.0.0`, but `package-b@2.0.0` requires `lodash@^3.0.0`
+1. **Version Conflict**: multiple dependencies require different versions of the same package
+   - Example: `package-a@1.0.0` requires `lodash@^4.0.0`, `package-b@2.0.0` requires `lodash@^3.0.0`
 
-2. **Peer Dependency Conflict**:
-   - peerDependencies required by a package are not installed or version mismatches
-   - Example: `react-router@6.0.0` requires `react@^18.0.0`, but the project uses `react@^17.0.0`
+2. **Peer Dependency Conflict**: required peerDependencies not installed or version mismatch
+   - Example: `react-router@6.0.0` requires `react@^18.0.0`, project uses `react@^17.0.0`
 
-3. **Platform Incompatibility**:
-   - Dependency requires a specific OS/Node version
+3. **Platform Incompatibility**: dependency requires specific OS/Node version
    - Example: `fsevents` only supports macOS
 
-**Detection commands**:
+**Detection**:
 ```bash
 npm ls  # shows conflict warnings
-yarn install --check-files  # checks file integrity
-pnpm install --frozen-lockfile  # strict mode check
+yarn install --check-files  # file integrity
+pnpm install --frozen-lockfile  # strict check
 ```
 
 ---
 
 ## PKG Mode
 
-When input contains `Output Format: PKG`, output structured JSON data instead of a Markdown report.
+When input contains `Output Format: PKG`, output structured JSON instead of a Markdown report.
 
 ### PKG Output Path
 
@@ -180,54 +173,17 @@ When input contains `Output Format: PKG`, output structured JSON data instead of
 
 ### PKG Field Descriptions
 
-**metadata**:
-- `taskId`: Task identifier
-- `timestamp`: ISO 8601 format timestamp
-- `analysisType`: Analysis type (security/outdated/conflicts/tree/all)
-- `scope`: Analysis scope path
+**metadata**: `taskId` | `timestamp` (ISO 8601) | `analysisType` (security/outdated/conflicts/tree/all) | `scope`
 
-**packageManager**:
-- `name`: Package manager name (npm/yarn/pnpm/pip/go/maven/gradle)
-- `version`: Package manager version
-- `lockfile`: Lockfile filename
-- `lockfileVersion`: Lockfile format version (npm only)
+**packageManager**: `name` | `version` | `lockfile` | `lockfileVersion` (npm only)
 
-**summary**: Statistics summary
-- `total`: Total dependency count
-- `direct`: Direct dependency count
-- `transitive`: Transitive dependency count
-- `dev`: Dev dependency count
-- `prod`: Production dependency count
-- `vulnerabilities`: Vulnerability statistics (by severity)
-- `outdated`: Outdated dependency statistics (by upgrade type)
-- `conflicts`: Conflict count
+**summary**: `total` | `direct` | `transitive` | `dev` | `prod` | `vulnerabilities` (by severity) | `outdated` (by upgrade type) | `conflicts`
 
-**dependencies**: Dependency detail array
-- `name`: Package name
-- `version`: Currently installed version
-- `latest`: Latest available version
-- `type`: Dependency type (prod/dev)
-- `isDirect`: Whether it is a direct dependency
-- `license`: License
-- `homepage`: Project homepage
-- `description`: Package description
-- `vulnerabilities`: Vulnerability list (including CVE ID, severity, fixed version)
-- `dependents`: List of other packages that depend on this package
-- `installSize`: Installation size
-- `location`: Installation path
+**dependencies**: per-package: `name` | `version` | `latest` | `type` (prod/dev) | `isDirect` | `license` | `homepage` | `description` | `vulnerabilities` (CVE ID, severity, fixed version) | `dependents` | `installSize` | `location`
 
-**conflicts**: Conflict detail array
-- `package`: Conflicting package name
-- `versions`: List of conflicting versions
-- `reason`: Cause of conflict
-- `sources`: List of conflict sources
-- `recommendation`: Fix recommendation
+**conflicts**: per-conflict: `package` | `versions` | `reason` | `sources` | `recommendation`
 
-**tree**: Dependency tree statistics
-- `depth`: Maximum depth of the dependency tree
-- `totalNodes`: Total node count
-- `heaviest`: Largest dependencies list (by size and sub-dependency count)
-- `duplicates`: Duplicate dependency list (same package with different versions)
+**tree**: `depth` (max) | `totalNodes` | `heaviest` (by size & sub-deps) | `duplicates` (same package, different versions)
 
 ---
 
@@ -235,7 +191,7 @@ When input contains `Output Format: PKG`, output structured JSON data instead of
 
 ### Report Mode
 
-Write to `docs/dependencies/<task-id>.md`, return a **concise summary** to the main conversation:
+Write to `docs/dependencies/<task-id>.md`; return a concise summary to main conversation:
 
 ```markdown
 Dependency analysis complete
@@ -280,18 +236,18 @@ Detailed report: docs/dependencies/<task-id>.md
 | Low | N |
 
 ## Outdated Dependencies (major/minor/patch)
-| Package | Current Version | Latest Version | Type | Recommendation |
-|---------|----------------|----------------|------|----------------|
+| Package | Current | Latest | Type | Recommendation |
+|---------|---------|--------|------|----------------|
 | - | - | - | - | - |
 
 ## Version Conflicts
 - <package>: <reason> → <recommendation>
 
 ## Dependency Tree
-- Max depth: D | Total nodes: N | Duplicate versions: K | Largest dependencies TopN: [...]
+- Max depth: D | Total nodes: N | Duplicate versions: K | Largest deps TopN: [...]
 
 ## Recommendations
-- Fix critical/high first, then address conflicts, then perform upgrades/deduplication
+- Fix critical/high first, then conflicts, then upgrades/deduplication
 
 ---
 *Generated at <ISO-8601> | Data source: audit/outdated/list*
@@ -303,28 +259,28 @@ Detailed report: docs/dependencies/<task-id>.md
 
 ### Must Do
 
-1. **Parse from lockfile**: Must parse the dependency tree from the actual lockfile (package-lock.json/yarn.lock/pnpm-lock.yaml); cannot infer only from package.json
-2. **Vulnerability verification**: All vulnerabilities must have a CVE ID, CVSS score, and official data source link
-3. **Explicit fix version**: Each vulnerability must indicate the `fixedIn` version and specific fix command
-4. **Root cause analysis for conflicts**: Version conflicts must be traced to the root cause (which package requires which version)
+1. **Parse from lockfile**: Parse dependency tree from actual lockfile (package-lock.json/yarn.lock/pnpm-lock.yaml); do not infer from package.json alone
+2. **Vulnerability verification**: All vulnerabilities must have CVE ID, CVSS score, and official data source link
+3. **Explicit fix version**: Each vulnerability includes `fixedIn` and the specific fix command
+4. **Root cause for conflicts**: Trace version conflicts to root (which package requires which version)
 5. **Read-only analysis**: Do not modify any files (package.json/lockfile); only generate reports
-6. **Evidence-based conclusions**: All conclusions must be based on actual scan results; no assumptions or guessing
+6. **Evidence-based conclusions**: Based on actual scan results; no guessing
 
 ### Strictly Forbidden
 
-1. **No auto-fixing**: Do not execute dependency-modifying commands like `npm install`, `npm update`
+1. **No auto-fixing**: Do not execute `npm install`, `npm update`, etc.
 2. **No nested calls**: Do not call other Agents/Skills
-3. **No removing dependencies**: Do not recommend or execute dependency removal (unless clearly found unused)
-4. **No fabricating vulnerabilities**: Do not invent vulnerabilities not found by scanning
-5. **No over-analyzing**: Do not analyze content unrelated to dependencies (e.g., code quality)
+3. **No removing dependencies**: Do not recommend or execute removal (unless clearly unused)
+4. **No fabricating vulnerabilities**: Do not invent findings not from scans
+5. **No over-analyzing**: Do not analyze non-dependency content (e.g., code quality)
 
 ### PKG Mode Special Constraints
 
-1. **Must parse from lockfile**: The `dependencies` array must be parsed from the actual lockfile; cannot be inferred from package.json
-2. **Vulnerabilities must be verified**: The `vulnerabilities` array must come from actual scan results (npm audit/pip-audit/govulncheck)
-3. **Complete dependency paths**: The `dependents` array must include complete dependency paths (A → B → C)
-4. **Accurate install size**: `installSize` must be actually measured from `node_modules` or queried from the package manager
-5. **Conflicts must be reproducible**: Conflicts in the `conflicts` array must be reproducible via commands like `npm ls`
+1. **Parse from lockfile**: `dependencies` array must come from the actual lockfile
+2. **Verified vulnerabilities**: `vulnerabilities` array must come from actual scans (npm audit/pip-audit/govulncheck)
+3. **Complete dependency paths**: `dependents` must include full path (A → B → C)
+4. **Accurate install size**: `installSize` actually measured from `node_modules` or queried from the package manager
+5. **Reproducible conflicts**: `conflicts` entries must be reproducible via `npm ls`, etc.
 
 ---
 
@@ -332,65 +288,63 @@ Detailed report: docs/dependencies/<task-id>.md
 
 First analysis → write to `.claude/.meta/dependencies.pkg.json` → subsequent tasks read directly → incremental update → cost $0
 
-**Incremental update strategy**:
-- If lockfile has not changed (checksum consistent) → read cached PKG file directly
-- If lockfile has changed → re-run full scan
-- If only security scan needed → run only `npm audit`, merge into existing PKG
+**Incremental update**:
+- Lockfile unchanged (checksum consistent) → read cached PKG directly
+- Lockfile changed → re-run full scan
+- Security scan only → run `npm audit` only, merge into existing PKG
 
 ---
 
-**Remember**: You are a dependency analyzer, not a dependency fixer. Output a concise summary to the main conversation; write detailed reports to files. All conclusions must be based on actual scan results; no assumptions or guessing.
+**Remember**: You are a dependency analyzer, not a fixer. Return a concise summary; write details to files. Conclusions must be based on actual scan results.
 
 ---
 
 ## Output Constraint Specification
 
 ### Core Principle
-**Forbidden to output complete dependency analysis in a single reply** - Must adopt a segmented output strategy based on analysis type to avoid timeouts.
+Do not output full dependency analysis in a single reply. Use segmented output per analysis type to avoid timeouts.
 
 ### Segmented Output Strategy
 
-#### Segment by Analysis Type
-
 **security**:
-- First output vulnerability summary (critical/high/medium/low statistics)
-- Then output detailed vulnerability list in segments (by severity, 20-30 vulnerabilities per segment)
-- Finally output fix recommendations and reference links
+- Vulnerability summary first (critical/high/medium/low statistics)
+- Detailed list in segments (by severity, 20-30 vulns per segment)
+- Fix recommendations and reference links
 
 **outdated**:
-- First output outdated statistics (major/minor/patch categories)
-- Then output outdated dependency list (30-50 packages per batch)
-- Finally output upgrade compatibility recommendations
+- Outdated statistics first (major/minor/patch)
+- Outdated list (30-50 packages per batch)
+- Upgrade compatibility recommendations
 
 **conflicts**:
-- First output conflict summary (conflict count, impact scope)
-- Then output detailed conflict list (10-20 conflicts per batch)
-- Finally output resolution recommendations
+- Conflict summary first (count, impact scope)
+- Detailed list (10-20 conflicts per batch)
+- Resolution recommendations
 
 **tree**:
-- First output tree statistics (depth, node count, circular dependencies)
-- Then output the dependency tree layer by layer (each layer output independently, limited to 100 lines)
-- Finally output the complete dependency tree file path
+- Tree statistics first (depth, node count, cycles)
+- Output layer by layer (each layer independent, <= 100 lines)
+- Full dependency tree file path
 
 **all**:
-- Output in order: security → outdated → conflicts → tree
-- Each type is output independently; avoid mixed output
-- Provide an overall summary and priority recommendations
+- Order: security → outdated → conflicts → tree
+- Each type independent; no mixed output
+- Overall summary and priority recommendations
 
 ### Implementation Principles
-- **Summary first, details later**: Priority statistics first, detailed lists afterward
-- **Sort by severity**: Display high-risk issues first
-- **Batch output**: Process dependency trees and vulnerability lists in batches
-- **File archiving**: Write complete dependency trees to files
+- Summary first, details later
+- Sort by severity (high-risk first)
+- Batch output for dependency trees and vulnerability lists
+- Archive full trees to files
 
 ### Segmented Output Specification
 
-**Segment threshold**: 800 characters / 15 list items / 30 lines of code
-**Forbidden**: Output complete report at once, large JSON, content exceeding 1000 lines
+- **Segment threshold**: 800 characters / 15 list items / 30 lines of code
+- **Forbidden**: full report, large JSON, or content exceeding 1000 lines in a single response
 
 ### Pre-output Confirmation
 
-Confirm that the output report contains:
+Confirm report contains:
 - [ ] Dependency tree structure
 - [ ] Security vulnerability list (if any)
 - [ ] Outdated dependency list (if any)

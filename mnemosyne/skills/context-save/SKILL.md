@@ -4,16 +4,16 @@ description: Save current session context (decisions, progress, resumable steps)
 version: 4.0.0
 ---
 
-**Path Rule:** All `.claude` paths refer to the project root `.claude/`, not `~/.claude/`.
+**Path Rule:** `.claude` = project root `.claude/`, not `~/.claude/`.
 
 # Context Save v4.0
 
 ## Iron Laws
-- Only record "facts/decisions/outcomes"; write "Not mentioned" for missing info.
-- Do not save large code blocks: only summaries + `file:line` references; long snippets go to `snippets/`.
-- Do not write to disk without user confirmation.
+- Record facts/decisions/outcomes only; missing info = "Not mentioned".
+- No large code blocks: summary + `file:line` only; long snippets → `snippets/`.
+- No disk write without user confirmation.
 
-> Violating the letter of this rule IS violating the spirit.
+> Violating the letter IS violating the spirit.
 
 ## index.json Schema (4.0.0)
 ```json
@@ -35,24 +35,24 @@ version: 4.0.0
 ```
 
 ## Quality Score Definition (0-100)
-Weighted by section completeness: Intent(15)+Decisions(10)+Changes(20)+Progress(10)+Issues(10)+Tech(5)+FileMap(10)+Continuation(10)+Stats(5)+Snippets(5). Empty sections score 0; "Not mentioned" scores 0.
+Weighted by section completeness: Intent(15)+Decisions(10)+Changes(20)+Progress(10)+Issues(10)+Tech(5)+FileMap(10)+Continuation(10)+Stats(5)+Snippets(5). Empty or "Not mentioned" = 0.
 
 ## Auto-Classification Rules (Heuristic)
-- bugfix: Commit/title contains fix/bug/hotfix; changes concentrated in `*.test.*`, `src/*` small-scope fixes.
-- feature: Contains feat/feature/add/new; adds routes/APIs/components/table schemas.
-- refactor: Contains refactor/rename/restructure; extensive renaming/abstraction changes.
-- exploration: Contains spike/poc/explore/benchmark.
-- config: Primarily config/CI/environment/script changes (.yml/.json/.env/.sh etc.).
+- bugfix: title/commit contains fix/bug/hotfix; small-scope changes in `*.test.*`, `src/*`.
+- feature: feat/feature/add/new; new routes/APIs/components/schemas.
+- refactor: refactor/rename/restructure; large renaming/abstraction.
+- exploration: spike/poc/explore/benchmark.
+- config: config/CI/env/script changes (.yml/.json/.env/.sh).
 
-## Gate Execution Protocol (Must pass sequentially)
-1→2→3→4→5; if any Gate fails, stop and report.
+## Gate Execution Protocol (Sequential)
+1→2→3→4→5; any Gate fail → stop and report.
 
 ### Step 1 (Gate 1) User Confirmation
-- Generate quick preview: one-line summary, estimated rounds/file changes, involved modules.
-- **Localization**: Detect the system/conversation language (e.g., `zh-CN`, `en`, `ja`) and render ALL `header`/`question`/`label`/`description` strings in that language. Never hardcode English. If the user has been conversing in Chinese, the prompt MUST be in Chinese.
-- **Dynamic Tags**: Do NOT use a fixed tag list. Derive 4–6 candidate tags from the actual conversation context — involved modules, file paths, tech stack, domain keywords, and the auto-classified `category`. Each candidate's `description` should cite why (e.g., "detected in `src/auth/*` edits").
-- Call AskUserQuestion (MCP) to collect **Title** and **Tags** only. Do NOT ask a separate "Action" question — proceeding to Step 2 after the user answers is the implicit confirmation; cancellation is handled by the user declining/aborting the prompt.
-- Example skeleton (replace strings with the detected language; replace Tags options with context-derived candidates):
+- Preview: one-line summary, estimated rounds/file changes, modules.
+- **Localization**: Detect system/conversation language (`zh-CN`, `en`, `ja`, ...); render ALL `header`/`question`/`label`/`description` in that language. Never hardcode English. User conversing in Chinese → prompt MUST be Chinese.
+- **Dynamic Tags**: No fixed list. Derive 4–6 candidates from context — modules, file paths, tech stack, domain keywords, auto-classified `category`. Each `description` cites source (e.g., "detected in `src/auth/*` edits").
+- Call AskUserQuestion (MCP) for **Title** and **Tags** only. No separate "Action" question — proceeding to Step 2 = implicit confirmation; cancel = user aborts prompt.
+- Skeleton (replace strings with detected language; replace Tags with context-derived candidates):
 ```json
 {
   "questions": [
@@ -79,11 +79,11 @@ Weighted by section completeness: Intent(15)+Decisions(10)+Changes(20)+Progress(
   ]
 }
 ```
-- Gate condition: User provides Title and at least 1 Tag.
+- Gate: Title + ≥1 Tag provided.
 
 ### Step 2 (Gate 2) Dedup Detection (Similar Entry Alert)
-- Read history from `.claude/mnemosyne/index.json`, flag candidates by title Jaccard≥0.8 or Levenshtein≤0.2, summary similarity≥0.75.
-- If matched, call AskUserQuestion to ask: Merge/Save New/Cancel.
+- Read `.claude/mnemosyne/index.json`; flag candidates by title Jaccard≥0.8 or Levenshtein≤0.2, summary similarity≥0.75.
+- On match, AskUserQuestion: Merge/Save New/Cancel.
 ```json
 {
   "questions": [
@@ -100,28 +100,28 @@ Weighted by section completeness: Intent(15)+Decisions(10)+Changes(20)+Progress(
   ]
 }
 ```
-- Merge: Update old record's `context.md` §3/§4/§8, and update index fields `summary/quality_score/tags/file_map/completion_status/last_accessed`.
-- Gate condition: If Merge is selected, verify old record exists and is writable; if Save New, proceed to Step 3.
+- Merge: update old record's `context.md` §3/§4/§8 + index fields `summary/quality_score/tags/file_map/completion_status/last_accessed`.
+- Gate: Merge → verify old record exists and writable; Save New → Step 3.
 
 ### Step 3 (Gate 3) Smart Extraction (10-Section Template)
-Extraction rule: Only write facts; write "Not mentioned" for missing info.
+Rule: facts only; missing = "Not mentioned".
 1. Intent  2. Key Decisions  3. Code Changes  4. Progress  5. Issues & Solutions
 6. Tech Context  7. File Map  8. Continuation Guide  9. Session Stats  10. Key Code Snippets
-- Code changes: List new/modified/deleted files, dependencies, and commands; long snippets go to `snippets/`.
-- Gate condition: All 10 sections exist and are non-empty (or explicitly marked "Not mentioned").
+- Code changes: list new/modified/deleted files, deps, commands; long snippets → `snippets/`.
+- Gate: all 10 sections non-empty (or explicit "Not mentioned").
 
 ### Step 4 (Gate 4) Scoring & Classification
-- Calculate `quality_score` based on "Quality Score Definition"; derive `completion_status` from §4 (e.g., Done/Partial/Pending).
-- Calculate `category` using heuristics; default `importance=normal`; `file_map` derived from §3/§7.
-- Display summary to user (no re-confirmation needed).
-- Gate condition: `quality_score`∈[0,100], `category`∈enum, all fields complete.
+- Compute `quality_score` per definition; derive `completion_status` from §4 (Done/Partial/Pending).
+- Compute `category` via heuristics; default `importance=normal`; `file_map` from §3/§7.
+- Show summary to user (no re-confirmation).
+- Gate: `quality_score`∈[0,100], `category`∈enum, all fields complete.
 
 ### Step 5 (Final Gate) Write
 - Directory: `.claude/mnemosyne/<YYYYMMDD-HHmmss>-<slug>/`; generate/validate `index.json`.
-- Write `context.md` and update `index.json` (append or merge).
-- Success criteria:
-  - `context.md` contains frontmatter + 10 sections;
-  - `index.json` has 1 entry appended/updated, `schema_version=4.0.0`.
+- Write `context.md`; update `index.json` (append or merge).
+- Success:
+  - `context.md` has frontmatter + 10 sections;
+  - `index.json` has 1 appended/updated entry, `schema_version=4.0.0`.
 
 ## context.md Template (10 Sections)
 ```markdown
@@ -179,20 +179,20 @@ completion: <percent>
 
 ## Red Flags (Self-Check)
 
-If you find yourself thinking any of the following, **STOP immediately**:
+Thinking any of these → **STOP**:
 
-- "The user already described everything, no need to ask" → WRONG. Always confirm via AskUserQuestion.
-- "This is a simple save, skip the quality check" → WRONG. Every save deserves quality scoring.
-- "I'll just save without checking for duplicates" → WRONG. Dedup check is mandatory.
-- "The section template is too long, I'll abbreviate" → WRONG. All 10 sections must be populated.
-- "I can skip the Gate, it's obvious" → WRONG. Gates exist because "obvious" is often wrong.
+- "User already described everything, no need to ask" → WRONG. Always AskUserQuestion.
+- "Simple save, skip quality check" → WRONG. Every save gets scored.
+- "Save without dedup check" → WRONG. Dedup is mandatory.
+- "Template too long, abbreviate" → WRONG. All 10 sections populated.
+- "Gate is obvious, skip" → WRONG. "Obvious" is often wrong.
 
 ## Rationalization Prevention
 
 | Your Excuse | The Truth |
 |---|---|
-| "User already specified everything" | Confirmation ≠ assumption. Call AskUserQuestion to verify. |
-| "Too simple to need the full flow" | Simple tasks are where shortcuts cause the most damage. |
-| "No time for duplicate checking" | Duplicate records waste more time than checking prevents. |
-| "Quality scoring is subjective" | The formula is defined. Apply it objectively. |
-| "The user won't notice missing sections" | Incomplete saves are technical debt. |
+| "User already specified everything" | Confirmation ≠ assumption. AskUserQuestion to verify. |
+| "Too simple for full flow" | Shortcuts damage simple tasks most. |
+| "No time for dedup" | Duplicate records waste more time than the check. |
+| "Quality scoring is subjective" | Formula is defined. Apply it objectively. |
+| "User won't notice missing sections" | Incomplete saves = technical debt. |

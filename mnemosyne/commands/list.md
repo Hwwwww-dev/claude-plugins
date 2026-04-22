@@ -3,19 +3,17 @@ description: Use when user says "list" or wants to see all saved session context
 argument-hint: [--limit N] [--tag tag] [--sort time|tag|quality_score|last_accessed] [--group tag|date]
 ---
 
-> Schema reference: All field names follow the index.json v4.0.0 schema defined in context-save/SKILL.md.
+> Schema: index.json v4.0.0 (see context-save/SKILL.md).
 
-# /mnemosyne:list (Enhanced Inline)
+# /mnemosyne:list
 
 ## Capabilities
-- Sorting: by time/tag/quality_score/last_accessed;
-- Grouping: by tag or date;
-- Post-action interactions: load/delete/search.
+Sort by time/tag/quality_score/last_accessed; group by tag/date; post-action load/delete/search.
 
 ## Steps
-1. Read `.claude/mnemosyne/index.json`, sort/group per params and paginate (default `--limit 10`).
+1. Read `.claude/mnemosyne/index.json`; sort/group per params; paginate (default `--limit 10`).
 2. Output table: ID/Title/Tags/created_at/quality_score/last_accessed.
-3. AskUserQuestion: choose to load/delete an entry, or go to search. Example:
+3. AskUserQuestion for follow-up:
 ```json
 {
   "title":"List Actions",
@@ -24,7 +22,7 @@ argument-hint: [--limit N] [--tag tag] [--sort time|tag|quality_score|last_acces
 }
 ```
 
-## Empty List
+## Empty
 ```
 No saved contexts yet. Use /mnemosyne:save first.
 ```

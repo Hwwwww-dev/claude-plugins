@@ -9,9 +9,9 @@ color: green
 
 ## Interaction Rules
 
-- **Localization**: All `AskUserQuestion` `header`/`question`/`label`/`description` strings MUST be rendered in the detected system/conversation language. Never hardcode English — translate every user-facing string before calling the tool.
-- **Batch prompts**: Prefer a single `AskUserQuestion` call with multiple `questions[]` over sequential calls. (Merge Step 1 and Step 1b into one call when both apply.)
-- **No redundant Cancel**: Confirmation prompts MUST NOT add an explicit `Cancel` option — cancellation is implicit.
+- **Localization**: Render all `AskUserQuestion` `header`/`question`/`label`/`description` strings in the detected system language. Translate user-facing strings before calling.
+- **Batch prompts**: One `AskUserQuestion` with multiple `questions[]`. Merge Step 1 and Step 1b into one call when both apply.
+- **No redundant Cancel**: Cancellation is implicit.
 
 ## Agents & Tools
 
@@ -92,7 +92,7 @@ Q3: Analysis depth — normal (recommended) / deep
 Q4: Analysis scope — all (recommended) / specific path
 ```
 
-**Auto mode defaults** (skip Q2): Task system, mode inferred from task description, normal depth, all scope.
+**Auto mode defaults** (skip Q2): Task system, mode inferred from task, normal depth, all scope.
 
 ---
 
@@ -133,7 +133,7 @@ Quick report format:
 [If insufficient] Suggestion: Use auto mode `/gather <target>` for deeper analysis
 ```
 
-**Risk**: May miss indirect references. Switch to standard mode if results are insufficient.
+**Risk**: May miss indirect references. Switch to standard mode if insufficient.
 
 ---
 
@@ -193,26 +193,26 @@ The gatherer automatically checks and reuses these files.
 ## Constraints
 
 ### Standard Mode — MUST do
-- ✅ Confirm mode (skip if args fully specified)
-- ✅ Initialize progress tracking: Task system via `TaskCreate` OR file state via `.claude/orchestrate/.state/<task-id>.json`
-- ✅ Invoke gatherer agent, write output to `.claude/gather/<task-id>/`
-- ✅ Output includes file paths and line numbers (reuse `.claude/repowiki/` when available)
-- ✅ Task system: use `TaskUpdate` to mark completion
+- Confirm mode (skip if args fully specified)
+- Initialize progress tracking: Task system via `TaskCreate` OR file state via `.claude/orchestrate/.state/<task-id>.json`
+- Invoke gatherer agent, write to `.claude/gather/<task-id>/`
+- Output includes file paths and line numbers (reuse `.claude/repowiki/` when available)
+- Task system: use `TaskUpdate` to mark completion
 
 ### Quick Mode — MUST do
-- ✅ Create state file; main process ≤5 tool calls; output brief report
-- ✅ Suggest auto mode if analysis is insufficient
+- Create state file; main process ≤5 tool calls; brief report
+- Suggest auto mode if analysis is insufficient
 
 ### Quick Mode — ALLOWED
-- ✅ Main process uses Grep/Glob/Read/LSP directly (≤5 calls)
-- ✅ Skip gatherer agent
-- ✅ Skip progress tracking
+- Main process uses Grep/Glob/Read/LSP directly (≤5 calls)
+- Skip gatherer agent
+- Skip progress tracking
 
 ### FORBIDDEN
-- ❌ Standard mode: main process reads or analyzes business code directly
-- ❌ Standard mode: skip gatherer and output directly
-- ❌ Modify any files
-- ❌ Auto mode: ask collection config questions
-- ❌ Quick mode for complex tasks (>3 files or deep dependency analysis)
-- ❌ Task system: forget to call `TaskUpdate` after completion
-- ❌ File state mode: forget to update state file
+- Standard mode: main process reads/analyzes business code directly
+- Standard mode: skip gatherer and output directly
+- Modify any files
+- Auto mode: ask collection config questions
+- Quick mode for complex tasks (>3 files or deep dependency analysis)
+- Task system: forget `TaskUpdate` after completion
+- File state mode: forget to update state file

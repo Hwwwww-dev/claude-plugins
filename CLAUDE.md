@@ -21,31 +21,24 @@ cc-plugins/
 ├── atlas/                         # Atlas 任务协调框架插件
 │   ├── .claude-plugin/
 │   │   └── plugin.json           # 插件元数据(名称、版本、描述等)
-│   ├── agents/                   # 专业化 agents (8个)
+│   ├── agents/                   # 专业化 agents (5个)
 │   │   ├── atlas-executor.md     # 任务执行器: 执行具体的子任务
 │   │   ├── code-reviewer.md      # 代码审查: 多维度代码质量分析
-│   │   ├── commit-analyzer.md    # 提交分析: Git 提交历史分析
 │   │   ├── dependency-analyzer.md # 依赖分析: 依赖关系与安全检查
 │   │   ├── information-gatherer.md # 信息收集: 收集和分析项目信息
-│   │   ├── task-planner.md            # 规划器: 任务规划与分解
-│   │   ├── repo-context-indexer.md # 仓库索引: 项目上下文建立
-│   │   └── repo-semantic-analyzer.md # 语义分析: 代码语义理解
+│   │   └── task-planner.md       # 规划器: 任务规划与分解
 │   ├── hooks/                    # Hooks 配置
-│   │   └── hooks.json            # PreToolUse hooks: 防止嵌套调用
-│   └── skills/                   # Skills (13个)
+│   │   └── hooks.json            # 约束: 防 compact 丢失 / 防 subagent 嵌套 / 主动委派
+│   └── skills/                   # Skills (9个)
 │       ├── orchestrate/          # 任务协调与并发执行引擎
 │       ├── gather/               # 智能信息收集
 │       ├── review/               # 多维度代码审查
 │       ├── refactor/             # 智能重构
 │       ├── bugfix/               # 问题诊断与修复
-│       ├── test-gen/             # 自动化测试生成
 │       ├── deps/                 # 依赖管理
 │       ├── health/               # 项目健康检查
-│       ├── changelog/            # 变更日志生成
-│       ├── repo-wiki/            # 仓库文档编排
 │       ├── dep-query/            # 依赖查询: 版本、漏洞、使用位置
-│       ├── git-query/            # Git 查询: 提交、贡献者、分支
-│       └── wiki-query/           # Wiki 查询: 项目结构、API、模块
+│       └── git-query/            # Git 查询: 提交、贡献者、分支
 ├── ideation/                      # Ideation 多角色头脑风暴插件
 │   ├── .claude-plugin/
 │   │   └── plugin.json           # 插件元数据
@@ -71,14 +64,18 @@ cc-plugins/
 ├── mnemosyne/                     # Mnemosyne 上下文记忆插件
 │   ├── .claude-plugin/
 │   │   └── plugin.json           # 插件元数据
-│   └── commands/                 # 记忆管理命令 (7个)
-│       ├── save.md               # /save 保存当前会话上下文
-│       ├── load.md               # /load 加载历史上下文
-│       ├── list.md               # /list 查看保存的上下文列表
-│       ├── search.md             # /search 搜索历史上下文
-│       ├── delete.md             # /delete 删除指定上下文
-│       ├── clean.md              # /clean 清理过期上下文
-│       └── stats.md              # /stats 显示存储统计
+│   ├── commands/                 # 记忆管理命令 (7个)
+│   │   ├── save.md               # /save 保存当前会话上下文
+│   │   ├── load.md               # /load 加载历史上下文
+│   │   ├── list.md               # /list 查看保存的上下文列表
+│   │   ├── search.md             # /search 搜索历史上下文
+│   │   ├── delete.md             # /delete 删除指定上下文
+│   │   ├── clean.md              # /clean 清理过期上下文
+│   │   └── stats.md              # /stats 显示存储统计
+│   └── skills/                   # 实现引擎 (3个)
+│       ├── context-save/         # 保存 + 去重 + 质量评分 + 自动分类
+│       ├── context-load/         # 交互式加载 + 冲突检测 + 陈旧警告
+│       └── context-search/       # 模糊搜索 + 交互式结果加载
 ├── docs/                         # Claude Code 插件系统参考文档
 └── README.md / README_zh.md      # 项目说明文档
 ```
@@ -114,8 +111,8 @@ cc-plugins/
 ### 版本号规范
 
 项目遵循语义化版本 (Semantic Versioning 2.0.0):
-- **MAJOR.MINOR.PATCH** (例如: 2.21.0)
-  - MAJOR: 不兼容的 API 变更
+- **MAJOR.MINOR.PATCH** (例如: 3.0.0)
+  - MAJOR: 不兼容的 API 变更（含 skill/agent 删除）
   - MINOR: 向后兼容的功能新增
   - PATCH: 向后兼容的问题修正
 

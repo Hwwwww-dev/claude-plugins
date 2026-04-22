@@ -10,23 +10,21 @@ color: orange
 > **Scope**: Fast, read-only queries against a pre-built index. Never writes to disk.
 > **Not this skill**: For vulnerability scans, conflict detection, or remediation use `atlas:deps`.
 
-Query project dependency information from the `.claude/.meta/dependencies.pkg.json` index.
+Query project dependency info from the `.claude/.meta/dependencies.pkg.json` index.
 
 ## Script Path
 
-Use the `${CLAUDE_PLUGIN_ROOT}` environment variable (set automatically by Claude Code):
+Use `${CLAUDE_PLUGIN_ROOT}` (set automatically by Claude Code):
 
 ```bash
-# Script location
 ${CLAUDE_PLUGIN_ROOT}/skills/dep-query/scripts/query_deps.py
 ```
 
-**Fallback**: Relative path `scripts/query_deps.py` (relies on Claude to resolve the base path automatically)
+**Fallback**: Relative path `scripts/query_deps.py` (Claude resolves base path).
 
 ## Prerequisites
 
 ```bash
-# Check if the dependency index exists
 ls .claude/.meta/dependencies.pkg.json 2>/dev/null || echo "❌ Please run /atlas:deps first"
 ```
 
@@ -34,7 +32,7 @@ ls .claude/.meta/dependencies.pkg.json 2>/dev/null || echo "❌ Please run /atla
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `pkg <name>` | Query dependency details | dep-query pkg lodash |
+| `pkg <name>` | Dependency details | dep-query pkg lodash |
 | `vuln [severity]` | List vulnerabilities | dep-query vuln critical |
 | `outdated` | Outdated dependencies | dep-query outdated |
 | `tree <name>` | Dependency tree | dep-query tree react |
@@ -43,16 +41,14 @@ ls .claude/.meta/dependencies.pkg.json 2>/dev/null || echo "❌ Please run /atla
 
 ## Language
 
-The script supports bilingual output (Chinese / English) via the `--lang` option:
+Bilingual output (Chinese / English) via `--lang`:
 
 ```bash
 python3 query_deps.py --lang en stats   # force English
 python3 query_deps.py --lang zh stats   # force Chinese
 ```
 
-When `--lang` is omitted, the language is inferred from the environment:
-`$ATLAS_LANG` > `$LC_ALL` > `$LANG` (values starting with `zh` -> Chinese,
-everything else -> English). Default is English when nothing is set.
+When omitted, language is inferred: `$ATLAS_LANG` > `$LC_ALL` > `$LANG` (values starting with `zh` -> Chinese, else English). Default English.
 
 ## Quick Queries
 
@@ -63,7 +59,7 @@ everything else -> English). Default is English when nothing is set.
 DEPS_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/dep-query/scripts/query_deps.py" pkg <name>
 
 # Vulnerability query
-DEPS_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/dep-query/scripts/query_deps.py" vuln          # All vulnerabilities
+DEPS_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/dep-query/scripts/query_deps.py" vuln          # All
 DEPS_TARGET_DIR=$PWD python3 "${CLAUDE_PLUGIN_ROOT}/skills/dep-query/scripts/query_deps.py" vuln critical # Critical only
 
 # Outdated dependencies
@@ -359,8 +355,8 @@ except Exception as e:
 
 ## Notes
 
-- **Fuzzy matching supported** - Enter a partial name (e.g. `react` matches `react-dom`, `react-router`, etc.)
-- **Index stale?** - Run `/atlas:deps` to regenerate the index
-- **Data source** - All data comes from `.claude/.meta/dependencies.pkg.json`
-- **Vulnerability severity levels** - critical > high > moderate > low
-- **Fallback** - If the index does not exist, read `package.json` or `requirements.txt` directly
+- **Fuzzy matching supported** - Partial name works (e.g. `react` matches `react-dom`, `react-router`)
+- **Index stale?** - Run `/atlas:deps` to regenerate
+- **Data source** - `.claude/.meta/dependencies.pkg.json`
+- **Vulnerability severity** - critical > high > moderate > low
+- **Fallback** - If index missing, read `package.json` or `requirements.txt` directly

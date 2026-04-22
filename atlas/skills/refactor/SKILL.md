@@ -9,9 +9,9 @@ color: orange
 
 ## Interaction Rules
 
-- **Localization**: All `AskUserQuestion` `header`/`question`/`label`/`description` strings MUST be rendered in the detected system/conversation language. Never hardcode English — the JSON examples below are structural templates; translate every user-facing string before calling the tool.
-- **Batch prompts**: Prefer a single `AskUserQuestion` call with multiple `questions[]` over sequential calls. Only split when a later question genuinely depends on the earlier answer.
-- **No redundant Cancel**: Confirmation prompts MUST NOT add an explicit `Cancel` option — cancellation is implicit (the user can decline/abort). Keep only branches that drive different follow-up behavior (e.g. `proceed / revise`, `continue / retry / rollback`).
+- **Localization**: `AskUserQuestion` `header`/`question`/`label`/`description` MUST render in the detected conversation language. JSON below is template — translate user-facing strings before calling.
+- **Batch prompts**: One `AskUserQuestion` with multiple `questions[]`. Split only when a later question truly depends on an earlier answer.
+- **No redundant Cancel**: Cancellation is implicit. Keep only branches driving different follow-up (e.g. `proceed / revise`, `continue / retry / rollback`).
 
 ## 1. Agents & Tools
 
@@ -25,20 +25,12 @@ color: orange
 
 ### 1.2 Tools
 
-| Tool | Purpose |
-|------|---------|
-| `AskUserQuestion` | Confirm options |
-| `Task` | Invoke subagents |
-| `tsc` / `npm test` | Validate results |
+`AskUserQuestion` (confirm) · `Task` (invoke subagents) · `tsc` / `npm test` (validate)
 
 ### 1.3 Data Flow
 
 ```
-gatherer → .claude/gather/refactor-<ts>/context.json
-    ↓
-task-planner → .claude/plan/refactor-<ts>/plan.json
-    ↓
-executor → direct file modifications (no re-scanning)
+gatherer → context.json → task-planner → plan.json → executor (no re-scan)
 ```
 
 ---
@@ -49,26 +41,26 @@ executor → direct file modifications (no re-scanning)
 
 | Step | Quick | Auto | Interactive | dry-run |
 |------|-------|------|-------------|---------|
-| Execution strategy | auto | auto | ask user | auto |
+| Execution strategy | auto | auto | ask | auto |
 | Candidate identification | **skip** | yes | yes | yes |
-| Checkpoint | **skip** | create | ask user | skip |
-| Planner | **main process (direct)** | atlas:task-planner | ask user | atlas:task-planner |
-| Executor model | **haiku** | sonnet | ask user | - |
-| Test node | **none** | unified | ask user | - |
-| Test mode | - | compile | ask user | - |
+| Checkpoint | **skip** | create | ask | skip |
+| Planner | **main (direct)** | atlas:task-planner | ask | atlas:task-planner |
+| Executor model | **haiku** | sonnet | ask | - |
+| Test node | **none** | unified | ask | - |
+| Test mode | - | compile | ask | - |
 | State file | **create** | create | create | create |
 
 ### 2.2 Supported Refactoring Patterns
 
-| Pattern | Description | Trigger Condition |
-|---------|-------------|------------------|
+| Pattern | Description | Trigger |
+|---------|-------------|---------|
 | `extract-method` | Extract long functions | function body >50 lines |
 | `extract-component` | Extract large components | JSX >100 lines |
 | `consolidate-duplicate` | Merge duplicate code | similarity >80% |
 | `modernize-js` | Modernize JS | var/callback usage |
 | `add-types` | Add TS types | any/missing types |
 | `rename-convention` | Unify naming | naming inconsistency |
-| `simplify-conditions` | Simplify conditions | if-else nesting >3 levels |
+| `simplify-conditions` | Simplify conditions | if-else nesting >3 |
 | `remove-dead-code` | Remove dead code | unused exports |
 
 ---
@@ -77,22 +69,22 @@ executor → direct file modifications (no re-scanning)
 
 ### Step 1: Mode Selection (AskUserQuestion)
 
-**First prompt — execution mode:**
-- Quick mode: skip candidate identification and planning, direct refactor (~3 min)
-- Auto mode (recommended): use recommended options, minimal interaction
-- Interactive mode: confirm at each key step
+**Prompt 1 — execution mode**:
+- Quick: skip candidate identification and planning, direct refactor (~3 min)
+- Auto (recommended): recommended options, minimal interaction
+- Interactive: confirm each key step
 - dry-run: plan only, no execution
 
-**Second prompt — refactor config (interactive and dry-run only):**
+**Prompt 2 — refactor config (interactive and dry-run only)**:
 - Checkpoint: create git stash / skip
 - Planner: atlas:task-planner / built-in Plan
-- Executor model (execution modes only): sonnet / haiku / opus
+- Executor model (execution only): sonnet / haiku / opus
 
-**Third prompt — test config (auto/interactive only):**
+**Prompt 3 — test config (auto/interactive only)**:
 - Test node: unified (after all) / per-candidate / none
 - Test mode: compile (`tsc --noEmit`) / unit (`npm test`) / both
 
-If `--quick` flag is present, skip all prompts and go directly to Quick Mode flow.
+`--quick` flag → skip prompts and go to Quick Mode.
 
 ### Step 2: Create Execution Environment
 
@@ -103,13 +95,9 @@ mkdir -p .claude/refactor/.state
 State file `.claude/refactor/.state/refactor-<timestamp>.json`:
 ```json
 {
-  "executionId": "refactor-<timestamp>",
-  "timestamp": "<ISO-8601>",
-  "task": "<refactor pattern>",
-  "pattern": "<pattern>",
-  "scope": "<scope>",
-  "status": "initializing",
-  "currentStage": "initialization",
+  "executionId": "refactor-<timestamp>", "timestamp": "<ISO-8601>",
+  "task": "<refactor pattern>", "pattern": "<pattern>", "scope": "<scope>",
+  "status": "initializing", "currentStage": "initialization",
   "config": {
     "mode": "<auto|interactive|dry-run>",
     "task-planner": "<atlas:task-planner|Plan>",
@@ -125,10 +113,7 @@ State file `.claude/refactor/.state/refactor-<timestamp>.json`:
 }
 ```
 
-Create checkpoint if selected:
-```bash
-git stash push -m "atlas-checkpoint-refactor-<timestamp>"
-```
+Checkpoint if selected: `git stash push -m "atlas-checkpoint-refactor-<timestamp>"`
 
 ### Step 3: Candidate Identification
 
@@ -147,36 +132,30 @@ gatherer `context.json` schema:
 ```json
 {
   "candidates": [
-    {
-      "id": 1,
-      "file": "src/services/UserService.ts",
-      "symbol": "processOrder",
-      "line": 45,
-      "reason": "function body 89 lines",
-      "codeSnippet": "..."
-    }
+    {"id": 1, "file": "src/services/UserService.ts", "symbol": "processOrder",
+     "line": 45, "reason": "function body 89 lines", "codeSnippet": "..."}
   ]
 }
 ```
 
 ### Step 4: Refactoring Plan
 
-1. **4.1 Run planner**: `Task(subagent_type="<selected planner>")` → outputs `.claude/plan/refactor-<ts>/plan.json`
-2. **4.2 Display plan**: candidates (file:line), refactoring strategy, risk assessment
-3. **4.2.5 Completeness check**: read `plan.json.completeness`; coverage must be 100%. If not, list uncovered items → ask user to re-plan (recommended)
-4. **4.3 User confirm** (AskUserQuestion): proceed / revise plan / finish preview (dry-run)
-5. **4.4 Re-plan if needed**: use same planner with revision notes; simple → overwrite `plan.json`; complex → create `plan.v2.json`, `plan.v3.json`…; loop back to 4.2
+1. **4.1 Run planner** → `.claude/plan/refactor-<ts>/plan.json`
+2. **4.2 Display plan**: candidates (file:line), strategy, risk assessment
+3. **4.2.5 Completeness**: `plan.json.completeness` coverage must be 100%. On miss, list uncovered → ask to re-plan (recommended)
+4. **4.3 Confirm** (AskUserQuestion): proceed / revise plan / finish preview (dry-run)
+5. **4.4 Re-plan if needed**: same planner with revision notes; simple → overwrite `plan.json`; complex → `plan.v2.json`, `plan.v3.json`… → back to 4.2
 
 Update state: `currentStage="planning_approved"`, `planVersion`, `candidates[]`, `progress`, `iterations.planning`
 
 ### Step 5: Execute Refactoring
 
-1. **5.1 Run executors**: `Task(subagent_type="atlas:atlas-executor", model=<selected>)`; concurrent or serial per test node setting
-2. **5.2 Collect results**: successful candidates, failed candidates with reasons
-3. **5.2.5 Completion check**: compare plan vs executor `completionStatus`; if incomplete → ask user: retry / rollback / save progress
-4. **5.3 Display results**: succeeded X / failed Y / modified files list
-5. **5.4 User decision** (AskUserQuestion): continue to validation / fix failures / adjust / rollback
-6. **5.5 Re-execute if needed**: retry only failed/adjusted candidates; loop back to 5.1
+1. **5.1 Run executors**: `Task(atlas:atlas-executor, model=<selected>)`; concurrent or serial per test node setting
+2. **5.2 Collect results**: successful/failed candidates with reasons
+3. **5.2.5 Completion**: compare plan vs executor `completionStatus`; on incomplete → ask: retry / rollback / save progress
+4. **5.3 Display**: succeeded X / failed Y / modified files
+5. **5.4 Decision** (AskUserQuestion): continue validation / fix failures / adjust / rollback
+6. **5.5 Re-execute if needed**: retry only failed/adjusted → 5.1
 
 Update state: `currentStage="refactoring_completed"`, `candidates[]` statuses, `progress`, `iterations.execution`
 
@@ -184,9 +163,9 @@ Update state: `currentStage="refactoring_completed"`, `candidates[]` statuses, `
 
 | Test Node | Timing |
 |-----------|--------|
-| per-candidate | immediately after each refactor |
-| unified | once after all complete |
-| none | skip |
+| per-candidate | Immediately after each refactor |
+| unified | Once after all complete |
+| none | Skip |
 
 | Test Mode | Command |
 |-----------|---------|
@@ -198,29 +177,19 @@ Update state: `currentStage="testing_completed"`
 
 ### Step 7: Cleanup & Report
 
-Update final state:
-```json
-{
-  "status": "completed",
-  "currentStage": "finished",
-  "completedAt": "<ISO-8601>",
-  "checkpoint": { "stashId": "...", "created": true, "cleaned": true }
-}
-```
+Final state: `status="completed"`, `currentStage="finished"`, `completedAt`, `checkpoint.cleaned=true`.
 
 ---
 
 ## 4. Quick Mode Flow (--quick)
 
-**Use when**: 1-3 files, simple rename/extract operations.
+**Use when**: 1-3 files, simple rename/extract.
 
 **Entry**: `--quick` flag or user selects "Quick mode" in Step 1.
 
-**Steps:**
-
 1. Create state file (same schema, `mode: "quick"`, `executorModel: "haiku"`)
-2. Main process locates targets with Grep/Glob/Read (max 5 tool calls)
-3. Main process generates simple modification plan (no task-planner)
+2. Main process locates targets via Grep/Glob/Read (≤5 calls)
+3. Main process generates simple plan (no task-planner)
 4. Run executor:
 
 ```
@@ -230,24 +199,21 @@ prompt: |
   Description: <pattern> - <user task>
   Files: <located files>
   Changes: <analyzed change points>
-  Note: Quick mode, only perform the specified refactoring
+  Note: Quick mode, only perform specified refactoring
 ```
 
-5. Output simplified report:
+5. Simplified report:
 
 ```markdown
 # Quick Refactor Complete
-
 **Execution ID**: refactor-<timestamp>
 **State file**: .claude/refactor/.state/refactor-<timestamp>.json
-**Pattern**: <pattern>
-**Modified files**: <file list>
-**Status**: succeeded / failed
+**Pattern**: <pattern>  **Modified files**: <file list>  **Status**: succeeded / failed
 
 [If failed] Suggestion: use auto mode: /refactor <pattern>
 ```
 
-**Risk**: no candidates scan, no checkpoint — cannot rollback. If failed, switch to auto mode.
+**Risk**: no candidate scan, no checkpoint — cannot rollback. On failure, switch to auto mode.
 
 ---
 
@@ -255,47 +221,38 @@ prompt: |
 
 ```
 .claude/
-├── gather/refactor-<timestamp>/
-│   └── context.json
-├── plan/refactor-<timestamp>/
-│   ├── plan.json
-│   ├── plan.v2.json  (optional)
-│   └── plan.v3.json  (optional)
-└── refactor/.state/
-    └── refactor-<timestamp>.json
+├── gather/refactor-<ts>/context.json
+├── plan/refactor-<ts>/plan.json [+ plan.v2.json, plan.v3.json optional]
+└── refactor/.state/refactor-<ts>.json
 ```
 
-Task ID format: `refactor-<timestamp>` (e.g. `refactor-20240115-153000`). Same ID used from Step 1 through Step 7.
+Task ID `refactor-<timestamp>` (e.g. `refactor-20240115-153000`) stays consistent from Step 1 through Step 7.
 
 ---
 
 ## 6. Constraints
 
 ### Standard Mode — MUST
-
-- ✅ Step 1 phased confirmation (mode → refactor config → test config; dry-run skips test config)
-- ✅ Create and continuously update `.claude/refactor/.state/refactor-<ts>.json` with `currentStage`
-- ✅ Pipeline: candidates → plan (with `completeness`) → execute (with `completionStatus`) → test → report
-- ✅ Use TodoWrite to track candidate/execution status
+- Step 1 phased confirmation (mode → refactor config → test config; dry-run skips test config)
+- Create and continuously update `.claude/refactor/.state/refactor-<ts>.json` with `currentStage`
+- Pipeline: candidates → plan (`completeness`) → execute (`completionStatus`) → test → report
+- Use TodoWrite to track candidate/execution status
 
 ### Quick Mode — MUST
-
-- ✅ Create state file; main process ≤5 tool calls to locate; executor(haiku) executes; output simplified report
+- Create state file; ≤5 tool calls to locate; executor(haiku) executes; simplified report
 
 ### Quick Mode — ALLOWED
-
-- ✅ Main process uses Grep/Glob/Read to locate files (max 5 calls)
-- ✅ Main process generates simple plan directly (no task-planner)
-- ✅ Skip candidate identification and checkpoint
+- Main process uses Grep/Glob/Read (≤5 calls)
+- Main process generates simple plan directly (no task-planner)
+- Skip candidate identification and checkpoint
 
 ### FORBIDDEN
-
-- ❌ Main process directly modifies files (all modifications must go through executor)
-- ❌ Standard mode skips candidate identification and plans directly (except quick mode)
-- ❌ Standard mode skips planning and executes directly
-- ❌ Executor re-scans files (must use plan.json or main-process-provided change points)
-- ❌ Additional AskUserQuestion after Step 1 (except Step 4.3 and 5.4 confirmation loops)
-- ❌ Standard mode forgets to update `currentStage` in state file
-- ❌ Proceeding to next step without user confirmation
-- ❌ Performing additional optimizations beyond the specified pattern
-- ❌ Using quick mode for complex tasks (>3 files or requiring dependency analysis)
+- Main process directly modifies files (all modifications via executor)
+- Standard mode skips candidate identification and plans directly (except quick)
+- Standard mode skips planning and executes directly
+- Executor re-scans files (must use plan.json or main-process change points)
+- Additional AskUserQuestion after Step 1 (except Step 4.3 / 5.4 confirmation loops)
+- Standard mode forgets to update `currentStage`
+- Proceeding without user confirmation
+- Performing optimizations beyond the specified pattern
+- Quick mode for complex tasks (>3 files or needs dependency analysis)

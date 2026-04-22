@@ -7,13 +7,13 @@ color: purple
 
 # Health Check Skill
 
-Diagnoses project health across 5 dimensions using parallel subagent scanning, producing a scored report with actionable recommendations.
+Diagnoses project health across 5 dimensions via parallel subagent scanning, producing a scored report with actionable recommendations.
 
 ## Parameters
 
 | Parameter | Description | Default |
 |:----------|:------------|:--------|
-| `--scope` | Directory path to check | `.` |
+| `--scope` | Directory to check | `.` |
 | `--quick` | Fast mode: security + quality only | false |
 | `--export` | Output format: `markdown\|json\|html` | markdown |
 | `--ci` | CI mode with threshold enforcement | false |
@@ -31,17 +31,13 @@ Diagnoses project health across 5 dimensions using parallel subagent scanning, p
 
 ### Step 1: Configuration
 
-If arguments are fully specified (e.g., `--quick --scope src/ --export json`), skip all prompts.
+If arguments fully specified (e.g. `--quick --scope src/ --export json`), skip all prompts. Otherwise ask: Execution mode — Auto (recommended defaults) or Interactive (custom: check mode / scope / export format / detail level / CI mode).
 
-Otherwise ask:
-1. **Execution mode**: Auto (recommended defaults) or Interactive (custom config)
-2. **If interactive**: check mode / scope / export format / detail level / CI mode
-
-**Auto mode defaults**: `mode=full`, `scope=.`, `export=markdown`, `detail=full`, `ci=no`
+**Auto defaults**: `mode=full`, `scope=.`, `export=markdown`, `detail=full`, `ci=no`
 
 ### Step 2: Environment Detection
 
-Detect git repo, project type (Node.js/etc.), and available tools (`npm audit`, `yarn audit`, `eslint`). Output environment summary before scanning.
+Detect git repo, project type (Node.js/etc.), available tools (`npm audit`, `yarn audit`, `eslint`). Output environment summary before scanning.
 
 ### Step 3: Parallel Scanning
 
@@ -58,20 +54,14 @@ Detect git repo, project type (Node.js/etc.), and available tools (`npm audit`, 
 
 **Quick mode**: subagents 1+2 only. Single-dimension modes: one subagent.
 
-Each scan output JSON schema:
+Scan output schema:
 ```json
 {
-  "dimension": "security",
-  "score": 0,
-  "weight": 0.30,
+  "dimension": "security", "score": 0, "weight": 0.30,
   "issues": [
-    {
-      "severity": "critical|high|medium|low",
-      "type": "dependency|hardcoded-secret|config",
-      "description": "...",
-      "location": "file:line",
-      "recommendation": "..."
-    }
+    {"severity": "critical|high|medium|low",
+     "type": "dependency|hardcoded-secret|config",
+     "description": "...", "location": "file:line", "recommendation": "..."}
   ],
   "summary": "..."
 }
@@ -79,11 +69,7 @@ Each scan output JSON schema:
 
 ### Step 4: Score Calculation
 
-Read all scan JSON files, compute weighted total:
-
-```
-total = Σ (dimension_score × weight)
-```
+`total = Σ (dimension_score × weight)`
 
 | Score | Grade | Status |
 |:------|:------|:-------|
@@ -97,7 +83,6 @@ total = Σ (dimension_score × weight)
 
 **Markdown** (default) → `.claude/health/report-<ts>.md`
 
-Report structure:
 ```markdown
 # Project Health Report
 **Time**: <ISO-8601> | **Mode**: <mode> | **Scope**: <scope>
@@ -134,9 +119,7 @@ Report structure:
 
 ### Step 6: CI Check (`--ci` only)
 
-Thresholds (configurable via `.claude/health/config.json`): `minScore=70`, `maxCritical=0`, `maxHigh=3`
-
-Exit with code 1 if score < minScore or critical > maxCritical. Warn if high > maxHigh.
+Thresholds (configurable via `.claude/health/config.json`): `minScore=70`, `maxCritical=0`, `maxHigh=3`. Exit code 1 if score < minScore or critical > maxCritical. Warn if high > maxHigh.
 
 ## History Trend
 
@@ -158,14 +141,14 @@ If prior reports exist, display trend table:
 
 ## Constraints
 
-**Must do**:
-- Scan dimensions in parallel (unless quick/single-dimension mode)
+**MUST**:
+- Scan dimensions in parallel (unless quick/single-dimension)
 - Use fixed JSON schema for scan outputs (CI-parseable)
 - Include exact file paths and line numbers in issues
 - Provide actionable fix recommendations
 - Preserve historical reports for trend analysis
 
-**Forbidden**:
+**FORBIDDEN**:
 - Fixing issues (diagnose only, never modify code)
 - Serial scanning (degrades performance)
 - Incomplete reports (all active dimensions required)

@@ -9,41 +9,27 @@ color: blue
 
 ## Interaction Rules
 
-- **Localization**: All `AskUserQuestion` `header`/`question`/`label`/`description` strings MUST be rendered in the detected system/conversation language. Never hardcode English — the JSON examples below are structural templates; translate every user-facing string before calling the tool.
-- **Batch prompts**: Prefer a single `AskUserQuestion` call with multiple `questions[]` over sequential calls. Only split when a later question genuinely depends on the earlier answer. (Steps 1 / 1b / 1c SHOULD be merged into one call whenever the later steps apply.)
-- **No redundant Cancel**: Confirmation prompts MUST NOT add an explicit `Cancel` option — cancellation is implicit. Keep only branches that drive different follow-up behavior (e.g. `proceed / revise`, `continue / retry / rollback`).
+- **Localization**: `AskUserQuestion` `header`/`question`/`label`/`description` MUST render in the detected conversation language. JSON below is template — translate user-facing strings before calling.
+- **Batch prompts**: One `AskUserQuestion` with multiple `questions[]`. Split only when a later question truly depends on an earlier answer. (Merge Steps 1 / 1b / 1c whenever applicable.)
+- **No redundant Cancel**: Cancellation is implicit. Keep only branches driving different follow-up (e.g. `proceed / revise`, `continue / retry / rollback`).
 
 ## Agents & Tools
 
-### Agents
-
 | Agent | Role | Model | Output |
 |-------|------|-------|--------|
-| `atlas:information-gatherer` | Collect project info (structure, deps, code snippets) | haiku | `.claude/gather/<task-id>/` |
+| `atlas:information-gatherer` | Collect project info (structure, deps, snippets) | haiku | `.claude/gather/<task-id>/` |
 | `atlas:task-planner` | Generate execution plan from gatherer output | inherit | `.claude/plan/<task-id>/` |
 | `atlas:atlas-executor` | Execute individual subtasks | user-selected | direct file edits |
 
-### Tools
-
-| Tool | Purpose |
-|------|---------|
-| `AskUserQuestion` | Confirm options with user |
-| `Task` | Invoke subagents |
-| `git stash` | Create/restore checkpoints |
+Tools: `AskUserQuestion` (confirm) · `Task` (invoke subagents) · `git stash` (checkpoints)
 
 ### Data Pipeline
 
 ```
-gatherer → .claude/gather/<task-id>/context.json
-    ↓
-task-planner → reads context.json → .claude/plan/<task-id>/plan.json
-    ↓
-main process → reads plan.json → embeds into executor prompt
-    ↓
-executor → edits files directly (no re-scanning)
+gatherer → context.json → task-planner → plan.json → main → executor → file edits
 ```
 
-**Core principle**: task-planner outputs precise modification points; executor executes directly.
+**Core principle**: task-planner outputs precise modification points; executor executes directly (no re-scan).
 
 ---
 
@@ -51,14 +37,14 @@ executor → edits files directly (no re-scanning)
 
 | Step | Quick | Auto | Interactive | dry-run |
 |------|-------|------|-------------|---------|
-| Execution strategy | auto | auto | ask user | auto |
-| Info gathering | **skip** | yes (unless repowiki sufficient) | ask user | yes |
-| Checkpoint | **skip** | create | ask user | skip |
-| Planner | **main process plans directly** | atlas:task-planner | ask user | atlas:task-planner |
-| Executor model | **haiku** | sonnet | ask user | - |
-| Testing | **none** | unified | ask user | - |
-| Test mode | - | compile | ask user | - |
-| Failure handling | ask user | ask user | ask user | - |
+| Execution strategy | auto | auto | ask | auto |
+| Info gathering | **skip** | yes (unless repowiki sufficient) | ask | yes |
+| Checkpoint | **skip** | create | ask | skip |
+| Planner | **main (direct)** | atlas:task-planner | ask | atlas:task-planner |
+| Executor model | **haiku** | sonnet | ask | - |
+| Testing | **none** | unified | ask | - |
+| Test mode | - | compile | ask | - |
+| Failure handling | ask | ask | ask | - |
 | State file | create | create | create | create |
 
 ---
@@ -67,21 +53,18 @@ executor → edits files directly (no re-scanning)
 
 ### Step 1: Mode Selection (AskUserQuestion #1)
 
-Ask the user to choose execution mode:
 - **Quick**: Skip gathering/planning, direct execution (1-3 files, clear target)
-- **Auto** (recommended): Use recommended options, minimal interaction
+- **Auto** (recommended): Recommended options, minimal interaction
 - **Interactive**: Confirm each key step
 - **dry-run**: Plan only, no execution
 
-If `--quick` flag is provided, skip to Quick Mode flow.
+`--quick` flag → skip to Quick Mode.
 
 ### Step 1b: Base Config (AskUserQuestion #2 — Interactive/dry-run only)
 
-If user chose **Interactive** or **dry-run**, ask:
-
 ```
 Q1: Info gathering — yes (recommended) / no (skip if repowiki sufficient)
-Q2: Checkpoint — create (recommended) / skip (dry-run defaults to skip)
+Q2: Checkpoint — create (recommended) / skip (dry-run defaults skip)
 Q3: Planner — atlas:task-planner (recommended) / built-in Plan
 Q4: Executor model — sonnet (recommended) / haiku / opus
 ```
@@ -97,27 +80,22 @@ Q2: Test mode — compile: tsc --noEmit / unit: npm test / both
 
 ## Quick Mode Flow (--quick)
 
-**Use case**: 1-3 files, clear target, no dependency analysis needed.
+**Use case**: 1-3 files, clear target, no dependency analysis.
 
-**Flow**: Confirm mode → Create state file → Locate files (≤5 tool calls) → Execute → Update state → Report
+**Flow**: Confirm mode → Create state file → Locate files (≤5 calls) → Execute → Update state → Report
 
-**State file init**:
+**State file** at `.claude/orchestrate/.state/<task-id>.json`:
 ```json
 {
-  "executionId": "<task-id>",
-  "timestamp": "<ISO-8601>",
-  "task": "<user task>",
-  "status": "in_progress",
-  "currentStage": "quick_mode",
+  "executionId": "<task-id>", "timestamp": "<ISO-8601>", "task": "<user task>",
+  "status": "in_progress", "currentStage": "quick_mode",
   "config": {"mode": "quick", "executorModel": "haiku"},
   "subtasks": [],
   "progress": {"total": 1, "completed": 0, "failed": 0, "pending": 1}
 }
 ```
 
-Path: `.claude/orchestrate/.state/<task-id>.json`
-
-**Execution**: Main process uses Grep/Glob/Read (≤5 calls) to locate files, then:
+**Execution** — main process uses Grep/Glob/Read (≤5 calls) to locate, then:
 ```
 Task(subagent_type="atlas:atlas-executor", model="haiku")
 prompt: |
@@ -128,7 +106,7 @@ prompt: |
   Note: Quick mode — only make explicitly mentioned changes
 ```
 
-**Risk**: No dependency analysis or checkpoint. If failed, retry with auto mode.
+**Risk**: No dependency analysis or checkpoint. On failure, retry with auto mode.
 
 ---
 
@@ -143,11 +121,8 @@ mkdir -p .claude/orchestrate/.state
 State file schema:
 ```json
 {
-  "executionId": "<task-id>",
-  "timestamp": "<ISO-8601>",
-  "task": "<user task>",
-  "status": "initializing",
-  "currentStage": "initialization",
+  "executionId": "<task-id>", "timestamp": "<ISO-8601>", "task": "<user task>",
+  "status": "initializing", "currentStage": "initialization",
   "config": {
     "mode": "<auto|interactive|dry-run>",
     "task-planner": "<atlas:task-planner|Plan>",
@@ -162,7 +137,7 @@ State file schema:
 }
 ```
 
-Create checkpoint (non-dry-run): `git stash push -m "atlas-checkpoint-{execution-id}"`
+Checkpoint (non-dry-run): `git stash push -m "atlas-checkpoint-{execution-id}"`
 
 ### Step 3: Information Gathering
 
@@ -177,13 +152,13 @@ prompt: |
 
 Update state: `currentStage = "gathering_completed"`
 
-### Step 4: Task Planning (supports iteration)
+### Step 4: Task Planning (iterable)
 
-1. **4.1 Run planner**: `Task(subagent_type="<selected planner>")` → `.claude/plan/<task-id>/plan.json`
-2. **4.2 Show plan to user**: Display subtask list, execution strategy, impact scope
-3. **4.2.5 Completeness check**: Verify `plan.json.completeness`: `coverage=100%`, `uncovered=[]`, all validations true. If failed, ask user whether to re-plan.
-4. **4.3 User confirmation** (AskUserQuestion): Proceed / Revise plan / Cancel
-5. **4.4 Re-plan** (if user requests): Use same planner with feedback. Simple: overwrite `plan.json`; complex: generate `plan.v2.json`, `plan.v3.json`... Loop back to 4.2.
+1. **4.1 Run planner** → `.claude/plan/<task-id>/plan.json`
+2. **4.2 Show plan**: Subtask list, execution strategy, impact scope
+3. **4.2.5 Completeness**: `plan.json.completeness` must have `coverage=100%`, `uncovered=[]`, all validations true. On fail, ask user to re-plan.
+4. **4.3 Confirm** (AskUserQuestion): Proceed / Revise plan / Cancel
+5. **4.4 Re-plan** (on request): Same planner with feedback. Simple → overwrite `plan.json`; complex → `plan.v2.json`, `plan.v3.json`… → back to 4.2.
 
 Update state after approval:
 ```json
@@ -196,14 +171,14 @@ Update state after approval:
 }
 ```
 
-### Step 5: Task Execution (supports iteration)
+### Step 5: Task Execution (iterable)
 
-1. **5.1 Launch executors in parallel**: `Task(subagent_type="atlas:atlas-executor", model=<selected>)` — one per subtask
-2. **5.2 Collect results**: Track success/failure per subtask
-3. **5.2.5 Completeness verification**: Compare `plan.json` against executor `completionStatus`. Show completion rate + incomplete items.
-4. **5.3 Show results**: X succeeded / Y failed (with reasons) / modified files list
-5. **5.4 User decision** (AskUserQuestion): Proceed to testing / Retry failed / Adjust / Rollback
-6. **5.5 Re-execute** (if user requests): Loop back to 5.1 for failed subtasks only
+1. **5.1 Launch executors in parallel**: `Task(atlas:atlas-executor, model=<selected>)` — one per subtask
+2. **5.2 Collect results** per subtask
+3. **5.2.5 Verify**: Compare `plan.json` against executor `completionStatus`. Show completion rate + incomplete items.
+4. **5.3 Display**: X succeeded / Y failed (reasons) / modified files
+5. **5.4 Decision** (AskUserQuestion): Proceed to testing / Retry failed / Adjust / Rollback
+6. **5.5 Re-execute** (on request): → 5.1 for failed subtasks only
 
 Update state after execution:
 ```json
@@ -219,8 +194,8 @@ Update state after execution:
 
 | Test node | Timing |
 |-----------|--------|
-| per-task | Run after each executor completes |
-| unified | Run once after all executors finish |
+| per-task | After each executor |
+| unified | Once after all executors |
 | none | Skip |
 
 | Test mode | Command |
@@ -247,37 +222,30 @@ Update final state:
 
 ## File Structure
 
-**Task ID format**: `<action>-<date>-<time>` (e.g. `add-types-20240115-103000`)
+**Task ID**: `<action>-<date>-<time>` (e.g. `add-types-20240115-103000`)
 
 ```
 .claude/
-├── gather/<task-id>/
-│   └── context.json
-├── plan/<task-id>/
-│   ├── plan.json
-│   ├── plan.v1.json  (optional)
-│   └── plan.v2.json  (optional)
-└── orchestrate/.state/
-    └── <task-id>.json
+├── gather/<task-id>/context.json
+├── plan/<task-id>/plan.json [+ plan.v2.json, plan.v3.json optional]
+└── orchestrate/.state/<task-id>.json
 ```
 
 **Data requirements**:
-- `context.json.codeSnippets`: Key code snippets with line numbers
+- `context.json.codeSnippets`: Key snippets with line numbers
 - `plan.json.subtasks[].modifications`: Precise line-level change points
-- Executor prompt must embed modifications from plan.json — no additional file scanning
+- Executor prompt embeds modifications from plan.json — no re-scanning
 
 **File conflict resolution** (parallel executors):
-1. Group modifications to the same file under one executor
-2. Serialize tasks that cannot be separated
-3. Phase execution: complete shared dependencies first, then parallelize
+1. Group same-file modifications under one executor
+2. Serialize inseparable tasks
+3. Phase: shared dependencies first, then parallelize
 
 ---
 
 ## Resume / Rollback
 
-**Resume**: `/orchestrate --resume <task-id>`
-
-Read state file → locate stage via `currentStage` → skip completed steps → reuse original config
+**Resume**: `/orchestrate --resume <task-id>` — read state → locate via `currentStage` → skip completed → reuse config
 
 **Stage mapping**:
 ```
@@ -301,7 +269,6 @@ finished            → Done
 ### Quick Mode Report
 ```markdown
 # Quick Execution Complete
-
 **Task**: [description]
 **Modified files**: [file list]
 **Status**: success / failed
@@ -315,24 +282,14 @@ finished            → Done
 ```markdown
 # Atlas Execution Report
 
-## Task
-[description]
-
-## Execution ID
-task-20240115-103000
+## Task / Execution ID
+[description] / task-20240115-103000
 
 ## Config
-- Mode: [auto/interactive/dry-run]
-- Planner: [atlas:task-planner/Plan]
-- Executor model: [haiku/sonnet/opus]
-- Test node: [unified/per-task/none]
-- Test mode: [compile/unit/both]
+Mode / Planner / Executor model / Test node / Test mode
 
 ## Stats
-- Subtasks: X total
-- Success: Y / Failed: Z
-- Planning iterations: N
-- Execution iterations: M
+Subtasks: X total · Success Y / Failed Z · Planning iterations N · Execution iterations M
 
 ## Modified Files
 - file1.ts (lines 45-60)
@@ -342,44 +299,42 @@ task-20240115-103000
 - Subtask #N: [reason] → [fixed/pending]
 
 ## State File
-- Path: `.claude/orchestrate/.state/task-20240115-103000.json`
-- Final status: completed | finished
+Path: `.claude/orchestrate/.state/task-20240115-103000.json` · Final: completed | finished
 
 ## Checkpoint
-- Status: cleaned / available for rollback
-- Stash ID: atlas-checkpoint-{execution-id}
-- Restore: `git stash list` → `git stash apply stash@{N}`
+Status: cleaned / available for rollback · Stash ID: atlas-checkpoint-{execution-id}
+Restore: `git stash list` → `git stash apply stash@{N}`
 
 ## Resume
-- Command: `/orchestrate --resume task-20240115-103000`
+`/orchestrate --resume task-20240115-103000`
 ```
 
 ---
 
 ## Constraints
 
-### Standard Mode — MUST do
-- ✅ Confirm all config in Step 1 (mode/planner/model/testing) in one go
-- ✅ Create and continuously update state file (`currentStage`, `subtasks/progress`)
-- ✅ Create checkpoint (non-quick, non-dry-run); follow: gather → plan → execute → test → report
-- ✅ Plan must pass completeness check; execution must reconcile against `completionStatus`
+### Standard Mode — MUST
+- Confirm all config in Step 1 (mode/planner/model/testing) in one go
+- Create and continuously update state file (`currentStage`, `subtasks/progress`)
+- Create checkpoint (non-quick, non-dry-run); pipeline: gather → plan → execute → test → report
+- Plan passes completeness check; execution reconciles against `completionStatus`
 
-### Quick Mode — MUST do
-- ✅ Create state file; main process ≤5 tool calls to locate files; use executor(haiku); update state and output brief report
+### Quick Mode — MUST
+- Create state file; ≤5 tool calls to locate; executor(haiku); update state; output brief report
 
 ### Quick Mode — ALLOWED
-- ✅ Main process uses Grep/Glob/Read to locate files (≤5 calls)
-- ✅ Main process generates simple modification plan without calling task-planner
-- ✅ Skip info gathering and checkpoint
+- Main process uses Grep/Glob/Read (≤5 calls)
+- Main process generates simple plan without task-planner
+- Skip info gathering and checkpoint
 
 ### FORBIDDEN
-- ❌ Main process directly modifies files (all edits must go through executor)
-- ❌ Standard mode skips info gathering and plans directly (unless --no-gather or quick mode)
-- ❌ Standard mode skips planning and executes directly
-- ❌ Executor re-scans files (must use modifications from plan.json)
-- ❌ Additional AskUserQuestion after Step 1 (except Steps 4.3 and 5.4 confirmation loops)
-- ❌ Standard mode fails to update `currentStage` in state file
-- ❌ Proceeding without user confirmation
-- ❌ Quick mode for complex tasks (>3 files or requires dependency analysis)
+- Main process directly modifies files (all edits via executor)
+- Standard mode skips info gathering and plans directly (unless --no-gather or quick)
+- Standard mode skips planning and executes directly
+- Executor re-scans files (must use plan.json modifications)
+- Additional AskUserQuestion after Step 1 (except Steps 4.3 / 5.4 confirmation loops)
+- Standard mode fails to update `currentStage`
+- Proceeding without user confirmation
+- Quick mode for complex tasks (>3 files or needs dependency analysis)
 
-**Principle**: Delegate everything possible to subagents. Main process only orchestrates, confirms, reads artifacts, and summarizes reports.
+**Principle**: Delegate to subagents. Main process only orchestrates, confirms, reads artifacts, and summarizes.

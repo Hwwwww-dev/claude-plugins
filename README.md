@@ -20,17 +20,16 @@ A powerful task coordination and parallel execution framework for Claude Code.
 - 🧩 **Flexible Orchestration**: Supports parallel, sequential, and mixed execution strategies
 - 📊 **Result Aggregation**: Automatically collects and organizes all subtask execution results
 - 🔍 **Intelligent Information Gathering**: Auto-analyze project structure, dependencies, code patterns
-- 🔧 **Code Quality Tools**: Code review, intelligent refactoring, test generation
+- 🔧 **Code Quality Tools**: Code review and intelligent refactoring
 - 📦 **Dependency Management**: Security scanning, version analysis, conflict detection
-- 📝 **Documentation Generation**: Auto-generate repo wiki, changelog, health reports
+- 🏥 **Project Health Check**: One-click diagnosis with comprehensive scoring
 
 **Use Cases**:
 - Batch file operations and project-wide refactoring
 - Code review and quality assurance
-- Test generation and coverage improvement
 - Dependency security audit and updates
 - Project health monitoring
-- Changelog and documentation generation
+- Bug diagnosis and automated fixes
 
 **Documentation**: See [atlas/](./atlas/) directory
 
@@ -62,7 +61,7 @@ Named after the Greek goddess of memory, this plugin manages session context so 
 - 📥 **Quick Restore**: Load historical context in new sessions, seamlessly continue work
 - 🔍 **Full-Text Search**: Search historical sessions by title, tags, or content
 - 🏷️ **Auto Tagging**: Automatically generate tags for tech stack, task type, etc.
-- ✅ **Quality Check**: Built-in 8-section completeness check ensures context is recoverable
+- ✅ **Quality Check**: Built-in completeness check ensures context is recoverable
 
 **Use Cases**:
 - Save and restore progress for long-term projects
@@ -104,63 +103,47 @@ Named after the Greek goddess of memory, this plugin manages session context so 
 
 ### Atlas Plugin
 
-Atlas provides 9 commands, 7 specialized agents, and 3 query skills:
+Atlas provides 7 orchestration/analysis skills, 2 query skills, and 5 specialized agents:
 
-#### Commands
+#### Orchestration & Analysis Skills
 
-| Command | Description |
-|---------|-------------|
-| `/atlas:orchestrate` | Task coordination and parallel execution |
-| `/atlas:gather` | Intelligent information gathering |
-| `/atlas:review` | Multi-dimensional code review |
-| `/atlas:refactor` | Intelligent code refactoring |
-| `/atlas:test-gen` | Automated test generation |
-| `/atlas:deps` | Dependency management and security |
-| `/atlas:health` | Project health diagnostics |
-| `/atlas:changelog` | Auto-generate changelog |
-| `/atlas:repo-wiki` | Repository documentation generation |
+| Skill | Description |
+|-------|-------------|
+| `atlas:orchestrate` | Task coordination and parallel execution |
+| `atlas:gather` | Intelligent information gathering |
+| `atlas:review` | Multi-dimensional code review |
+| `atlas:refactor` | Intelligent code refactoring |
+| `atlas:bugfix` | Bug diagnosis and fix suggestions |
+| `atlas:deps` | Dependency management and security |
+| `atlas:health` | Project health diagnostics |
+
+#### Query Skills (Read-only)
+
+| Skill | Description | Example |
+|-------|-------------|---------|
+| `atlas:dep-query` | Dependency version, vulnerability, usage | "axios version", "outdated deps" |
+| `atlas:git-query` | Commit history, contributors, changes | "recent commits", "who modified auth" |
 
 #### Example Usage
 
 ```bash
 # Task orchestration
-/atlas:orchestrate Add TypeScript types to all React components --parallel
+/skill atlas:orchestrate  # then: Add TypeScript types to all React components
 
 # Code review
-/atlas:review --scope src/ --type security,performance
+/skill atlas:review  # then: scope=src/ type=security,performance
+
+# Bug fix
+/skill atlas:bugfix  # then: describe the bug symptom
 
 # Intelligent refactoring
-/atlas:refactor extract-method --scope src/utils --dry-run
-
-# Test generation
-/atlas:test-gen --scope src/services --framework jest --coverage-target 80
+/skill atlas:refactor  # then: extract-method scope=src/utils
 
 # Dependency management
-/atlas:deps --type security --fix
+/skill atlas:deps  # then: --type security --fix
 
 # Project health check
-/atlas:health --export html
-
-# Generate changelog
-/atlas:changelog --from v1.0.0 --version 2.0.0
-
-# Generate repo wiki
-/atlas:repo-wiki --lang en --depth 3
-```
-
-#### Skills (Quick Query)
-
-| Skill | Description | Example |
-|-------|-------------|---------|
-| `dep-query` | Dependency version, vulnerability, usage | "axios version", "outdated deps" |
-| `git-query` | Commit history, contributors, changes | "recent commits", "who modified auth" |
-| `wiki-query` | Project structure, API, module info | "what APIs exist", "find UserService" |
-
-```bash
-# Invoke skills
-/skill atlas:dep-query
-/skill atlas:git-query
-/skill atlas:wiki-query
+/skill atlas:health
 ```
 
 ### Ideation Plugin
@@ -235,79 +218,56 @@ Mnemosyne provides 7 commands for session context management:
 /mnemosyne:clean --before 30d
 ```
 
-#### Context Structure (15 Sections)
-
-Saved context includes the following sections to ensure complete recoverability:
-
-| Section | Content |
-|---------|---------|
-| 1. Origin | User intent, core goals, constraints |
-| 2. Process | Key decisions, reasoning |
-| 3. Output | Code changes, new/modified files |
-| 4. Status | Task progress, completion rate |
-| 5. Obstacles | Problems encountered and solutions |
-| 6. Environment | Tech stack, project info |
-| 7. Map | Core files, dependencies |
-| 8. Signpost | Continuation guide, next steps |
-| 9. Session Stats | Conversation size, tool usage, session duration |
-| 10. Code Quality | Code metrics, quality checks, style assessment |
-| 11. Code Snippets | Core functions/classes, important changes |
-| 12. Timeline | Key events, milestone moments |
-| 13. Learning Notes | New knowledge, pitfalls, best practices |
-| 14. Related Resources | Documentation links, references, search keywords |
-| 15. Impact Analysis | Scope of impact, risk assessment, testing suggestions |
-
 ## Plugin Structure
 
 ```
 cc-plugins/
 ├── .claude-plugin/
 │   └── marketplace.json            # Marketplace configuration
-├── atlas/                           # Atlas plugin (v2.9.1)
+├── atlas/                           # Atlas plugin (v3.0.0)
 │   ├── .claude-plugin/
 │   │   └── plugin.json             # Plugin metadata
-│   ├── agents/                     # Specialized agents (7)
+│   ├── agents/                     # Specialized agents (5)
 │   │   ├── atlas-executor.md       # Task executor
 │   │   ├── code-reviewer.md        # Code review expert
-│   │   ├── commit-analyzer.md      # Commit analysis
 │   │   ├── dependency-analyzer.md  # Dependency analysis
 │   │   ├── information-gatherer.md # Information gatherer
-│   │   ├── repo-context-indexer.md # Repository context indexer
-│   │   └── repo-semantic-analyzer.md # Semantic analyzer
-│   ├── commands/                   # Commands (9)
-│   │   ├── orchestrate.md          # Task orchestration
-│   │   ├── gather.md               # Information gathering
-│   │   ├── review.md               # Code review
-│   │   ├── refactor.md             # Intelligent refactoring
-│   │   ├── test-gen.md             # Test generation
-│   │   ├── deps.md                 # Dependency management
-│   │   ├── health.md               # Health diagnostics
-│   │   ├── changelog.md            # Changelog generation
-│   │   └── repo-wiki.md            # Repo documentation
+│   │   └── task-planner.md         # Task planner
 │   ├── hooks/
 │   │   └── hooks.json              # Hooks configuration
-│   └── skills/                     # Query skills (3)
-│       ├── dep-query/SKILL.md      # Dependency query
-│       ├── git-query/SKILL.md      # Git query
-│       └── wiki-query/SKILL.md     # Wiki query
-├── ideation/                        # Ideation plugin (v1.0.1)
+│   └── skills/                     # Skills (9)
+│       ├── orchestrate/            # Task orchestration
+│       ├── gather/                 # Information gathering
+│       ├── review/                 # Code review
+│       ├── refactor/               # Intelligent refactoring
+│       ├── bugfix/                 # Bug diagnosis & fix
+│       ├── deps/                   # Dependency management
+│       ├── health/                 # Health diagnostics
+│       ├── dep-query/              # Dependency query
+│       └── git-query/              # Git query
+├── ideation/                        # Ideation plugin
 │   ├── .claude-plugin/
 │   │   └── plugin.json             # Plugin metadata
-│   ├── agents/
-│   │   └── debate-moderator.md     # Debate moderator agent
-│   └── commands/
-│       └── brainstorm.md           # /ideation:brainstorm command
-├── mnemosyne/                       # Mnemosyne plugin (v1.0.0)
+│   ├── agents/                     # 14 expert agents
+│   ├── commands/
+│   │   └── brainstorm.md           # /ideation:brainstorm command
+│   └── skills/
+│       └── brainstorm/             # Brainstorming workflow
+├── mnemosyne/                       # Mnemosyne plugin (v2.1.0)
 │   ├── .claude-plugin/
 │   │   └── plugin.json             # Plugin metadata
-│   └── commands/                   # Commands (7)
-│       ├── save.md                 # /mnemosyne:save - Save context
-│       ├── load.md                 # /mnemosyne:load - Load context
-│       ├── list.md                 # /mnemosyne:list - List sessions
-│       ├── search.md               # /mnemosyne:search - Search
-│       ├── delete.md               # /mnemosyne:delete - Delete
-│       ├── stats.md                # /mnemosyne:stats - Statistics
-│       └── clean.md                # /mnemosyne:clean - Cleanup
+│   ├── commands/                   # Commands (7)
+│   │   ├── save.md                 # /mnemosyne:save
+│   │   ├── load.md                 # /mnemosyne:load
+│   │   ├── list.md                 # /mnemosyne:list
+│   │   ├── search.md               # /mnemosyne:search
+│   │   ├── delete.md               # /mnemosyne:delete
+│   │   ├── stats.md                # /mnemosyne:stats
+│   │   └── clean.md                # /mnemosyne:clean
+│   └── skills/                     # Implementation engine (3)
+│       ├── context-save/
+│       ├── context-load/
+│       └── context-search/
 ├── docs/                            # Reference documentation
 ├── README.md                        # This file (English)
 └── README_zh.md                     # Chinese documentation
